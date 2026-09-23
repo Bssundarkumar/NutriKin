@@ -15,8 +15,11 @@ SwiftUI, iOS 17+, backed by Supabase for shared family data.
 - **Ingredient alerts** for things like trans fat, nitrite preservatives and
   children's-hyperactivity colours, plus condition-specific notes (added sugar
   for diabetes, sodium additives for high blood pressure, and so on).
-- **Family** shared across phones with an invite code: add members with
+- **Sign in** with an email and a 6-digit code (no password). Each person has
+  their own account; access is enforced in the database.
+- **Family** shared across phones with a short invite code: add members with
   conditions, custom conditions/allergies, age, height, weight, sex and goals.
+- **History** of past scans with each member's verdict at the time.
 - **Apple Health** read access for the device owner (weight, glucose, blood
   pressure, calories).
 
@@ -46,11 +49,21 @@ Xcode project are called NutriKin.)
    ```
    The `.xcodeproj` is generated and git-ignored; `project.yml` is the source
    of truth. Re-run `xcodegen generate` after adding or removing files.
-3. **Supabase:** create a project, then run every file in `backend/` in the SQL
-   Editor in order (`schema.sql`, then `migration_002...`, `migration_003...`
-   and so on). Put your project URL and **anon** key in
-   `FamilyFoodScanner/Services/SupabaseConfig.swift`. Never use the
-   `service_role` key in the app.
+3. **Supabase:**
+   1. Create a project and put its URL and **anon** key in
+      `FamilyFoodScanner/Services/SupabaseConfig.swift` (never the
+      `service_role` key).
+   2. In the SQL Editor run the files in `backend/` in order: `schema.sql`,
+      `migration_002...` through `migration_004...`.
+   3. **Email sign-in:** Authentication, Emails, open the **Magic Link**
+      template and make sure the body contains `{{ .Token }}` (the 6-digit
+      code), for example `<p>Your NutriKin code: <b>{{ .Token }}</b></p>`.
+      Supabase's built-in email sender allows only a few emails per hour, so
+      set up custom SMTP (Authentication, Emails, SMTP) before real use.
+   4. Install a build that has sign-in, **then** run `migration_005_auth.sql`.
+      It locks the data down, so an older build stops working once it runs.
+   5. Optional: `claim_existing_household.sql` re-attaches a family created
+      before sign-in existed to your account.
 4. **Signing:** in Xcode, Signing & Capabilities, choose your team. A free
    personal team works. The app only requests plain HealthKit, not Clinical
    Health Records (which needs a paid account).
@@ -85,14 +98,15 @@ cd NutriKin && xcodebuild test -project NutriKin.xcodeproj -scheme NutriKin \
   **Review them with a dietitian before launch.**
 - Nutrition data is crowd-sourced and sometimes missing; missing values are
   skipped, not guessed.
-- **Family access is by invite code only.** Anyone holding a household's code
-  can read and edit its members, health conditions included. Move to real
-  sign-in (Supabase Auth with row-level security per user) before wider use.
+- Any signed-in member of a family can edit its members and delete scans;
+  there are no separate parent and child permissions yet.
+- An invite code never expires. Anyone who has it and an account can join, so
+  share it only with family. There's no code rotation or removing another
+  member yet.
 - Don't store health data in iCloud (App Store guideline 5.1.3).
 
 ## Next steps
 
-1. Scan history.
-2. Real sign-in and per-user access rules.
-3. Use Apple Health readings in scoring.
-4. Read the label from a photo when a product isn't in the database.
+1. Use Apple Health readings in scoring.
+2. Read the label from a photo when a product isn't in the database.
+3. Invite-code rotation and removing members.

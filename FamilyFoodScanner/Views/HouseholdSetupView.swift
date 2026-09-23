@@ -4,6 +4,7 @@ import SwiftUI
 /// family, or join one with the invite code from another member's phone.
 struct HouseholdSetupView: View {
     @Environment(FamilyStore.self) private var family
+    @Environment(AuthStore.self) private var auth
     @State private var mode: Mode = .choose
     @State private var name = ""
     @State private var code = ""
@@ -52,7 +53,7 @@ struct HouseholdSetupView: View {
                         TextField("Invite code", text: $code)
                             .textFieldStyle(.roundedBorder)
                             .autocorrectionDisabled()
-                            .textInputAutocapitalization(.never)
+                            .textInputAutocapitalization(.characters)
                         Button("Join") { Task { await family.joinHousehold(code: code) } }
                             .buttonStyle(.borderedProminent)
                             .disabled(code.trimmingCharacters(in: .whitespaces).isEmpty || family.isLoading)
@@ -71,6 +72,9 @@ struct HouseholdSetupView: View {
                 }
 
                 Spacer()
+                Button("Sign out") { Task { await auth.signOut() } }
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
                 Spacer()
             }
             .padding()

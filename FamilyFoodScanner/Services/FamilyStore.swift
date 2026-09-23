@@ -2,42 +2,76 @@ import Foundation
 import Observation
 import Supabase
 
-/// The family's shared data, backed by Supabase (see `backend/schema.sql`).
+/// The signed-in person's family and its members, backed by Supabase.
 ///
-/// Trust model: a "household" is identified by a UUID. Anyone who has that
-/// UUID (the invite code, shown in Family > Invite code) can read and write
-/// its members — the same model as a shared link, not per-person login.
-/// Good enough for a family app; move to Supabase Auth if you want real
-/// per-person accounts later.
+/// Access is enforced in the database (see `backend/migration_005_auth.sql`):
+/// you can only see a family you belong to, and you join one with its invite
+/// code. This class never decides who may see what; it just asks.
 @MainActor
 @Observable
 final class FamilyStore {
+    /// Where the "which family am I in?" lookup stands.
+    enum Phase: Equatable {
+        case idle
+        case loading
+        case loaded
+        case failed(String)
+    }
+
+    private(set) var phase: Phase = .idle
     private(set) var members: [Member] = []
     private(set) var householdId: UUID?
     private(set) var householdName: String = ""
+    private(set) var inviteCode: String = ""
     var isLoading = false
     var errorMessage: String?
 
     private var client: SupabaseClient { Backend.client }
-    private let householdDefaultsKey = "nutrikin.householdId"
-    private let householdNameDefaultsKey = "nutrikin.householdName"
-
-    init() {
-        let defaults = UserDefaults.standard
-        if let saved = defaults.string(forKey: householdDefaultsKey), let id = UUID(uuidString: saved) {
-            householdId = id
-            householdName = defaults.string(forKey: householdNameDefaultsKey) ?? ""
-        }
-    }
 
     var hasHousehold: Bool { householdId != nil }
+
+    private struct HouseholdRow: Decodable {
+        var id: UUID
+        var name: String
+        var inviteCode: String
+    }
 
     @discardableResult
     private func withRetry<T>(_ operation: () async throws -> T) async throws -> T {
         try await Backend.withRetry(operation)
     }
 
-    // MARK: - Household lifecycle
+    // MARK: - Which family am I in?
+
+    /// Looks up the family this account belongs to (row-level security means
+    /// the query only ever returns families you're a member of).
+    func loadHousehold() async {
+        phase = .loading
+        do {
+            let rows: [HouseholdRow] = try await withRetry {
+                try await client.from("households")
+                    .select("id,name,invite_code")
+                    .order("created_at")
+                    .limit(1)
+                    .execute()
+                    .value
+            }
+            if let row = rows.first { adopt(row) } else { clearHousehold() }
+            phase = .loaded
+            if hasHousehold { await refresh() }
+        } catch {
+            phase = .failed(error.localizedDescription)
+        }
+    }
+
+    /// Forgets everything (used on sign-out so the next account starts clean).
+    func reset() {
+        clearHousehold()
+        errorMessage = nil
+        phase = .idle
+    }
+
+    // MARK: - Create / join / leave
 
     func createHousehold(name: String) async {
         let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -46,18 +80,10 @@ final class FamilyStore {
         errorMessage = nil
         defer { isLoading = false }
         do {
-            struct NewHousehold: Encodable { var name: String }
-            struct HouseholdRow: Decodable { var id: UUID; var name: String }
-
-            let row: HouseholdRow = try await withRetry {
-                try await client.from("households")
-                    .insert(NewHousehold(name: trimmed))
-                    .select()
-                    .single()
-                    .execute()
-                    .value
+            let data = try await withRetry {
+                try await client.rpc("create_household", params: ["p_name": trimmed]).execute().data
             }
-            setHousehold(id: row.id, name: row.name)
+            adopt(try Backend.decodeRow(data))
             await refresh()
         } catch {
             errorMessage = "Couldn't create the family. \(error.localizedDescription)"
@@ -65,46 +91,55 @@ final class FamilyStore {
     }
 
     func joinHousehold(code: String) async {
-        let trimmed = code.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard let id = UUID(uuidString: trimmed) else {
-            errorMessage = "That code doesn't look right. Copy the invite code exactly from another member's phone."
+        let trimmed = code.trimmingCharacters(in: .whitespacesAndNewlines).uppercased()
+        guard trimmed.count >= 4 else {
+            errorMessage = "Enter the invite code exactly as shown on the other person's phone."
             return
         }
         isLoading = true
         errorMessage = nil
         defer { isLoading = false }
         do {
-            struct HouseholdRow: Decodable { var id: UUID; var name: String }
-            let row: HouseholdRow = try await withRetry {
-                try await client.from("households")
-                    .select()
-                    .eq("id", value: id)
-                    .single()
-                    .execute()
-                    .value
+            let data = try await withRetry {
+                try await client.rpc("join_household", params: ["p_code": trimmed]).execute().data
             }
-            setHousehold(id: row.id, name: row.name)
+            adopt(try Backend.decodeRow(data))
             await refresh()
         } catch {
             errorMessage = "Couldn't find a family with that code."
         }
     }
 
-    func leaveHousehold() {
-        householdId = nil
-        householdName = ""
-        members = []
-        let defaults = UserDefaults.standard
-        defaults.removeObject(forKey: householdDefaultsKey)
-        defaults.removeObject(forKey: householdNameDefaultsKey)
+    /// Leaves this family (you stay signed in and can join or create another).
+    func leaveHousehold() async {
+        guard let householdId else { return }
+        errorMessage = nil
+        do {
+            let userId = try await client.auth.session.user.id
+            try await withRetry {
+                try await client.from("household_users")
+                    .delete()
+                    .eq("household_id", value: householdId)
+                    .eq("user_id", value: userId)
+                    .execute()
+            }
+            clearHousehold()
+        } catch {
+            errorMessage = "Couldn't leave the family. \(error.localizedDescription)"
+        }
     }
 
-    private func setHousehold(id: UUID, name: String) {
-        householdId = id
-        householdName = name
-        let defaults = UserDefaults.standard
-        defaults.set(id.uuidString, forKey: householdDefaultsKey)
-        defaults.set(name, forKey: householdNameDefaultsKey)
+    private func adopt(_ row: HouseholdRow) {
+        householdId = row.id
+        householdName = row.name
+        inviteCode = row.inviteCode
+    }
+
+    private func clearHousehold() {
+        householdId = nil
+        householdName = ""
+        inviteCode = ""
+        members = []
     }
 
     // MARK: - Members

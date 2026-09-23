@@ -28,8 +28,25 @@ enum Backend {
     static let client = SupabaseClient(
         supabaseURL: SupabaseConfig.url,
         supabaseKey: SupabaseConfig.anonKey,
-        options: SupabaseClientOptions(db: .init(encoder: encoder, decoder: decoder))
+        options: SupabaseClientOptions(
+            db: .init(encoder: encoder, decoder: decoder),
+            // Emit the stored session immediately at launch (the SDK's upcoming
+            // default). AuthStore checks `isExpired` itself.
+            auth: .init(storage: AuthClient.Configuration.defaultLocalStorage,
+                        emitLocalSessionAsInitialSession: true)
+        )
     )
+
+    /// Decodes one row from a response that PostgREST may return either as a
+    /// bare object (a function returning a single row) or a one-item array.
+    static func decodeRow<T: Decodable>(_ data: Data) throws -> T {
+        if let one = try? decoder.decode(T.self, from: data) { return one }
+        let many = try decoder.decode([T].self, from: data)
+        guard let first = many.first else {
+            throw DecodingError.dataCorrupted(.init(codingPath: [], debugDescription: "Empty response"))
+        }
+        return first
+    }
 
     /// Retries a network call a couple of times with a short backoff.
     /// The iOS Simulator's HTTP/3 stack occasionally stalls a connection

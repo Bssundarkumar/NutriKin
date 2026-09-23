@@ -1,6 +1,7 @@
 import SwiftUI
 
 struct FamilyView: View {
+    @Environment(AuthStore.self) private var auth
     @Environment(FamilyStore.self) private var family
     @Environment(HealthKitManager.self) private var health
     @State private var isAdding = false
@@ -66,7 +67,18 @@ struct FamilyView: View {
                 }
 
                 Section {
-                    Button("Leave this family", role: .destructive) { family.leaveHousehold() }
+                    Button("Leave this family", role: .destructive) {
+                        Task { await family.leaveHousehold() }
+                    }
+                }
+
+                Section {
+                    if case .signedIn(let email) = auth.state {
+                        LabeledContent("Signed in as", value: email)
+                    }
+                    Button("Sign out") { Task { await auth.signOut() } }
+                } header: {
+                    Text("Account")
                 }
 
                 if let errorMessage = family.errorMessage {
@@ -88,15 +100,14 @@ struct FamilyView: View {
 
     private var inviteSection: some View {
         Section {
-            if let id = family.householdId {
+            if !family.inviteCode.isEmpty {
                 HStack {
-                    Text(id.uuidString)
-                        .font(.footnote.monospaced())
-                        .lineLimit(1)
-                        .truncationMode(.middle)
+                    Text(family.inviteCode)
+                        .font(.title3.monospaced().weight(.semibold))
+                        .textSelection(.enabled)
                     Spacer()
                     Button {
-                        UIPasteboard.general.string = id.uuidString
+                        UIPasteboard.general.string = family.inviteCode
                         didCopyCode = true
                         Task {
                             try? await Task.sleep(for: .seconds(1.5))
@@ -106,7 +117,7 @@ struct FamilyView: View {
                         Image(systemName: didCopyCode ? "checkmark" : "doc.on.doc")
                     }
                 }
-                Text("Share this code so another family member can join from their own iPhone.")
+                Text("Share this code so another family member can sign in on their own iPhone and join.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
