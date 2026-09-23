@@ -1,0 +1,65 @@
+name: NutriKin
+options:
+  bundleIdPrefix: com.nutrikin
+  deploymentTarget:
+    iOS: "17.0"
+packages:
+  Supabase:
+    url: https://github.com/supabase/supabase-swift
+    from: 2.0.0
+targets:
+  NutriKin:
+    type: application
+    platform: iOS
+    sources:
+      - path: ../FamilyFoodScanner/App
+        group: App
+      - path: ../FamilyFoodScanner/Models
+        group: Models
+      - path: ../FamilyFoodScanner/Services
+        group: Services
+      - path: ../FamilyFoodScanner/Views
+        group: Views
+    dependencies:
+      - package: Supabase
+        product: Supabase
+    info:
+      path: Generated/Info.plist
+      properties:
+        CFBundleDisplayName: NutriKin
+        UILaunchScreen: {}
+        NSCameraUsageDescription: Scan product barcodes to check them for your family.
+        NSHealthShareUsageDescription: Read your health data to personalise food recommendations.
+    entitlements:
+      path: Generated/NutriKin.entitlements
+      properties:
+        com.apple.developer.healthkit: true
+        # No "com.apple.developer.healthkit.access" key here on purpose:
+        # that entitlement is specifically for Clinical Health Records
+        # (FHIR documents), which personal/free Apple ID teams can't
+        # provision. This app only reads ordinary quantity samples
+        # (weight, blood glucose, etc.) via HKHealthStore.requestAuthorization,
+        # which the plain HealthKit capability above already covers.
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.nutrikin.NutriKin
+        SWIFT_VERSION: "5.0"
+        GENERATE_INFOPLIST_FILE: NO
+  NutriKinTests:
+    type: bundle.unit-test
+    platform: iOS
+    sources:
+      - path: ../FamilyFoodScanner/Tests
+        group: Tests
+    dependencies:
+      - target: NutriKin
+    settings:
+      base:
+        GENERATE_INFOPLIST_FILE: YES
+schemes:
+  NutriKin:
+    build:
+      targets:
+        NutriKin: all
+    test:
+      targets: [NutriKinTests]
