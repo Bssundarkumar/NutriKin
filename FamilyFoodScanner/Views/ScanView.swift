@@ -2,6 +2,7 @@ import SwiftUI
 
 struct ScanView: View {
     @Environment(FamilyStore.self) private var family
+    @Environment(HistoryStore.self) private var history
     @State private var manualCode = ""
     @State private var isLoading = false
     @State private var errorMessage: String?
@@ -66,8 +67,11 @@ struct ScanView: View {
         Task {
             defer { isLoading = false }
             do {
-                product = try await service.fetch(barcode: code)
+                let fetched = try await service.fetch(barcode: code)
+                product = fetched
                 manualCode = ""
+                // Save to history without holding up the result screen.
+                Task { await history.record(fetched, family: family) }
             } catch {
                 errorMessage = error.localizedDescription
             }

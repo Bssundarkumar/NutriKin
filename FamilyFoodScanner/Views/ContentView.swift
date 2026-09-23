@@ -9,6 +9,8 @@ struct ContentView: View {
                 TabView {
                     ScanView()
                         .tabItem { Label("Scan", systemImage: "barcode.viewfinder") }
+                    HistoryView()
+                        .tabItem { Label("History", systemImage: "clock.arrow.circlepath") }
                     FamilyView()
                         .tabItem { Label("Family", systemImage: "person.3") }
                 }

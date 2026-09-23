@@ -18,22 +18,11 @@ final class FamilyStore {
     var isLoading = false
     var errorMessage: String?
 
-    private let client: SupabaseClient
+    private var client: SupabaseClient { Backend.client }
     private let householdDefaultsKey = "nutrikin.householdId"
     private let householdNameDefaultsKey = "nutrikin.householdName"
 
     init() {
-        let encoder = JSONEncoder()
-        encoder.keyEncodingStrategy = .convertToSnakeCase
-        let decoder = JSONDecoder()
-        decoder.keyDecodingStrategy = .convertFromSnakeCase
-
-        client = SupabaseClient(
-            supabaseURL: SupabaseConfig.url,
-            supabaseKey: SupabaseConfig.anonKey,
-            options: SupabaseClientOptions(db: .init(encoder: encoder, decoder: decoder))
-        )
-
         let defaults = UserDefaults.standard
         if let saved = defaults.string(forKey: householdDefaultsKey), let id = UUID(uuidString: saved) {
             householdId = id
@@ -43,24 +32,9 @@ final class FamilyStore {
 
     var hasHousehold: Bool { householdId != nil }
 
-    /// Retries a network call a couple of times with a short backoff.
-    /// The iOS Simulator's HTTP/3 stack occasionally stalls a connection
-    /// outright (a known simulator bug, not specific to this app); a real
-    /// device on a flaky network benefits from the same retry.
     @discardableResult
-    private func withRetry<T>(attempts: Int = 3, _ operation: () async throws -> T) async throws -> T {
-        var lastError: Error?
-        for attempt in 0..<attempts {
-            do {
-                return try await operation()
-            } catch {
-                lastError = error
-                if attempt < attempts - 1 {
-                    try? await Task.sleep(for: .milliseconds(400 * (attempt + 1)))
-                }
-            }
-        }
-        throw lastError ?? CancellationError()
+    private func withRetry<T>(_ operation: () async throws -> T) async throws -> T {
+        try await Backend.withRetry(operation)
     }
 
     // MARK: - Household lifecycle

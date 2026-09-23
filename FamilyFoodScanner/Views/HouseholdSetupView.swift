@@ -15,9 +15,11 @@ struct HouseholdSetupView: View {
             VStack(spacing: 20) {
                 Spacer()
 
-                Image(systemName: "person.3.fill")
-                    .font(.system(size: 48))
-                    .foregroundStyle(Color(red: 0.12, green: 0.35, blue: 0.24))
+                Image("Logo")
+                    .resizable()
+                    .scaledToFit()
+                    .frame(width: 112, height: 112)
+                    .accessibilityHidden(true)
                 Text("Set up your family")
                     .font(.title2.bold())
                 Text("Create a new family, or join one with an invite code from another member's phone.")
