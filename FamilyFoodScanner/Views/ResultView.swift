@@ -4,6 +4,7 @@ struct ResultView: View {
     let product: Product
     @Environment(FamilyStore.self) private var family
     private let engine = ScoringEngine()
+    private let analyzer = IngredientAnalyzer()
 
     private var scores: [MemberScore] {
         engine.scoreFamily(product, members: family.members)
@@ -12,6 +13,7 @@ struct ResultView: View {
     var body: some View {
         let results = scores
         let allergyHits = results.filter(\.blockedByAllergy)
+        let ingredientAlerts = analyzer.alerts(for: product, members: family.members)
 
         List {
             Section { header }
@@ -24,6 +26,16 @@ struct ResultView: View {
                           systemImage: "exclamationmark.triangle.fill")
                         .foregroundStyle(.red)
                         .fontWeight(.semibold)
+                }
+            }
+
+            if !ingredientAlerts.isEmpty {
+                Section {
+                    ForEach(ingredientAlerts) { IngredientAlertRow(alert: $0) }
+                } header: {
+                    Text("Ingredient alerts")
+                } footer: {
+                    Text("Ingredients often flagged as worth limiting. Alerts inform you; they don't change the scores above.")
                 }
             }
 
@@ -126,5 +138,32 @@ struct MemberScoreRow: View {
         case .caution: .orange
         case .avoid: .red
         }
+    }
+}
+
+
+struct IngredientAlertRow: View {
+    let alert: IngredientAlert
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Label(alert.flag.title, systemImage: icon)
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(color)
+            Text(alert.flag.reason)
+                .font(.footnote)
+            Text(alert.members.isEmpty ? "Relevant to everyone" : "Matters most for \(alert.members.joined(separator: ", "))")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+        }
+        .padding(.vertical, 2)
+    }
+
+    private var icon: String {
+        alert.flag.severity == .warning ? "exclamationmark.triangle.fill" : "info.circle.fill"
+    }
+
+    private var color: Color {
+        alert.flag.severity == .warning ? .orange : .blue
     }
 }

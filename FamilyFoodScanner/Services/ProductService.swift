@@ -23,7 +23,7 @@ struct ProductService {
         var comps = URLComponents(string: "https://world.openfoodfacts.org/api/v2/product/\(code).json")!
         comps.queryItems = [URLQueryItem(
             name: "fields",
-            value: "product_name,brands,image_front_small_url,ingredients_text,allergens_tags,serving_size,nutriments"
+            value: "product_name,brands,image_front_small_url,ingredients_text,ingredients_tags,additives_tags,allergens_tags,serving_size,nutriments"
         )]
         var request = URLRequest(url: comps.url!)
         request.setValue(userAgent, forHTTPHeaderField: "User-Agent")
@@ -52,6 +52,8 @@ private struct OFFProduct: Decodable {
     let image_front_small_url: String?
     let ingredients_text: String?
     let allergens_tags: [String]?
+    let ingredients_tags: [String]?
+    let additives_tags: [String]?
     let serving_size: String?
     let nutriments: Nutriments?
 
@@ -84,7 +86,9 @@ private struct OFFProduct: Decodable {
                 transFatG: v("trans-fat"),
                 proteinG: v("proteins"),
                 basis: basis
-            )
+            ),
+            ingredientTags: ingredients_tags ?? [],
+            additivesTags: additives_tags ?? []
         )
     }
 }

@@ -144,6 +144,11 @@ struct Product: Identifiable, Hashable {
     var ingredientsText: String?
     var allergenTags: [String]
     var nutrition: Nutrition
+    /// Open Food Facts' standardised English tags, e.g. "en:palm-oil" and
+    /// "en:e250". Language-independent, so ingredient alerts work on labels
+    /// that aren't in English.
+    var ingredientTags: [String] = []
+    var additivesTags: [String] = []
 
     func contains(_ allergen: Allergen) -> Bool {
         if allergenTags.contains(allergen.offTag) { return true }
