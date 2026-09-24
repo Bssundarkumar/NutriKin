@@ -7,6 +7,7 @@ struct FamilyView: View {
     @State private var isAdding = false
     @State private var editingMember: Member?
     @State private var didCopyCode = false
+    @State private var confirmDelete = false
 
     var body: some View {
         NavigationStack {
@@ -88,11 +89,14 @@ struct FamilyView: View {
                         LabeledContent("Signed in as", value: email)
                     }
                     Button("Sign out") { Task { await auth.signOut() } }
+                    Button("Delete account", role: .destructive) { confirmDelete = true }
                 } header: {
                     Text("Account")
+                } footer: {
+                    Text("NutriKin gives general guidance based on the information you enter. It is not medical advice and doesn't replace a doctor or dietitian.")
                 }
 
-                if let errorMessage = family.errorMessage {
+                if let errorMessage = family.errorMessage ?? auth.errorMessage {
                     Section { Text(errorMessage).font(.footnote).foregroundStyle(.red) }
                 }
             }
@@ -105,6 +109,12 @@ struct FamilyView: View {
             }
             .sheet(isPresented: $isAdding) { MemberEditView(mode: .add) }
             .sheet(item: $editingMember) { MemberEditView(mode: .edit($0)) }
+            .alert("Delete your account?", isPresented: $confirmDelete) {
+                Button("Delete account", role: .destructive) { Task { _ = await auth.deleteAccount() } }
+                Button("Cancel", role: .cancel) {}
+            } message: {
+                Text("This permanently deletes your login. If you're the only person in your family, its members and scan history are deleted too. This can't be undone.")
+            }
             .refreshable { await family.refresh() }
             .task { if family.members.isEmpty { await family.refresh() } }
         }

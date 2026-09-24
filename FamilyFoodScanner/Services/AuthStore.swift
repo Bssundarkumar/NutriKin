@@ -1,4 +1,3 @@
-import AuthenticationServices
 import Foundation
 import Observation
 import Supabase
@@ -79,22 +78,36 @@ final class AuthStore {
         }
     }
 
-    /// Where Google sends the user back to the app. Must also be listed under
-    /// Supabase > Authentication > URL Configuration > Redirect URLs.
-    static let oauthRedirect = URL(string: "nutrikin://login-callback")!
-
-    /// Google sign-in in the system browser sheet (works for Gmail and any
-    /// other Google account). Needs the Google provider enabled in Supabase.
-    func signInWithGoogle() async {
+    /// Password sign-in, used for the App Review demo account. Regular users
+    /// sign in with an emailed code.
+    func signIn(email rawEmail: String, password: String) async {
+        guard let email = Self.normalizedEmail(rawEmail), !password.isEmpty else {
+            errorMessage = "Enter your email and password."
+            return
+        }
         isWorking = true
         errorMessage = nil
         defer { isWorking = false }
         do {
-            try await auth.signInWithOAuth(provider: .google, redirectTo: Self.oauthRedirect)
-        } catch let error as ASWebAuthenticationSessionError where error.code == .canceledLogin {
-            // The user closed the sheet; nothing to report.
+            try await auth.signIn(email: email, password: password)
         } catch {
-            errorMessage = "Couldn't sign in with Google. \(error.localizedDescription)"
+            errorMessage = "That email and password didn't work."
+        }
+    }
+
+    /// Permanently deletes the account and any family only this person belonged to.
+    /// Returns true on success (the auth listener then shows the sign-in screen).
+    func deleteAccount() async -> Bool {
+        isWorking = true
+        errorMessage = nil
+        defer { isWorking = false }
+        do {
+            try await Backend.client.rpc("delete_my_account").execute()
+            try? await auth.signOut(scope: .local)
+            return true
+        } catch {
+            errorMessage = "Couldn't delete the account. \(error.localizedDescription)"
+            return false
         }
     }
 

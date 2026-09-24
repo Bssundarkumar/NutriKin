@@ -5,6 +5,7 @@ struct SignInView: View {
     @Environment(AuthStore.self) private var auth
     @State private var email = ""
     @State private var code = ""
+    @State private var password = ""
     @FocusState private var focused: Bool
 
     var body: some View {
@@ -66,19 +67,19 @@ struct SignInView: View {
                 .buttonStyle(.borderedProminent)
                 .disabled(AuthStore.normalizedEmail(email) == nil || auth.isWorking)
 
-            HStack {
-                Rectangle().fill(.quaternary).frame(height: 1)
-                Text("or").font(.footnote).foregroundStyle(.secondary)
-                Rectangle().fill(.quaternary).frame(height: 1)
+            DisclosureGroup("Sign in with a password") {
+                VStack(spacing: 10) {
+                    SecureField("Password", text: $password)
+                        .textFieldStyle(.roundedBorder)
+                        .textContentType(.password)
+                    Button("Sign in") { Task { await auth.signIn(email: email, password: password) } }
+                        .buttonStyle(.bordered)
+                        .disabled(AuthStore.normalizedEmail(email) == nil || password.isEmpty || auth.isWorking)
+                }
+                .padding(.top, 8)
             }
-            .padding(.vertical, 4)
-
-            Button { Task { await auth.signInWithGoogle() } } label: {
-                Label("Continue with Google", systemImage: "person.crop.circle")
-                    .frame(maxWidth: .infinity)
-            }
-            .buttonStyle(.bordered)
-            .disabled(auth.isWorking)
+            .font(.footnote)
+            .padding(.top, 4)
         }
     }
 

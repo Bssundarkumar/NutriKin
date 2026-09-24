@@ -29,7 +29,7 @@ SwiftUI, iOS 17+, backed by Supabase for shared family data.
 - **Ingredient alerts** for things like trans fat, nitrite preservatives and
   children's-hyperactivity colours, plus condition-specific notes (added sugar
   for diabetes, sodium additives for high blood pressure, and so on).
-- **Sign in** with Google, or an email and a 6-digit code (no password). Each person has
+- **Sign in** with an email and a 6-digit code (a password option exists for the App Review demo account). Each person has
   their own account; access is enforced in the database.
 - **Family** shared across phones with a short invite code: add members with
   conditions, custom conditions/allergies, age, height, weight, sex and goals.
@@ -77,13 +77,7 @@ Xcode project are called NutriKin.)
       code), for example `<p>Your NutriKin code: <b>{{ .Token }}</b></p>`.
       Supabase's built-in email sender allows only a few emails per hour, so
       set up custom SMTP (Authentication, Emails, SMTP) before real use.
-   4. **Google sign-in (optional):** create a Google Cloud OAuth client of type
-      *Web application* with Supabase's callback URL
-      (`https://<project>.supabase.co/auth/v1/callback`) as an authorized
-      redirect, enable Google under Authentication, Sign In / Providers and paste
-      the client ID and secret there, and add `nutrikin://login-callback` under
-      Authentication, URL Configuration, Redirect URLs. Keep the client secret
-      out of the app and the repo.
+   4. Run `migration_006_delete_account.sql` (powers in-app Delete account).
    5. Install a build that has sign-in, **then** run `migration_005_auth.sql`.
       It locks the data down, so an older build stops working once it runs.
    6. Optional: `claim_existing_household.sql` re-attaches a family created
