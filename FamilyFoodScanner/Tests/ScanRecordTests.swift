@@ -45,3 +45,25 @@ final class ScanRecordTests: XCTestCase {
         XCTAssertNil(ScanRecord(barcode: "1", productName: "X", results: [], alerts: []).worstVerdict)
     }
 }
+
+final class HistoryDedupeTests: XCTestCase {
+    private func record(_ barcode: String, daysAgo: Double) -> ScanRecord {
+        var r = ScanRecord(barcode: barcode, productName: "P\(barcode)", results: [], alerts: [])
+        r.scannedAt = Date().addingTimeInterval(-daysAgo * 86_400)
+        return r
+    }
+
+    func testKeepsNewestScanPerProduct() {
+        let old = record("111", daysAgo: 3), new = record("111", daysAgo: 1), other = record("222", daysAgo: 2)
+        let (kept, duplicates) = HistoryStore.deduplicated([old, other, new])
+        XCTAssertEqual(kept.map(\.id), [new.id, other.id])
+        XCTAssertEqual(duplicates.map(\.id), [old.id])
+    }
+
+    func testNoDuplicatesChangesNothing() {
+        let a = record("1", daysAgo: 1), b = record("2", daysAgo: 2)
+        let (kept, duplicates) = HistoryStore.deduplicated([a, b])
+        XCTAssertEqual(kept.count, 2)
+        XCTAssertTrue(duplicates.isEmpty)
+    }
+}

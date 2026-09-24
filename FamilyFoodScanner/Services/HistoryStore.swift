@@ -21,7 +21,7 @@ final class HistoryStore {
         errorMessage = nil
         defer { isLoading = false }
         do {
-            records = try await Backend.withRetry {
+            let fetched: [ScanRecord] = try await Backend.withRetry {
                 try await client.from("scans")
                     .select()
                     .eq("household_id", value: householdId)
@@ -30,8 +30,31 @@ final class HistoryStore {
                     .execute()
                     .value
             }
+            let (kept, duplicates) = Self.deduplicated(fetched)
+            records = kept
+            await remove(duplicates)
         } catch {
             errorMessage = "Couldn't load your history. \(error.localizedDescription)"
+        }
+    }
+
+    /// One entry per product, keeping the newest scan. Returns the entries to
+    /// show (newest first) and the older copies to delete.
+    nonisolated static func deduplicated(_ records: [ScanRecord]) -> (kept: [ScanRecord], duplicates: [ScanRecord]) {
+        var seen = Set<String>()
+        var kept: [ScanRecord] = [], duplicates: [ScanRecord] = []
+        for record in records.sorted(by: { $0.scannedAt > $1.scannedAt }) {
+            if seen.insert(record.barcode).inserted { kept.append(record) } else { duplicates.append(record) }
+        }
+        return (kept, duplicates)
+    }
+
+    /// Best-effort cleanup of superseded copies; a failure just leaves them for next time.
+    private func remove(_ old: [ScanRecord]) async {
+        guard !old.isEmpty else { return }
+        let ids = old.map(\.id)
+        try? await Backend.withRetry {
+            try await client.from("scans").delete().in("id", values: ids).execute()
         }
     }
 
@@ -98,7 +121,10 @@ final class HistoryStore {
                     .value
             }
             failedSave = nil
+            let older = records.filter { $0.barcode == saved.barcode }
+            records.removeAll { $0.barcode == saved.barcode }
             records.insert(saved, at: 0)
+            await remove(older)
         } catch {
             failedSave = FailedSave(barcode: payload.barcode, message: error.localizedDescription, payload: payload)
         }
