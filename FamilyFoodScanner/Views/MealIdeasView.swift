@@ -41,7 +41,9 @@ struct MealIdeasView: View {
                 } header: {
                     Text("A day of meals for \(member.name)")
                 } footer: {
-                    Text("About \(target) kcal, matched to \(member.name)'s plan, conditions and allergies. Ideas are suggestions to adapt.")
+                    Text("About \(target) kcal, matched to \(member.name)'s plan, conditions and allergies. "
+                         + (ai.textProvider == .apple ? "Written on your iPhone; nothing is sent anywhere. " : "")
+                         + "Ideas are suggestions to adapt.")
                 }
 
                 switch phase {
@@ -61,6 +63,7 @@ struct MealIdeasView: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Done") { dismiss() } } }
             .sheet(isPresented: $showConnect) { ConnectAIView { generate() } }
+            .onAppear { ai.refreshApple() }
             .animation(.snappy, value: isLoading)
         }
     }
@@ -70,7 +73,7 @@ struct MealIdeasView: View {
     private var buttonTitle: String {
         if isLoading { return "Planning\u{2026}" }
         if case .loaded = phase { return "Plan another day" }
-        return ai.isConnected ? "Plan today's meals" : "Connect AI to plan meals"
+        return ai.textProvider != nil ? "Plan today's meals" : "Link an AI to plan meals"
     }
 
     @ViewBuilder
@@ -118,11 +121,13 @@ struct MealIdeasView: View {
     }
 
     private func generate() {
-        guard let key = ai.apiKey else { showConnect = true; return }
+        guard let provider = ai.textProvider else { showConnect = true; return }
         phase = .loading
+        let key = ai.apiKey
         Task {
             do {
-                let ideas = try await MealIdeasService.generate(member: member, plan: plan, preferences: preferences, apiKey: key)
+                let ideas = try await MealIdeasService.generate(member: member, plan: plan, preferences: preferences,
+                                                                provider: provider, apiKey: key)
                 phase = ideas.slots.isEmpty ? .failed("The AI didn't return usable meals. Try again.") : .loaded(ideas)
                 if !ideas.slots.isEmpty { UINotificationFeedbackGenerator().notificationOccurred(.success) }
             } catch {

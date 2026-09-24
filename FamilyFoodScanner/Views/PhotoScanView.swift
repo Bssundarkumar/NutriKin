@@ -18,6 +18,14 @@ struct PhotoScanView: View {
     @State private var phase: Phase = .choose
     @State private var picked: [PhotosPickerItem] = []
     @State private var showCamera = false
+    @Environment(AIConnection.self) private var ai
+    @AppStorage("photoUseAI") private var useAI = true
+    @State private var brand = ""
+    @State private var aiRead = false
+    @State private var aiNote: String?
+    @State private var spottedBarcode: String?
+    @State private var showConnect = false
+    @State private var aiReading = false
 
     @State private var name = ""
     @State private var ingredients = ""
@@ -71,6 +79,7 @@ struct PhotoScanView: View {
                 )
                 .ignoresSafeArea()
             }
+            .sheet(isPresented: $showConnect) { ConnectAIView() }
             .onChange(of: picked) { _, items in
                 guard !items.isEmpty else { return }
                 Task { await load(items) }
@@ -115,9 +124,18 @@ struct PhotoScanView: View {
             .controlSize(.large)
             .padding(.horizontal, 32)
 
-            Text("Photos are read on your phone and are never uploaded.")
+            if ai.isConnected {
+                Toggle("Also read the label with my AI", isOn: $useAI)
+                    .font(.subheadline)
+                    .padding(.horizontal, 32)
+            }
+            Text(ai.isConnected && useAI
+                 ? "Photos are read on your phone first. If it isn't a known barcode, they're also sent to Anthropic under your own key so the AI can read the name, ingredients and nutrition. You confirm everything before it's scored."
+                 : "Photos are read on your phone and are never uploaded.")
                 .font(.caption)
                 .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
+                .padding(.horizontal, 32)
             Spacer()
             Spacer()
         }
@@ -126,7 +144,7 @@ struct PhotoScanView: View {
     private var reading: some View {
         VStack(spacing: 16) {
             ProgressView().controlSize(.large)
-            Text("Reading the label\u{2026}").font(.headline)
+            Text(aiReading ? "Asking your AI to read it\u{2026}" : "Reading the label\u{2026}").font(.headline)
         }
     }
 
@@ -141,15 +159,33 @@ struct PhotoScanView: View {
                 }
             } else {
                 Section {
-                    Label("Check what we read", systemImage: "checkmark.shield")
+                    Label(aiRead ? "Read by AI. Please confirm." : "Check what we read",
+                          systemImage: aiRead ? "sparkles" : "checkmark.shield")
                         .font(.subheadline.weight(.semibold))
-                    Text("Photos can be misread. Compare with the package and fix anything wrong, because allergy checks use this text.")
+                    Text("Photos can be misread, by AI as well. Compare with the package and fix anything wrong, because allergy checks use this text.")
                         .font(.footnote)
+                    if let aiNote { Text(aiNote).font(.footnote).foregroundStyle(.secondary) }
+                }
+                if let code = spottedBarcode {
+                    Section {
+                        Button("Look up barcode \(code) instead") { onBarcode(code); dismiss() }
+                    } footer: {
+                        Text("The AI spotted this number under a barcode. A match gives you the database's full details.")
+                    }
                 }
             }
 
-            Section("Product name (optional)") {
-                TextField("e.g. Oat biscuits", text: $name)
+            Section("Product (optional)") {
+                TextField("Name, e.g. Oat biscuits", text: $name)
+                TextField("Brand", text: $brand)
+            }
+
+            if !ai.isConnected {
+                Section {
+                    Button { showConnect = true } label: { Label("Read it with AI instead", systemImage: "sparkles") }
+                } footer: {
+                    Text("Link your own Claude key and the AI can read the name, ingredients and nutrition from your photos. You confirm before it's scored.")
+                }
             }
 
             Section("Ingredients") {
@@ -309,6 +345,22 @@ struct PhotoScanView: View {
                 case .label(let parsed, let guesses):
                     fill(from: parsed)
                     nameGuesses = guesses
+                    aiRead = false; aiNote = nil; spottedBarcode = nil
+                    if useAI, let key = ai.apiKey {
+                        aiReading = true
+                        defer { aiReading = false }
+                        do {
+                            let reading = ProductPhotoReader.merge(ai: try await ProductPhotoReader.read(images: images, apiKey: key), ocr: parsed)
+                            if reading.foundAnything {
+                                apply(reading)
+                                phase = .review(readNothing: false)
+                                return
+                            }
+                            aiNote = "The AI couldn't read this photo either."
+                        } catch {
+                            aiNote = "The AI couldn't read the photo: \(error.localizedDescription)"
+                        }
+                    }
                     if parsed.ingredientsText != nil {
                         phase = .review(readNothing: false)               // an ingredient list was read
                     } else if let best = guesses.first {
@@ -363,6 +415,19 @@ struct PhotoScanView: View {
         dismiss()
     }
 
+    /// Puts the AI's reading into the review form for the person to confirm or correct.
+    private func apply(_ r: ProductReading) {
+        aiRead = true
+        if let v = r.name { name = v }
+        brand = r.brand ?? ""
+        ingredients = r.ingredientsText ?? ""
+        basis = r.nutrition.basis
+        calories = Self.text(r.nutrition.calories); sugar = Self.text(r.nutrition.sugarG); carbs = Self.text(r.nutrition.carbsG)
+        sodium = Self.text(r.nutrition.sodiumMg); satFat = Self.text(r.nutrition.satFatG); protein = Self.text(r.nutrition.proteinG)
+        spottedBarcode = r.barcode
+        aiNote = r.notes
+    }
+
     private func fill(from parsed: ParsedLabel) {
         ingredients = parsed.ingredientsText ?? ""
         let n = parsed.nutrition
@@ -376,7 +441,8 @@ struct PhotoScanView: View {
         let product = Product(
             barcode: "photo-" + UUID().uuidString.prefix(8).lowercased(),
             name: name.trimmingCharacters(in: .whitespaces).isEmpty ? "Photographed label" : name.trimmingCharacters(in: .whitespaces),
-            brand: nil, imageURL: nil,
+            brand: brand.trimmingCharacters(in: .whitespaces).isEmpty ? nil : brand.trimmingCharacters(in: .whitespaces),
+            imageURL: nil,
             ingredientsText: text.isEmpty ? nil : text,
             allergenTags: [],
             nutrition: Nutrition(calories: Self.number(calories), sugarG: Self.number(sugar), carbsG: Self.number(carbs),

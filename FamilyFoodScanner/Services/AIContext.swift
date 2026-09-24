@@ -73,7 +73,8 @@ enum AIContext {
 }
 
 enum AskAI {
-    static func systemPrompt(family: [Member], product: Product?) -> String {
+    /// `compact` trims the product facts for Apple's small on-device context window.
+    static func systemPrompt(family: [Member], product: Product?, compact: Bool = false) -> String {
         var s = """
         You are the food helper inside NutriKin, a family nutrition app. Answer the person's questions about food \
         for THEIR family, using the facts below. Be practical, warm and brief (under 150 words unless asked for more), \
@@ -89,7 +90,10 @@ enum AskAI {
         Family:
         \(AIContext.family(family))
         """
-        if let product { s += "\n\nThe product they just scanned:\n\(AIContext.product(product, members: family))" }
+        if let product {
+            let facts = AIContext.product(product, members: family)
+            s += "\n\nThe product they just scanned:\n\(compact ? String(facts.prefix(1400)) : facts)"
+        }
         return s
     }
 

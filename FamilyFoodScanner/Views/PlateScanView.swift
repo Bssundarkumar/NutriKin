@@ -93,10 +93,10 @@ struct PlateScanView: View {
                     .buttonStyle(PressableStyle())
                 } else {
                     VStack(spacing: 10) {
-                        Label("Link your AI first", systemImage: "sparkles").font(.headline).foregroundStyle(Theme.brand)
-                        Text("Plate scanning uses your own Anthropic account. It takes a minute to set up.")
+                        Label("Plate photos need a Claude key", systemImage: "key.fill").font(.headline).foregroundStyle(Theme.brand)
+                        Text("Apple's on-device AI reads text, not photos, so this one feature uses your own Anthropic account. It takes a minute to set up.")
                             .font(.footnote).foregroundStyle(.secondary).multilineTextAlignment(.center)
-                        Button { showConnect = true } label: { bigButton("Connect AI", "link", filled: true) }
+                        Button { showConnect = true } label: { bigButton("Link your key", "key", filled: true) }
                             .buttonStyle(PressableStyle())
                     }
                     .card()

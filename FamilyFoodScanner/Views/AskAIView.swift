@@ -31,7 +31,7 @@ struct AskAIView: View {
     var body: some View {
         NavigationStack {
             VStack(spacing: 0) {
-                if !ai.isConnected {
+                if ai.textProvider == nil {
                     connectPrompt
                 } else {
                     conversation
@@ -43,6 +43,7 @@ struct AskAIView: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Done") { dismiss() } } }
             .sheet(isPresented: $showConnect) { ConnectAIView() }
+            .onAppear { ai.refreshApple() }
         }
     }
 
@@ -50,20 +51,30 @@ struct AskAIView: View {
         VStack(spacing: 14) {
             Spacer()
             Image(systemName: "sparkles").font(.system(size: 48)).foregroundStyle(Theme.brandGradient)
-            Text("Link your AI to ask questions").font(.headline)
-            Text("Ask about this food in plain words. The AI already knows your family's conditions and allergies.")
+            Text("Ask questions about your food").font(.headline)
+            Text("The AI already knows your family's conditions and allergies. Your iPhone can't run Apple's on-device AI, so link your own Claude key to use this.")
                 .font(.subheadline).foregroundStyle(.secondary).multilineTextAlignment(.center)
-            Button("Connect AI") { showConnect = true }.buttonStyle(.borderedProminent).buttonBorderShape(.capsule)
+            if case .unavailable(let reason) = ai.appleStatus {
+                Text(reason).font(.caption).foregroundStyle(.secondary).multilineTextAlignment(.center)
+            }
+            Button("Link your key") { showConnect = true }.buttonStyle(.borderedProminent).buttonBorderShape(.capsule)
             Spacer()
         }
         .padding(32)
+    }
+
+    /// Says where the conversation goes, so people know when it stays on the phone.
+    private var privacyNote: String {
+        ai.textProvider == .apple
+            ? "Running on your iPhone with Apple Intelligence. Nothing is sent anywhere."
+            : "Sent to Anthropic under your own key."
     }
 
     private var conversation: some View {
         ScrollViewReader { proxy in
             ScrollView {
                 VStack(spacing: 12) {
-                    Text("AI can be wrong. It isn't a doctor. For allergies, always read the label.")
+                    Text("\(privacyNote) AI can be wrong. It isn't a doctor. For allergies, always read the label.")
                         .font(.caption).foregroundStyle(.secondary).multilineTextAlignment(.center).padding(.top, 8)
 
                     if messages.isEmpty {
@@ -156,14 +167,31 @@ struct AskAIView: View {
     private func retry() { error = nil; ask() }
 
     private func ask() {
-        guard let key = ai.apiKey else { showConnect = true; return }
+        guard let provider = ai.textProvider else { showConnect = true; return }
         isSending = true
-        let history: [[String: Any]] = messages.suffix(12).map { ["role": $0.role.rawValue, "content": $0.text] }
-        let system = AskAI.systemPrompt(family: family.members, product: product)
+        let turns = messages.suffix(12).map { (role: $0.role.rawValue, text: $0.text) }
+        let system = AskAI.systemPrompt(family: family.members, product: product, compact: provider == .apple)
+        let key = ai.apiKey
         Task {
             defer { isSending = false }
             do {
-                let reply = try await AnthropicClient(apiKey: key).chat(system: system, messages: history, maxTokens: 700)
+                let reply: String
+                switch provider {
+                case .apple:
+                    do {
+                        reply = try await AppleAI.chat(system: system, messages: turns)
+                    } catch {
+                        // On-device AI can refuse or fail; use the person's own key instead if they linked one.
+                        guard let key else { throw error }
+                        reply = try await AnthropicClient(apiKey: key).chat(
+                            system: AskAI.systemPrompt(family: family.members, product: product),
+                            messages: turns.map { ["role": $0.role, "content": $0.text] }, maxTokens: 700)
+                    }
+                case .claude:
+                    guard let key else { throw AnthropicClient.ClientError.invalidKey }
+                    reply = try await AnthropicClient(apiKey: key).chat(
+                        system: system, messages: turns.map { ["role": $0.role, "content": $0.text] }, maxTokens: 700)
+                }
                 withAnimation(.snappy) { messages.append(Message(role: .assistant, text: reply.trimmingCharacters(in: .whitespacesAndNewlines))) }
             } catch {
                 self.error = error.localizedDescription

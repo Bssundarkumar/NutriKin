@@ -12,10 +12,10 @@ struct ConnectAIView: View {
         NavigationStack {
             Form {
                 Section {
-                    Label("Link your AI", systemImage: "sparkles")
+                    Label("Link your Claude key", systemImage: "key.fill")
                         .font(.headline)
                         .foregroundStyle(Theme.brand)
-                    Text("Your AI (Claude by Anthropic) can estimate calories from a plate photo, answer questions about a scanned product, and plan a day of meals for each family member. You use your own Anthropic account, so there's no extra charge from NutriKin. Each request costs a few cents on your account.")
+                    Text("A Claude key is optional. It's needed to estimate calories from a plate photo, and it gives longer, more detailed chat answers and meal plans. Chat and meal ideas already work on Apple's on-device AI if your iPhone supports it. You use your own Anthropic account, so there's no extra charge from NutriKin. Each request costs a few cents on your account.")
                         .font(.subheadline)
                     Link("Get a key at console.anthropic.com", destination: URL(string: "https://console.anthropic.com/settings/keys")!)
                         .font(.subheadline.weight(.semibold))
@@ -50,7 +50,7 @@ struct ConnectAIView: View {
                         .foregroundStyle(.secondary)
                 }
             }
-            .navigationTitle("Connect AI")
+            .navigationTitle("Claude key")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar { ToolbarItem(placement: .cancellationAction) { Button("Close") { dismiss() } } }
         }

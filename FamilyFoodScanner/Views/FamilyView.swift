@@ -83,17 +83,33 @@ struct FamilyView: View {
                 }
 
                 Section {
+                    switch ai.appleStatus {
+                    case .available:
+                        Label("Apple Intelligence on this iPhone", systemImage: "checkmark.seal.fill").foregroundStyle(Theme.brand)
+                    case .unavailable(let reason):
+                        Label(reason, systemImage: "apple.intelligence").font(.footnote).foregroundStyle(.secondary)
+                    case .unsupportedOS:
+                        Label("Apple's on-device AI needs iOS 26 or later.", systemImage: "apple.intelligence")
+                            .font(.footnote).foregroundStyle(.secondary)
+                    }
                     if ai.isConnected {
-                        Label("Connected to Claude (Anthropic)", systemImage: "checkmark.seal.fill").foregroundStyle(Theme.brand)
-                        Button { showAskAI = true } label: { Label("Ask NutriKin AI", systemImage: "bubble.left.and.text.bubble.right") }
-                        Button("Disconnect", role: .destructive) { ai.disconnect() }
+                        Label("Your Claude key is linked", systemImage: "key.fill").foregroundStyle(Theme.brand)
+                        if ai.appleStatus.isAvailable {
+                            Picker("Chat and meals use", selection: Bindable(ai).preference) {
+                                ForEach(AIProvider.allCases) { Text($0.title).tag($0) }
+                            }
+                        }
+                        Button("Remove key", role: .destructive) { ai.disconnect() }
                     } else {
-                        Button { showConnectAI = true } label: { Label("Connect your AI", systemImage: "sparkles") }
+                        Button { showConnectAI = true } label: { Label("Add your own Claude key (optional)", systemImage: "key") }
+                    }
+                    if ai.textProvider != nil {
+                        Button { showAskAI = true } label: { Label("Ask NutriKin AI", systemImage: "bubble.left.and.text.bubble.right") }
                     }
                 } header: {
                     Text("AI assistant")
                 } footer: {
-                    Text("Optional. Link your own AI account to chat about food, get meal ideas and estimate calories from a photo of your plate. Your key stays on this iPhone.")
+                    Text("Chat and meal ideas run on Apple's on-device AI when your iPhone supports it: free, private and nothing leaves the phone. Plate-photo scanning needs your own Claude key (Apple's on-device AI reads text, not photos). The key stays on this iPhone.")
                 }
 
                 Section {
@@ -150,6 +166,7 @@ struct FamilyView: View {
             }
             .refreshable { await family.refresh() }
             .task { if family.members.isEmpty { await family.refresh() } }
+            .onAppear { ai.refreshApple() }
         }
     }
 

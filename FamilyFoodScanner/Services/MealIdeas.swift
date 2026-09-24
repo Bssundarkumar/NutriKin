@@ -35,7 +35,7 @@ enum MealSafety {
 }
 
 enum MealIdeasService {
-    static func systemPrompt(member: Member, plan: NutritionPlan?, targetKcal: Int, preferences: String) -> String {
+    static func systemPrompt(member: Member, plan: NutritionPlan?, targetKcal: Int, preferences: String, expectJSON: Bool = true) -> String {
         var limits = ""
         if let plan {
             limits = """
@@ -60,17 +60,37 @@ enum MealIdeasService {
         - Respect their conditions (lower sugar for diabetes, lower sodium for high blood pressure, less saturated fat for high cholesterol).
         - kcal is per dish as served. Be honest and approximate.
 
+        \(expectJSON ? """
         Reply with JSON only, in exactly this shape:
         {"meals":[{"name":"Breakfast","dishes":[{"name":"Vegetable upma with curd","kcal":320,"ingredients":["semolina","mixed vegetables","curd"],"why":"Fibre-rich and slow to digest."}]}],"tips":["one short practical tip"]}
+        """ : "")
         """
     }
 
-    static func generate(member: Member, plan: NutritionPlan?, preferences: String, apiKey: String) async throws -> MealIdeas {
+    static func generate(member: Member, plan: NutritionPlan?, preferences: String,
+                         provider: AIProvider, apiKey: String?) async throws -> MealIdeas {
         let target = plan?.dailyKcal ?? Int(member.goals.dailyCalories ?? ScoringEngine.defaultCalorieGoal(for: member.sex))
-        let text = try await AnthropicClient(apiKey: apiKey).send(
-            system: systemPrompt(member: member, plan: plan, targetKcal: target, preferences: preferences),
-            content: [["type": "text", "text": "Plan today's meals for \(member.name)."]],
-            maxTokens: 2000)
+        let request = "Plan today's meals for \(member.name)."
+        let text: String
+        switch provider {
+        case .apple:
+            do {
+                text = try await AppleAI.mealPlanJSON(
+                    system: systemPrompt(member: member, plan: plan, targetKcal: target, preferences: preferences, expectJSON: false),
+                    prompt: request)
+            } catch {
+                guard let apiKey else { throw error }       // fall back to the person's own key
+                text = try await AnthropicClient(apiKey: apiKey).send(
+                    system: systemPrompt(member: member, plan: plan, targetKcal: target, preferences: preferences),
+                    content: [["type": "text", "text": request]], maxTokens: 2000)
+            }
+        case .claude:
+            guard let apiKey else { throw AnthropicClient.ClientError.invalidKey }
+            text = try await AnthropicClient(apiKey: apiKey).send(
+                system: systemPrompt(member: member, plan: plan, targetKcal: target, preferences: preferences),
+                content: [["type": "text", "text": request]], maxTokens: 2000)
+        }
+        // Whoever wrote the plan, the app re-checks every dish against the person's allergies.
         return try MealIdeasParser.parse(text, for: member)
     }
 }

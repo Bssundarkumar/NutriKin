@@ -8,11 +8,32 @@ import Observation
 final class AIConnection {
     static let account = "anthropic-api-key"
 
+    private static let preferenceKey = "aiProviderPreference"
+
+    /// True when the person has linked their own Anthropic key.
     private(set) var isConnected: Bool
+    private(set) var appleStatus: AppleAI.Status
     var isWorking = false
     var errorMessage: String?
 
-    init() { isConnected = Demo.isOn || KeychainStore.get(Self.account) != nil }
+    /// What the person prefers when both are possible. Apple's on-device AI is the default.
+    var preference: AIProvider {
+        didSet { UserDefaults.standard.set(preference.rawValue, forKey: Self.preferenceKey) }
+    }
+
+    init() {
+        isConnected = Demo.isOn || KeychainStore.get(Self.account) != nil
+        appleStatus = Demo.isOn ? .available : AppleAI.status
+        preference = AIProvider(rawValue: UserDefaults.standard.string(forKey: Self.preferenceKey) ?? "") ?? .apple
+    }
+
+    /// Re-checks Apple's model (it can finish downloading, or Apple Intelligence can be switched on).
+    func refreshApple() { appleStatus = Demo.isOn ? .available : AppleAI.status }
+
+    /// Who answers chat questions and meal plans right now, or nil if nothing is set up.
+    var textProvider: AIProvider? {
+        AIProvider.choose(preference: preference, appleAvailable: appleStatus.isAvailable, keyConnected: isConnected)
+    }
 
     var apiKey: String? { KeychainStore.get(Self.account) }
 

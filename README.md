@@ -45,10 +45,13 @@ SwiftUI, iOS 17+, backed by Supabase for shared family data.
 - **Weight and intake plan** per adult from BMI: target weight, a paced calorie
   target (Mifflin-St Jeor, with a safe floor; no plans for children) and a
   shortcut that saves it as the calorie goal.
-- **Optional AI features** on the person's own Anthropic key (stored only in the
-  iPhone Keychain, sent only to Anthropic): scan a plate to estimate calories,
-  ask questions about a scanned product, and get a day of meal ideas per member.
-  The app re-checks every AI meal against the person's allergies.
+- **Optional AI features.** Chat about a scanned product and a day of meal ideas per
+  member run on Apple's on-device model where available (iOS 26, Apple Intelligence;
+  free, nothing leaves the phone), or on the person's own Anthropic key (stored only
+  in the iPhone Keychain, sent only to Anthropic). Plate-photo calorie estimates and
+  reading a product label from photos need the key, because the on-device model reads
+  text, not images. The app re-checks every AI meal against the person's allergies, and
+  the person confirms every AI-read label before it's scored.
 - **History** of past scans, one entry per product, with each member's verdict at the time.
 - **Apple Health** read access for the device owner (weight, glucose, blood
   pressure, calories).
