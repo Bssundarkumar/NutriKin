@@ -29,6 +29,12 @@ targets:
       path: Generated/Info.plist
       properties:
         CFBundleDisplayName: NutriKin
+        # The app only uses standard HTTPS, so it's exempt from export-compliance
+        # questions (this stops App Store Connect asking on every build).
+        ITSAppUsesNonExemptEncryption: false
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        UISupportedInterfaceOrientations: [UIInterfaceOrientationPortrait]
         UILaunchScreen: {}
         CFBundleURLTypes:
           - CFBundleURLName: com.nutrikin.NutriKin
@@ -51,6 +57,11 @@ targets:
         SWIFT_VERSION: "5.0"
         GENERATE_INFOPLIST_FILE: NO
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        # iPhone only for now (avoids iPad screenshots and layout requirements).
+        TARGETED_DEVICE_FAMILY: "1"
+        # Bump CURRENT_PROJECT_VERSION for every build you upload to TestFlight.
+        MARKETING_VERSION: "1.0.0"
+        CURRENT_PROJECT_VERSION: "1"
   NutriKinTests:
     type: bundle.unit-test
     platform: iOS
