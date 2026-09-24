@@ -1,3 +1,4 @@
+import AuthenticationServices
 import SwiftUI
 
 /// Sign in with an email and a 6-digit code. No password to remember.
@@ -6,6 +7,7 @@ struct SignInView: View {
     @State private var email = ""
     @State private var code = ""
     @State private var password = ""
+    @State private var appleNonce = ""
     @FocusState private var focused: Bool
 
     var body: some View {
@@ -66,6 +68,31 @@ struct SignInView: View {
             Button("Send me a code") { Task { await auth.sendCode(to: email) } }
                 .buttonStyle(.borderedProminent)
                 .disabled(AuthStore.normalizedEmail(email) == nil || auth.isWorking)
+
+            HStack {
+                Rectangle().fill(.quaternary).frame(height: 1)
+                Text("or").font(.footnote).foregroundStyle(.secondary)
+                Rectangle().fill(.quaternary).frame(height: 1)
+            }
+            .padding(.vertical, 4)
+
+            SignInWithAppleButton(.continue) { request in
+                appleNonce = AuthStore.randomNonce()
+                request.requestedScopes = [.email]
+                request.nonce = AuthStore.sha256Hex(appleNonce)
+            } onCompletion: { result in
+                Task { await auth.handleApple(result, nonce: appleNonce) }
+            }
+            .signInWithAppleButtonStyle(.black)
+            .frame(height: 44)
+            .disabled(auth.isWorking)
+
+            Button { Task { await auth.signInWithGoogle() } } label: {
+                Label("Continue with Google", systemImage: "g.circle.fill")
+                    .frame(maxWidth: .infinity, minHeight: 32)
+            }
+            .buttonStyle(.bordered)
+            .disabled(auth.isWorking)
 
             DisclosureGroup("Sign in with a password") {
                 VStack(spacing: 10) {

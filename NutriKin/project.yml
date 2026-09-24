@@ -46,6 +46,7 @@ targets:
       path: Generated/NutriKin.entitlements
       properties:
         com.apple.developer.healthkit: true
+        com.apple.developer.applesignin: [Default]
         # No "com.apple.developer.healthkit.access" key here on purpose:
         # that entitlement is specifically for Clinical Health Records
         # (FHIR documents), which personal/free Apple ID teams can't
@@ -66,7 +67,7 @@ targets:
         TARGETED_DEVICE_FAMILY: "1"
         # Bump CURRENT_PROJECT_VERSION for every build you upload to TestFlight.
         MARKETING_VERSION: "1.0.0"
-        CURRENT_PROJECT_VERSION: "3"
+        CURRENT_PROJECT_VERSION: "4"
   NutriKinTests:
     type: bundle.unit-test
     platform: iOS

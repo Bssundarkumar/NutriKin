@@ -1,3 +1,5 @@
+import AuthenticationServices
+import CryptoKit
 import Foundation
 import Observation
 import Supabase
@@ -78,6 +80,51 @@ final class AuthStore {
         }
     }
 
+    /// Where Google sends the user back to the app. Must also be listed under
+    /// Supabase > Authentication > URL Configuration > Redirect URLs.
+    static let oauthRedirect = URL(string: "nutrikin://login-callback")!
+
+    /// Google sign-in in the system browser sheet. Needs the Google provider
+    /// enabled in Supabase.
+    func signInWithGoogle() async {
+        isWorking = true
+        errorMessage = nil
+        defer { isWorking = false }
+        do {
+            try await auth.signInWithOAuth(provider: .google, redirectTo: Self.oauthRedirect)
+        } catch let error as ASWebAuthenticationSessionError where error.code == .canceledLogin {
+            // The user closed the sheet; nothing to report.
+        } catch {
+            errorMessage = "Couldn't sign in with Google. \(error.localizedDescription)"
+        }
+    }
+
+    /// Finishes native Sign in with Apple: hands Apple's identity token to
+    /// Supabase. `nonce` is the raw value whose SHA-256 was sent to Apple.
+    func handleApple(_ result: Result<ASAuthorization, Error>, nonce: String) async {
+        switch result {
+        case .failure(let error):
+            if (error as? ASAuthorizationError)?.code == .canceled { return }
+            errorMessage = "Couldn't sign in with Apple. \(error.localizedDescription)"
+        case .success(let authorization):
+            guard let credential = authorization.credential as? ASAuthorizationAppleIDCredential,
+                  let data = credential.identityToken,
+                  let idToken = String(data: data, encoding: .utf8) else {
+                errorMessage = "Apple didn't return a sign-in token. Please try again."
+                return
+            }
+            isWorking = true
+            errorMessage = nil
+            defer { isWorking = false }
+            do {
+                try await auth.signInWithIdToken(
+                    credentials: OpenIDConnectCredentials(provider: .apple, idToken: idToken, nonce: nonce))
+            } catch {
+                errorMessage = "Couldn't sign in with Apple. \(error.localizedDescription)"
+            }
+        }
+    }
+
     /// Password sign-in, used for the App Review demo account. Regular users
     /// sign in with an emailed code.
     func signIn(email rawEmail: String, password: String) async {
@@ -138,5 +185,17 @@ final class AuthStore {
     /// Keeps digits only, so pasted codes with spaces or dashes still work.
     nonisolated static func sanitizedCode(_ raw: String) -> String {
         String(raw.filter(\.isNumber).prefix(10))
+    }
+
+    // MARK: - Sign in with Apple nonce (pure, unit-tested)
+
+    nonisolated static func randomNonce(length: Int = 32) -> String {
+        let chars = Array("0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz-._")
+        var generator = SystemRandomNumberGenerator()
+        return String((0..<length).map { _ in chars.randomElement(using: &generator)! })
+    }
+
+    nonisolated static func sha256Hex(_ input: String) -> String {
+        SHA256.hash(data: Data(input.utf8)).map { String(format: "%02x", $0) }.joined()
     }
 }

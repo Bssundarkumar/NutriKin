@@ -35,3 +35,16 @@ final class AuthTests: XCTestCase {
         XCTAssertThrowsError(try Backend.decodeRow(Data("[]".utf8)) as Row)
     }
 }
+
+final class AppleNonceTests: XCTestCase {
+    func testSha256KnownVector() {
+        XCTAssertEqual(AuthStore.sha256Hex("abc"),
+                       "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad")
+    }
+
+    func testRandomNonceIsLongAndUnique() {
+        let a = AuthStore.randomNonce(), b = AuthStore.randomNonce()
+        XCTAssertEqual(a.count, 32)
+        XCTAssertNotEqual(a, b)
+    }
+}
