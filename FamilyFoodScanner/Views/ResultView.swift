@@ -8,6 +8,7 @@ struct ResultView: View {
     private let analyzer = IngredientAnalyzer()
     @State private var alternatives: AlternativesSection.Phase = .unavailable
     @State private var showGradesInfo = false
+    @State private var showAsk = Demo.opensAsk
 
     private var scores: [MemberScore] {
         engine.scoreFamily(product, members: family.members)
@@ -126,6 +127,15 @@ struct ResultView: View {
 
             AlternativesSection(phase: alternatives)
 
+            Section {
+                Button { showAsk = true } label: {
+                    Label("Ask AI about this product", systemImage: "sparkles")
+                        .font(.subheadline.weight(.semibold))
+                }
+            } footer: {
+                Text("Chat with your linked AI. It knows this product and your family's needs.")
+            }
+
             let ingredientRows = IngredientRows.make(product: product, alerts: ingredientAlerts, members: family.members)
             if !ingredientRows.isEmpty {
                 Section("Ingredients") { IngredientListView(rows: ingredientRows) }
@@ -144,6 +154,7 @@ struct ResultView: View {
         }
         .softList()
         .sheet(isPresented: $showGradesInfo) { GradesInfoSheet() }
+        .sheet(isPresented: $showAsk) { AskAIView(product: product) }
         .navigationTitle("Scan result")
         .navigationBarTitleDisplayMode(.inline)
         .task(id: product.barcode) { await loadAlternatives(for: results) }

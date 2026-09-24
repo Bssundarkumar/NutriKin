@@ -7,6 +7,7 @@ struct NutritionPlanView: View {
     @Environment(\.dismiss) private var dismiss
     @AppStorage private var activityRaw: String
     @State private var applied = false
+    @State private var showMeals = Demo.opensMeals
 
     init(member: Member) {
         self.member = member
@@ -84,6 +85,12 @@ struct NutritionPlanView: View {
                 Text("Scans compare foods with this goal once you save it.")
             }
 
+            Section {
+                Button { showMeals = true } label: { Label("Get meal ideas with AI", systemImage: "sparkles") }
+            } footer: {
+                Text("A day of meals sized to this plan, avoiding \(member.name)'s allergies.")
+            }
+
             Section("A day, split up") {
                 ForEach(plan.meals, id: \.name) { meal in
                     LabeledContent(meal.name, value: "\(meal.kcal) kcal")
@@ -107,6 +114,7 @@ struct NutritionPlanView: View {
             }
         }
         .softList()
+        .sheet(isPresented: $showMeals) { MealIdeasView(member: member, plan: plan) }
         .animation(.snappy, value: activityRaw)
     }
 

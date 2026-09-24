@@ -37,15 +37,20 @@ enum Allergen: String, CaseIterable, Codable, Identifiable, Hashable {
         case .milk: ["milk", "whey", "casein", "butter", "cream", "lactose",
                      "lait", "lactosérum", "lactoserum", "beurre", "crème", "creme fraiche",
                      "leche", "suero de leche", "mantequilla", "nata", "milch", "molke", "sahne",
-                     "latte", "siero di latte", "burro", "panna"]
+                     "latte", "siero di latte", "burro", "panna",
+                     "cheese", "yogurt", "yoghurt", "curd", "paneer", "ghee", "kefir", "custard",
+                     "fromage", "yaourt", "queso", "yogur", "käse", "formaggio"]
         case .gluten: ["wheat", "barley", "rye", "spelt", "gluten",
                        "blé", "froment", "orge", "seigle", "épeautre", "trigo", "cebada", "centeno",
-                       "weizen", "gerste", "roggen", "dinkel", "frumento", "orzo", "segale"]
-        case .eggs: ["egg", "oeuf", "œuf", "huevo", "eier", "uovo", "uova"]
-        case .soybeans: ["soy", "soya", "soja", "soia"]
+                       "weizen", "gerste", "roggen", "dinkel", "frumento", "orzo", "segale",
+                       "semolina", "suji", "maida", "atta", "chapati", "roti", "naan", "paratha", "couscous",
+                       "pasta", "noodle", "seitan"]
+        case .eggs: ["egg", "oeuf", "œuf", "huevo", "eier", "uovo", "uova", "mayonnaise", "mayo"]
+        case .soybeans: ["soy", "soya", "soja", "soia", "tofu", "tempeh", "edamame", "miso"]
         case .fish: ["fish", "anchov", "salmon", "tuna", "cod",
                      "poisson", "saumon", "thon", "morue", "pescado", "salmón", "atún", "bacalao",
-                     "fisch", "lachs", "thunfisch", "pesce", "tonno", "merluzzo"]
+                     "fisch", "lachs", "thunfisch", "pesce", "tonno", "merluzzo",
+                     "sardine", "mackerel", "tilapia", "trout", "herring"]
         case .crustaceans: ["shrimp", "prawn", "crab", "lobster",
                             "crevette", "crabe", "homard", "gamba", "camarón", "camaron", "cangrejo",
                             "garnele", "krabbe", "hummer", "gambero", "granchio", "aragosta"]

@@ -15,7 +15,7 @@ struct ConnectAIView: View {
                     Label("Link your AI", systemImage: "sparkles")
                         .font(.headline)
                         .foregroundStyle(Theme.brand)
-                    Text("Plate scanning uses an AI (Claude by Anthropic) to recognise the food in a photo and estimate portions. You use your own Anthropic account, so there's no extra charge from NutriKin. Each plate costs a few cents on your Anthropic account.")
+                    Text("Your AI (Claude by Anthropic) can estimate calories from a plate photo, answer questions about a scanned product, and plan a day of meals for each family member. You use your own Anthropic account, so there's no extra charge from NutriKin. Each request costs a few cents on your account.")
                         .font(.subheadline)
                     Link("Get a key at console.anthropic.com", destination: URL(string: "https://console.anthropic.com/settings/keys")!)
                         .font(.subheadline.weight(.semibold))
@@ -45,7 +45,7 @@ struct ConnectAIView: View {
                 }
 
                 Section {
-                    Text("Photos you scan are sent from your iPhone to Anthropic for analysis under your account. Don't include people or documents in the picture.")
+                    Text("When you use these features, your photo or question is sent from your iPhone to Anthropic under your account, together with the family details needed to answer (names, ages, conditions and allergies you entered). Don't include people or documents in plate photos.")
                         .font(.footnote)
                         .foregroundStyle(.secondary)
                 }

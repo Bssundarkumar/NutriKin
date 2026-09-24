@@ -26,10 +26,15 @@ struct AnthropicClient {
 
     /// Sends one user turn (text and/or images) and returns the reply text.
     func send(system: String?, content: [[String: Any]], maxTokens: Int) async throws -> String {
+        try await chat(system: system, messages: [["role": "user", "content": content]], maxTokens: maxTokens)
+    }
+
+    /// Sends a whole conversation (alternating user/assistant messages, starting with the user).
+    func chat(system: String?, messages: [[String: Any]], maxTokens: Int) async throws -> String {
         var body: [String: Any] = [
             "model": Self.model,
             "max_tokens": maxTokens,
-            "messages": [["role": "user", "content": content]],
+            "messages": messages,
         ]
         if let system { body["system"] = system }
 

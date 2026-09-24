@@ -6,6 +6,7 @@ struct FamilyView: View {
     @Environment(HealthKitManager.self) private var health
     @Environment(AIConnection.self) private var ai
     @State private var showConnectAI = false
+    @State private var showAskAI = false
     @State private var isAdding = false
     @State private var editingMember: Member?
     @State private var planMember: Member? = Demo.opensPlan ? Demo.members.first : nil
@@ -84,6 +85,7 @@ struct FamilyView: View {
                 Section {
                     if ai.isConnected {
                         Label("Connected to Claude (Anthropic)", systemImage: "checkmark.seal.fill").foregroundStyle(Theme.brand)
+                        Button { showAskAI = true } label: { Label("Ask NutriKin AI", systemImage: "bubble.left.and.text.bubble.right") }
                         Button("Disconnect", role: .destructive) { ai.disconnect() }
                     } else {
                         Button { showConnectAI = true } label: { Label("Connect your AI", systemImage: "sparkles") }
@@ -91,7 +93,7 @@ struct FamilyView: View {
                 } header: {
                     Text("AI assistant")
                 } footer: {
-                    Text("Optional. Link your own AI account to estimate calories from a photo of your plate. Your key stays on this iPhone.")
+                    Text("Optional. Link your own AI account to chat about food, get meal ideas and estimate calories from a photo of your plate. Your key stays on this iPhone.")
                 }
 
                 Section {
@@ -137,6 +139,7 @@ struct FamilyView: View {
             }
             .sheet(isPresented: $isAdding) { MemberEditView(mode: .add) }
             .sheet(isPresented: $showConnectAI) { ConnectAIView() }
+            .sheet(isPresented: $showAskAI) { AskAIView(product: nil) }
             .sheet(item: $editingMember) { MemberEditView(mode: .edit($0)) }
             .sheet(item: $planMember) { NutritionPlanView(member: $0) }
             .alert("Delete your account?", isPresented: $confirmDelete) {

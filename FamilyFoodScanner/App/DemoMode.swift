@@ -7,6 +7,21 @@ enum Demo {
     static let isOn = CommandLine.arguments.contains("-demoMode")
     static var startTab: String { CommandLine.arguments.drop { $0 != "-demoTab" }.dropFirst().first ?? "scan" }
     static var opensProduct: Bool { CommandLine.arguments.contains("-demoProduct") }
+    static var opensAsk: Bool { CommandLine.arguments.contains("-demoAsk") }
+    static var opensMeals: Bool { CommandLine.arguments.contains("-demoMeals") }
+
+    static let askMessages: [(String, String)] = [
+        ("user", "Is this OK for everyone?"),
+        ("assistant", "**Not really.** Nutella is about 56% sugar, so it's a poor fit for **Amma** (diabetes, 25 g sugar goal): one tablespoon already uses roughly a third of her day.\n\nIt contains **hazelnuts and milk**. Arjun has a tree-nut allergy, so it's a firm no for him.\n\nPriya can have a thin spread now and then. Want a lower-sugar swap?"),
+    ]
+
+    static let mealIdeas = MealIdeas(slots: [
+        MealSlot(name: "Breakfast", dishes: [MealDish(name: "Vegetable upma with curd", kcal: 320, ingredients: ["semolina", "mixed vegetables", "curd"], why: "Fibre-rich and slow to digest.")]),
+        MealSlot(name: "Lunch", dishes: [MealDish(name: "Dal, brown rice and cucumber salad", kcal: 430, ingredients: ["lentils", "brown rice", "cucumber"], why: "Plant protein with steady carbs."),
+                                          MealDish(name: "Buttermilk", kcal: 40, ingredients: ["buttermilk", "cumin"], why: "Light and hydrating.")]),
+        MealSlot(name: "Dinner", dishes: [MealDish(name: "Grilled fish with sauteed greens", kcal: 380, ingredients: ["fish", "spinach", "olive oil"], why: "Lean protein, low in saturated fat.")]),
+        MealSlot(name: "Snacks", dishes: [MealDish(name: "Roasted chana and an apple", kcal: 180, ingredients: ["chickpeas", "apple"], why: "Keeps you full between meals.")]),
+    ], tips: ["Drink a glass of water before each meal.", "Swap sugary tea for unsweetened tea with cinnamon."], removedForAllergy: 1)
     static var opensPlan: Bool { CommandLine.arguments.contains("-demoPlan") }
     static var opensPlate: Bool { CommandLine.arguments.contains("-demoPlate") }
     static var plateResults: Bool { CommandLine.arguments.contains("-demoPlateResults") }
@@ -68,6 +83,10 @@ enum Demo {
     static let opensProduct = false
     static let opensPlate = false
     static let opensPlan = false
+    static let opensAsk = false
+    static let opensMeals = false
+    static let askMessages: [(String, String)] = []
+    static let mealIdeas = MealIdeas(slots: [], tips: [], removedForAllergy: 0)
     static let plateResults = false
     static let plateItems: [PlateItem] = []
     static let members: [Member] = []

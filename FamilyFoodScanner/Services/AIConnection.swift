@@ -12,7 +12,7 @@ final class AIConnection {
     var isWorking = false
     var errorMessage: String?
 
-    init() { isConnected = KeychainStore.get(Self.account) != nil }
+    init() { isConnected = Demo.isOn || KeychainStore.get(Self.account) != nil }
 
     var apiKey: String? { KeychainStore.get(Self.account) }
 
