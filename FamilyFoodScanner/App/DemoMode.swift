@@ -7,6 +7,7 @@ enum Demo {
     static let isOn = CommandLine.arguments.contains("-demoMode")
     static var startTab: String { CommandLine.arguments.drop { $0 != "-demoTab" }.dropFirst().first ?? "scan" }
     static var opensProduct: Bool { CommandLine.arguments.contains("-demoProduct") }
+    static var opensPlan: Bool { CommandLine.arguments.contains("-demoPlan") }
     static var opensPlate: Bool { CommandLine.arguments.contains("-demoPlate") }
     static var plateResults: Bool { CommandLine.arguments.contains("-demoPlateResults") }
 
@@ -23,7 +24,7 @@ enum Demo {
     ]
 
     static let members: [Member] = [
-        Member(name: "Amma", conditions: [.diabetes], goals: Goals(dailySugarGrams: 25), age: 54, sex: .female),
+        Member(name: "Amma", conditions: [.diabetes], goals: Goals(dailySugarGrams: 25), age: 54, heightCm: 158, weightKg: 72, sex: .female),
         Member(name: "Arjun", conditions: [.allergy(.nuts)], isManagedByParent: true, age: 8, sex: .male),
         Member(name: "Priya", conditions: [], age: 29, sex: .female),
     ]
@@ -66,6 +67,7 @@ enum Demo {
     static let startTab = "scan"
     static let opensProduct = false
     static let opensPlate = false
+    static let opensPlan = false
     static let plateResults = false
     static let plateItems: [PlateItem] = []
     static let members: [Member] = []

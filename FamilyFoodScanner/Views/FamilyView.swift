@@ -8,6 +8,7 @@ struct FamilyView: View {
     @State private var showConnectAI = false
     @State private var isAdding = false
     @State private var editingMember: Member?
+    @State private var planMember: Member? = Demo.opensPlan ? Demo.members.first : nil
     @State private var didCopyCode = false
     @State private var confirmDelete = false
 
@@ -43,6 +44,14 @@ struct FamilyView: View {
                             Text(m.isManagedByParent ? "Managed by a parent" : "Syncs from their iPhone")
                                 .font(.caption)
                                 .foregroundStyle(.green)
+                            Button { planMember = m } label: {
+                                Label("Weight & daily intake plan", systemImage: "chart.bar.doc.horizontal")
+                                    .font(.caption.weight(.semibold))
+                                    .padding(.horizontal, 10).padding(.vertical, 5)
+                                    .background(Theme.brand.opacity(0.12), in: Capsule())
+                            }
+                            .buttonStyle(.borderless)
+                            .padding(.top, 2)
                         }
                         }
                         .padding(.vertical, 2)
@@ -129,6 +138,7 @@ struct FamilyView: View {
             .sheet(isPresented: $isAdding) { MemberEditView(mode: .add) }
             .sheet(isPresented: $showConnectAI) { ConnectAIView() }
             .sheet(item: $editingMember) { MemberEditView(mode: .edit($0)) }
+            .sheet(item: $planMember) { NutritionPlanView(member: $0) }
             .alert("Delete your account?", isPresented: $confirmDelete) {
                 Button("Delete account", role: .destructive) { Task { if await auth.deleteAccount() { ai.disconnect() } } }
                 Button("Cancel", role: .cancel) {}
