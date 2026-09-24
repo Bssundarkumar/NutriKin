@@ -17,7 +17,7 @@ struct ResultView: View {
         let ingredientAlerts = analyzer.alerts(for: product, members: family.members)
 
         List {
-            Section { header }
+            Section { header.staggeredAppear(0) }
 
             if let failed = history.failedSave, failed.barcode == product.barcode {
                 Section {
@@ -32,7 +32,7 @@ struct ResultView: View {
                 }
             }
 
-            Section("Nutrition \(product.nutrition.basis)") { nutritionGrid }
+            Section("Nutrition \(product.nutrition.basis)") { nutritionGrid.staggeredAppear(1) }
 
             if !allergyHits.isEmpty {
                 Section {
@@ -45,7 +45,9 @@ struct ResultView: View {
 
             if !ingredientAlerts.isEmpty {
                 Section {
-                    ForEach(ingredientAlerts) { IngredientAlertRow(alert: $0) }
+                    ForEach(Array(ingredientAlerts.enumerated()), id: \.element.id) { i, alert in
+                        IngredientAlertRow(alert: alert).staggeredAppear(i + 2)
+                    }
                 } header: {
                     Text("Ingredient alerts")
                 } footer: {
@@ -54,18 +56,19 @@ struct ResultView: View {
             }
 
             Section("Who can eat this") {
-                ForEach(results) { s in
+                ForEach(Array(results.enumerated()), id: \.element.id) { i, s in
                     DisclosureGroup {
                         ForEach(s.reasons, id: \.self) { Text($0).font(.subheadline) }
                     } label: {
                         MemberScoreRow(score: s)
                     }
+                    .staggeredAppear(i + 3)
                 }
             }
 
-            let ingredientItems = ingredientItems(alerts: ingredientAlerts)
-            if !ingredientItems.isEmpty {
-                Section("Ingredients") { IngredientListView(items: ingredientItems) }
+            let ingredientRows = IngredientRows.make(product: product, alerts: ingredientAlerts, members: family.members)
+            if !ingredientRows.isEmpty {
+                Section("Ingredients") { IngredientListView(rows: ingredientRows) }
             } else if let raw = product.ingredientsText, !raw.isEmpty {
                 Section("Ingredients") { Text(raw).font(.footnote) }
             }
@@ -78,22 +81,13 @@ struct ResultView: View {
         }
         .navigationTitle("Scan result")
         .navigationBarTitleDisplayMode(.inline)
-    }
-
-    /// The label's ingredients as chips, each marked if it's worth limiting or
-    /// is an allergen for someone in the family.
-    private func ingredientItems(alerts: [IngredientAlert]) -> [IngredientListView.Item] {
-        guard let raw = product.ingredientsText else { return [] }
-        let familyAllergens = Set(family.members.flatMap(\.allergies))
-        let customAllergies = family.members.flatMap(\.customAllergyNames)
-
-        return IngredientParser.items(from: raw).enumerated().map { index, text in
-            let lower = text.lowercased()
-            let isAllergen = familyAllergens.contains { $0.keywords.contains { lower.contains($0) } }
-                || customAllergies.contains { lower.contains($0.lowercased()) }
-            if isAllergen { return .init(id: index, text: text, kind: .allergen) }
-            if analyzer.flag(for: text, among: alerts) != nil { return .init(id: index, text: text, kind: .limit) }
-            return .init(id: index, text: text, kind: .plain)
+        .onAppear {
+            // The scanner already gave a success tap; only add one when there's something to heed.
+            if allergyHits.isEmpty == false {
+                UINotificationFeedbackGenerator().notificationOccurred(.error)
+            } else if results.contains(where: { $0.verdict == .avoid }) {
+                UINotificationFeedbackGenerator().notificationOccurred(.warning)
+            }
         }
     }
 
@@ -140,6 +134,10 @@ struct ResultView: View {
 
 struct MemberScoreRow: View {
     let score: MemberScore
+    /// Counts up from 0 when the row appears.
+    @State private var shownScore = 0
+    @State private var popped = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         HStack {
@@ -151,13 +149,23 @@ struct MemberScoreRow: View {
             }
             Spacer()
             VStack(spacing: 0) {
-                Text("\(score.score)").font(.headline)
+                Text("\(shownScore)")
+                    .font(.headline.monospacedDigit())
+                    .contentTransition(.numericText(value: Double(shownScore)))
                 Text(score.verdict.label).font(.caption.weight(.semibold))
             }
             .frame(minWidth: 60)
             .padding(.vertical, 6)
             .background(color.opacity(0.15), in: RoundedRectangle(cornerRadius: 10))
             .foregroundStyle(color)
+            .scaleEffect(popped ? 1 : 0.7)
+            .opacity(popped ? 1 : 0)
+        }
+        .onAppear {
+            guard !popped else { return }
+            if reduceMotion { shownScore = score.score; popped = true; return }
+            withAnimation(.spring(response: 0.5, dampingFraction: 0.6).delay(0.15)) { popped = true }
+            withAnimation(.easeOut(duration: 0.9).delay(0.15)) { shownScore = score.score }
         }
     }
 

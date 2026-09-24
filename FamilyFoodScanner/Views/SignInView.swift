@@ -17,14 +17,18 @@ struct SignInView: View {
                     .scaledToFit()
                     .frame(width: 112, height: 112)
                     .accessibilityHidden(true)
+                    .popIn()
                 Text("Sign in to NutriKin")
                     .font(.title2.bold())
 
-                if let pending = auth.pendingEmail {
-                    codeStep(pending)
-                } else {
-                    emailStep
+                Group {
+                    if let pending = auth.pendingEmail {
+                        codeStep(pending).transition(.step)
+                    } else {
+                        emailStep.transition(.step)
+                    }
                 }
+                .animation(.smooth(duration: 0.35), value: auth.pendingEmail)
 
                 if auth.isWorking { ProgressView() }
                 if let message = auth.errorMessage {

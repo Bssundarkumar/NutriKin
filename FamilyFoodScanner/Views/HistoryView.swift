@@ -22,7 +22,7 @@ struct HistoryView: View {
 
                 ForEach(history.records) { record in
                     Button { open(record) } label: { HistoryRow(record: record, isOpening: openingBarcode == record.barcode) }
-                        .buttonStyle(.plain)
+                        .buttonStyle(PressableStyle())
                         .swipeActions {
                             Button("Delete", role: .destructive) { Task { await history.delete(record) } }
                         }
@@ -32,6 +32,7 @@ struct HistoryView: View {
                     Section { Text(message).font(.footnote).foregroundStyle(.red) }
                 }
             }
+            .animation(.snappy, value: history.records)
             .navigationTitle("History")
             .navigationDestination(item: $product) { ResultView(product: $0) }
             .overlay { if history.isLoading && history.records.isEmpty { ProgressView() } }

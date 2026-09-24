@@ -85,6 +85,7 @@ struct FamilyView: View {
                     Section { Text(errorMessage).font(.footnote).foregroundStyle(.red) }
                 }
             }
+            .animation(.snappy, value: family.members)
             .navigationTitle(family.householdName.isEmpty ? "Family" : family.householdName)
             .toolbar {
                 ToolbarItem(placement: .primaryAction) {

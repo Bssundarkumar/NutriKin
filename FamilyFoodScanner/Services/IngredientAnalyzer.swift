@@ -143,7 +143,9 @@ struct IngredientAnalyzer {
         let tags = product.ingredientTags.map {
             $0.replacingOccurrences(of: "en:", with: "").replacingOccurrences(of: "-", with: " ")
         }
-        return ([product.ingredientsText ?? ""] + tags).joined(separator: " , ").lowercased()
+        // The parsed breakdown carries each ingredient's label name and English id.
+        let amounts = product.ingredientAmounts.map { $0.text + " " + $0.englishWords }
+        return ([product.ingredientsText ?? ""] + tags + amounts).joined(separator: " , ").lowercased()
     }
 
     private func eCodes(in haystack: String, product: Product) -> Set<String> {

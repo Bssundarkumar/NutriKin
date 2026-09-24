@@ -15,6 +15,10 @@ SwiftUI, iOS 17+, backed by Supabase for shared family data.
   Digital Link).
 - **Score** the product 0-100 for every family member, with a readable reason
   for each deduction. Allergies are a hard block.
+- **Ingredient amounts:** each ingredient shows how much of the product it makes
+  up, from Open Food Facts (printed percentages exact, the rest marked `~` as
+  estimates), with a summary bar of how much is worth limiting. Tap a flagged
+  ingredient for why.
 - **Ingredient alerts** for things like trans fat, nitrite preservatives and
   children's-hyperactivity colours, plus condition-specific notes (added sugar
   for diabetes, sodium additives for high blood pressure, and so on).

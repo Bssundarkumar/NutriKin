@@ -54,7 +54,8 @@ enum IngredientParser {
 
     // MARK: - Tidying one item
 
-    private static func tidy(_ raw: String) -> String? {
+    /// Cleans one ingredient name (markup, shouting, capitalisation). Nil if nothing useful is left.
+    static func tidy(_ raw: String) -> String? {
         var s = raw
             .replacingOccurrences(of: "_", with: "")
             .replacingOccurrences(of: "*", with: "")

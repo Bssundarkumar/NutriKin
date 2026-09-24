@@ -23,7 +23,7 @@ struct ProductService {
         var comps = URLComponents(string: "https://world.openfoodfacts.org/api/v2/product/\(code).json")!
         comps.queryItems = [URLQueryItem(
             name: "fields",
-            value: "product_name,brands,image_front_small_url,ingredients_text,ingredients_tags,additives_tags,allergens_tags,serving_size,nutriments"
+            value: "product_name,brands,image_front_small_url,ingredients_text,ingredients_tags,ingredients,additives_tags,allergens_tags,serving_size,nutriments"
         )]
         var request = URLRequest(url: comps.url!)
         request.setValue(userAgent, forHTTPHeaderField: "User-Agent")
@@ -53,6 +53,7 @@ private struct OFFProduct: Decodable {
     let ingredients_text: String?
     let allergens_tags: [String]?
     let ingredients_tags: [String]?
+    let ingredients: [OFFIngredient]?
     let additives_tags: [String]?
     let serving_size: String?
     let nutriments: Nutriments?
@@ -88,8 +89,42 @@ private struct OFFProduct: Decodable {
                 basis: basis
             ),
             ingredientTags: ingredients_tags ?? [],
-            additivesTags: additives_tags ?? []
+            additivesTags: additives_tags ?? [],
+            ingredientAmounts: (ingredients ?? []).compactMap(\.asAmount)
         )
+    }
+}
+
+/// One entry of Open Food Facts' parsed ingredient list.
+struct OFFIngredient: Decodable {
+    let id: String?
+    let text: String?
+    let percent: Double?
+    let percent_estimate: Double?
+
+    enum CodingKeys: String, CodingKey { case id, text, percent, percent_estimate }
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        id = try? c.decode(String.self, forKey: .id)
+        text = try? c.decode(String.self, forKey: .text)
+        percent = Self.number(c, .percent)
+        percent_estimate = Self.number(c, .percent_estimate)
+    }
+
+    // Numbers sometimes arrive as strings.
+    private static func number(_ c: KeyedDecodingContainer<CodingKeys>, _ key: CodingKeys) -> Double? {
+        if let d = try? c.decode(Double.self, forKey: key) { return d }
+        if let s = try? c.decode(String.self, forKey: key) { return Double(s) }
+        return nil
+    }
+
+    /// Nil when there's no usable name.
+    var asAmount: IngredientAmount? {
+        let name = (text ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !name.isEmpty || id != nil else { return nil }
+        let stated = percent != nil
+        return IngredientAmount(id: id ?? "", text: name, percent: percent ?? percent_estimate, isStated: stated)
     }
 }
 

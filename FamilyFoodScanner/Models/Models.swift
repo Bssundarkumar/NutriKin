@@ -147,6 +147,25 @@ struct Nutrition: Hashable {
     var basis: String
 }
 
+/// One ingredient and its share of the product.
+struct IngredientAmount: Hashable {
+    /// Open Food Facts' canonical id, e.g. "en:palm-oil" (English whatever the label's language).
+    var id: String
+    /// The name as printed on the label.
+    var text: String
+    /// Percent of the product, 0...100, when known.
+    var percent: Double?
+    /// True when the label itself states the percentage; false when it's
+    /// Open Food Facts' estimate from the ingredient order and nutrition.
+    var isStated: Bool
+
+    /// The canonical id as plain English words: "en:skimmed-milk-powder" -> "skimmed milk powder".
+    var englishWords: String {
+        let bare = id.split(separator: ":", maxSplits: 1).last.map(String.init) ?? id
+        return bare.replacingOccurrences(of: "-", with: " ")
+    }
+}
+
 struct Product: Identifiable, Hashable {
     var id: String { barcode }
     var barcode: String
@@ -161,6 +180,9 @@ struct Product: Identifiable, Hashable {
     /// that aren't in English.
     var ingredientTags: [String] = []
     var additivesTags: [String] = []
+    /// Each ingredient with how much of the product it makes up, in label order.
+    /// Empty when Open Food Facts has no breakdown for the product.
+    var ingredientAmounts: [IngredientAmount] = []
 
     func contains(_ allergen: Allergen) -> Bool {
         if allergenTags.contains(allergen.offTag) { return true }

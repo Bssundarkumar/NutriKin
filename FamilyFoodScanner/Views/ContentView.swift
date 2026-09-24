@@ -4,6 +4,9 @@ struct ContentView: View {
     @Environment(AuthStore.self) private var auth
     @Environment(FamilyStore.self) private var family
     @Environment(HistoryStore.self) private var history
+    @State private var tab: Tab = .scan
+
+    private enum Tab: Hashable { case scan, history, family }
 
     var body: some View {
         Group {
@@ -20,14 +23,18 @@ struct ContentView: View {
                     retryView(message)
                 case .loaded:
                     if family.hasHousehold {
-                        TabView {
+                        TabView(selection: $tab) {
                             ScanView()
                                 .tabItem { Label("Scan", systemImage: "barcode.viewfinder") }
+                                .tag(Tab.scan)
                             HistoryView()
                                 .tabItem { Label("History", systemImage: "clock.arrow.circlepath") }
+                                .tag(Tab.history)
                             FamilyView()
                                 .tabItem { Label("Family", systemImage: "person.3") }
+                                .tag(Tab.family)
                         }
+                        .sensoryFeedback(.selection, trigger: tab)
                     } else {
                         HouseholdSetupView()
                     }
@@ -35,6 +42,8 @@ struct ContentView: View {
             }
         }
         .tint(Color(red: 0.12, green: 0.35, blue: 0.24))
+        .animation(.smooth(duration: 0.3), value: auth.state)
+        .animation(.smooth(duration: 0.3), value: family.phase)
         // Runs on launch and again whenever the signed-in account changes.
         .task(id: auth.state) {
             if case .signedIn = auth.state {

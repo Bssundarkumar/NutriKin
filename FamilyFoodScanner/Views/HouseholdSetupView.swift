@@ -21,6 +21,7 @@ struct HouseholdSetupView: View {
                     .scaledToFit()
                     .frame(width: 112, height: 112)
                     .accessibilityHidden(true)
+                    .popIn()
                 Text("Set up your family")
                     .font(.title2.bold())
                 Text("Create a new family, or join one with an invite code from another member's phone.")
@@ -29,38 +30,41 @@ struct HouseholdSetupView: View {
                     .multilineTextAlignment(.center)
                     .padding(.horizontal, 24)
 
-                switch mode {
-                case .choose:
-                    VStack(spacing: 12) {
-                        Button("Create a family") { mode = .create }
-                            .buttonStyle(.borderedProminent)
-                        Button("Join with a code") { mode = .join }
-                            .buttonStyle(.bordered)
-                    }
-                case .create:
-                    VStack(spacing: 12) {
-                        TextField("Family name", text: $name)
-                            .textFieldStyle(.roundedBorder)
-                            .textInputAutocapitalization(.words)
-                        Button("Create") { Task { await family.createHousehold(name: name) } }
-                            .buttonStyle(.borderedProminent)
-                            .disabled(name.trimmingCharacters(in: .whitespaces).isEmpty || family.isLoading)
-                        Button("Back") { mode = .choose }
-                            .font(.footnote)
-                    }
-                case .join:
-                    VStack(spacing: 12) {
-                        TextField("Invite code", text: $code)
-                            .textFieldStyle(.roundedBorder)
-                            .autocorrectionDisabled()
-                            .textInputAutocapitalization(.characters)
-                        Button("Join") { Task { await family.joinHousehold(code: code) } }
-                            .buttonStyle(.borderedProminent)
-                            .disabled(code.trimmingCharacters(in: .whitespaces).isEmpty || family.isLoading)
-                        Button("Back") { mode = .choose }
-                            .font(.footnote)
+                Group {
+                    switch mode {
+                    case .choose:
+                        VStack(spacing: 12) {
+                            Button("Create a family") { mode = .create }
+                                .buttonStyle(.borderedProminent)
+                            Button("Join with a code") { mode = .join }
+                                .buttonStyle(.bordered)
+                        }
+                    case .create:
+                        VStack(spacing: 12) {
+                            TextField("Family name", text: $name)
+                                .textFieldStyle(.roundedBorder)
+                                .textInputAutocapitalization(.words)
+                            Button("Create") { Task { await family.createHousehold(name: name) } }
+                                .buttonStyle(.borderedProminent)
+                                .disabled(name.trimmingCharacters(in: .whitespaces).isEmpty || family.isLoading)
+                            Button("Back") { mode = .choose }
+                                .font(.footnote)
+                        }
+                    case .join:
+                        VStack(spacing: 12) {
+                            TextField("Invite code", text: $code)
+                                .textFieldStyle(.roundedBorder)
+                                .autocorrectionDisabled()
+                                .textInputAutocapitalization(.characters)
+                            Button("Join") { Task { await family.joinHousehold(code: code) } }
+                                .buttonStyle(.borderedProminent)
+                                .disabled(code.trimmingCharacters(in: .whitespaces).isEmpty || family.isLoading)
+                            Button("Back") { mode = .choose }
+                                .font(.footnote)
+                        }
                     }
                 }
+                .animation(.smooth(duration: 0.3), value: mode)
 
                 if family.isLoading { ProgressView() }
                 if let errorMessage = family.errorMessage {

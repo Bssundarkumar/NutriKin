@@ -57,6 +57,7 @@ struct ScanView: View {
                     onRegionChange: { hasRegion = $0 },
                     onZoomChange: { zoom = $0 }
                 )
+                if !hasRegion { ScannerFrame().transition(.opacity) }
                 scannerControls
             } else {
                 Color.black.opacity(0.85)
@@ -98,6 +99,7 @@ struct ScanView: View {
                             .background(zoom == level ? Color.white : Color.black.opacity(0.55), in: Capsule())
                             .foregroundStyle(zoom == level ? Color.black : Color.white)
                     }
+                    .buttonStyle(PressableStyle())
                 }
                 if hasRegion {
                     Button { resetRegionToken += 1 } label: {
