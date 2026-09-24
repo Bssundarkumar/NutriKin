@@ -7,6 +7,20 @@ enum Demo {
     static let isOn = CommandLine.arguments.contains("-demoMode")
     static var startTab: String { CommandLine.arguments.drop { $0 != "-demoTab" }.dropFirst().first ?? "scan" }
     static var opensProduct: Bool { CommandLine.arguments.contains("-demoProduct") }
+    static var opensPlate: Bool { CommandLine.arguments.contains("-demoPlate") }
+    static var plateResults: Bool { CommandLine.arguments.contains("-demoPlateResults") }
+
+    static let plateItems: [PlateItem] = [
+        PlateItem(name: "Basmati rice", grams: 180,
+                  per100g: .init(calories: 130, sugarG: 0.1, carbsG: 28, sodiumMg: 1, satFatG: 0.1, proteinG: 2.7),
+                  confidence: .high, allergens: []),
+        PlateItem(name: "Chicken curry", grams: 150,
+                  per100g: .init(calories: 165, sugarG: 3, carbsG: 6, sodiumMg: 420, satFatG: 3.2, proteinG: 14),
+                  confidence: .medium, allergens: [.milk]),
+        PlateItem(name: "Peanut chutney", grams: 30,
+                  per100g: .init(calories: 320, sugarG: 5, carbsG: 12, sodiumMg: 500, satFatG: 5, proteinG: 12),
+                  confidence: .low, allergens: [.peanuts]),
+    ]
 
     static let members: [Member] = [
         Member(name: "Amma", conditions: [.diabetes], goals: Goals(dailySugarGrams: 25), age: 54, sex: .female),
@@ -51,6 +65,9 @@ enum Demo {
     static let isOn = false
     static let startTab = "scan"
     static let opensProduct = false
+    static let opensPlate = false
+    static let plateResults = false
+    static let plateItems: [PlateItem] = []
     static let members: [Member] = []
     static let product: Product? = nil
     static let records: [ScanRecord] = []

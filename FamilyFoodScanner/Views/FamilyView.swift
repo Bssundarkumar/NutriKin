@@ -4,6 +4,8 @@ struct FamilyView: View {
     @Environment(AuthStore.self) private var auth
     @Environment(FamilyStore.self) private var family
     @Environment(HealthKitManager.self) private var health
+    @Environment(AIConnection.self) private var ai
+    @State private var showConnectAI = false
     @State private var isAdding = false
     @State private var editingMember: Member?
     @State private var didCopyCode = false
@@ -71,6 +73,19 @@ struct FamilyView: View {
                 }
 
                 Section {
+                    if ai.isConnected {
+                        Label("Connected to Claude (Anthropic)", systemImage: "checkmark.seal.fill").foregroundStyle(Theme.brand)
+                        Button("Disconnect", role: .destructive) { ai.disconnect() }
+                    } else {
+                        Button { showConnectAI = true } label: { Label("Connect your AI", systemImage: "sparkles") }
+                    }
+                } header: {
+                    Text("AI assistant")
+                } footer: {
+                    Text("Optional. Link your own AI account to estimate calories from a photo of your plate. Your key stays on this iPhone.")
+                }
+
+                Section {
                     Button("Leave this family", role: .destructive) {
                         Task { await family.leaveHousehold() }
                     }
@@ -91,7 +106,7 @@ struct FamilyView: View {
                     if case .signedIn(let email) = auth.state {
                         LabeledContent("Signed in as", value: email)
                     }
-                    Button("Sign out") { Task { await auth.signOut() } }
+                    Button("Sign out") { ai.disconnect(); Task { await auth.signOut() } }
                     Button("Delete account", role: .destructive) { confirmDelete = true }
                 } header: {
                     Text("Account")
@@ -112,9 +127,10 @@ struct FamilyView: View {
                 }
             }
             .sheet(isPresented: $isAdding) { MemberEditView(mode: .add) }
+            .sheet(isPresented: $showConnectAI) { ConnectAIView() }
             .sheet(item: $editingMember) { MemberEditView(mode: .edit($0)) }
             .alert("Delete your account?", isPresented: $confirmDelete) {
-                Button("Delete account", role: .destructive) { Task { _ = await auth.deleteAccount() } }
+                Button("Delete account", role: .destructive) { Task { if await auth.deleteAccount() { ai.disconnect() } } }
                 Button("Cancel", role: .cancel) {}
             } message: {
                 Text("This permanently deletes your login. If you're the only person in your family, its members and scan history are deleted too. This can't be undone.")
