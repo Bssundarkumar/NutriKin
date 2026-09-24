@@ -132,3 +132,61 @@ private struct AlternativeRow: View {
         }
     }
 }
+
+/// Plain-language explanation of the two grades, opened from the "i" next to "Quality grades".
+struct GradesInfoSheet: View {
+    @Environment(\.dismiss) private var dismiss
+
+    private let novaRows: [(Int, String, String)] = [
+        (1, "Unprocessed or minimally processed", "Fruit, vegetables, eggs, plain milk, rice, fresh meat"),
+        (2, "Processed culinary ingredients", "Oil, butter, sugar, salt, honey"),
+        (3, "Processed foods", "Canned vegetables, cheese, fresh bread, salted nuts"),
+        (4, "Ultra-processed foods", "Soft drinks, packaged snacks, instant noodles, most sweet spreads"),
+    ]
+
+    var body: some View {
+        NavigationStack {
+            List {
+                Section {
+                    Text("A to E, from best to worst. It looks at what's in 100 g: calories, sugar, saturated fat and salt count against a product; fibre, protein and fruit or vegetables count for it.")
+                        .font(.subheadline)
+                    HStack(spacing: 4) {
+                        ForEach(["a", "b", "c", "d", "e"], id: \.self) { letter in
+                            Text(letter.uppercased()).font(.footnote.weight(.bold))
+                                .frame(maxWidth: .infinity, minHeight: 30)
+                                .background(QualityBadges.nutriColors[letter]!, in: RoundedRectangle(cornerRadius: 8))
+                                .foregroundStyle(.white)
+                        }
+                    }
+                } header: { Text("Nutri-Score") }
+
+                Section {
+                    Text("NOVA sorts food by how much it has been industrially processed, not by its nutrients. Group 4 usually means added flavours, sweeteners or emulsifiers you wouldn't use at home. Studies link eating a lot of these with weight gain and heart disease.")
+                        .font(.subheadline)
+                    ForEach(novaRows, id: \.0) { group, title, examples in
+                        HStack(alignment: .top, spacing: 12) {
+                            Text("\(group)").font(.headline)
+                                .frame(width: 32, height: 32)
+                                .background(QualityBadges.novaColors[group]!, in: Circle())
+                                .foregroundStyle(.white)
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(title).font(.subheadline.weight(.semibold))
+                                Text(examples).font(.caption).foregroundStyle(.secondary)
+                            }
+                        }
+                    }
+                } header: { Text("NOVA") }
+
+                Section {
+                    Text("Both grades come from Open Food Facts and are general: they don't know your family's health needs. That's what the family scores are for. They aren't shown for dietary supplements.")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                }
+            }
+            .navigationTitle("About these grades")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Done") { dismiss() } } }
+        }
+        .presentationDetents([.medium, .large])
+    }
+}

@@ -7,6 +7,7 @@ struct ResultView: View {
     private let engine = ScoringEngine()
     private let analyzer = IngredientAnalyzer()
     @State private var alternatives: AlternativesSection.Phase = .unavailable
+    @State private var showGradesInfo = false
 
     private var scores: [MemberScore] {
         engine.scoreFamily(product, members: family.members)
@@ -58,7 +59,15 @@ struct ResultView: View {
                     QualityBadges(nutriScore: product.nutriScore, novaGroup: product.novaGroup)
                         .padding(.vertical, 4)
                 } header: {
-                    Text("Quality grades")
+                    HStack {
+                        Text("Quality grades")
+                        Spacer()
+                        Button { showGradesInfo = true } label: {
+                            Label("What do these mean?", systemImage: "info.circle")
+                                .font(.caption.weight(.semibold))
+                                .textCase(nil)
+                        }
+                    }
                 } footer: {
                     Text("General grades from Open Food Facts, not personalised. The family scores below take each person's needs into account.")
                 }
@@ -122,6 +131,7 @@ struct ResultView: View {
             }
         }
         .softList()
+        .sheet(isPresented: $showGradesInfo) { GradesInfoSheet() }
         .navigationTitle("Scan result")
         .navigationBarTitleDisplayMode(.inline)
         .task(id: product.barcode) { await loadAlternatives(for: results) }
