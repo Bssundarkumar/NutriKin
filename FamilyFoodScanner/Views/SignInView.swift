@@ -61,6 +61,20 @@ struct SignInView: View {
             Button("Send me a code") { Task { await auth.sendCode(to: email) } }
                 .buttonStyle(.borderedProminent)
                 .disabled(AuthStore.normalizedEmail(email) == nil || auth.isWorking)
+
+            HStack {
+                Rectangle().fill(.quaternary).frame(height: 1)
+                Text("or").font(.footnote).foregroundStyle(.secondary)
+                Rectangle().fill(.quaternary).frame(height: 1)
+            }
+            .padding(.vertical, 4)
+
+            Button { Task { await auth.signInWithGoogle() } } label: {
+                Label("Continue with Google", systemImage: "person.crop.circle")
+                    .frame(maxWidth: .infinity)
+            }
+            .buttonStyle(.bordered)
+            .disabled(auth.isWorking)
         }
     }
 

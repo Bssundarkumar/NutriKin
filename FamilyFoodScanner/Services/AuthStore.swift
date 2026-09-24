@@ -1,3 +1,4 @@
+import AuthenticationServices
 import Foundation
 import Observation
 import Supabase
@@ -75,6 +76,25 @@ final class AuthStore {
             pendingEmail = nil          // the auth listener flips `state` to signedIn
         } catch {
             errorMessage = "That code didn't work. Check it and try again, or request a new one."
+        }
+    }
+
+    /// Where Google sends the user back to the app. Must also be listed under
+    /// Supabase > Authentication > URL Configuration > Redirect URLs.
+    static let oauthRedirect = URL(string: "nutrikin://login-callback")!
+
+    /// Google sign-in in the system browser sheet (works for Gmail and any
+    /// other Google account). Needs the Google provider enabled in Supabase.
+    func signInWithGoogle() async {
+        isWorking = true
+        errorMessage = nil
+        defer { isWorking = false }
+        do {
+            try await auth.signInWithOAuth(provider: .google, redirectTo: Self.oauthRedirect)
+        } catch let error as ASWebAuthenticationSessionError where error.code == .canceledLogin {
+            // The user closed the sheet; nothing to report.
+        } catch {
+            errorMessage = "Couldn't sign in with Google. \(error.localizedDescription)"
         }
     }
 
