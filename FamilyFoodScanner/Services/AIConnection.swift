@@ -8,6 +8,9 @@ import Observation
 final class AIConnection {
     private static let preferenceKey = "aiProviderPreference"
 
+    /// Keys are read from the Keychain once and kept in memory: a Keychain read is an inter-process call
+    /// that can take tens of milliseconds on a phone, and views ask for the client many times per redraw.
+    @ObservationIgnored private var keys: [AIProvider: String] = [:]
     /// Key-based providers that have a key stored.
     private(set) var linked: Set<AIProvider>
     private(set) var appleStatus: AppleAI.Status
@@ -20,7 +23,12 @@ final class AIConnection {
     }
 
     init() {
-        linked = Demo.isOn ? [.claude] : Set(AIProvider.keyVendors.filter { KeychainStore.get(Self.account(for: $0)) != nil })
+        var loaded: [AIProvider: String] = [:]
+        if !Demo.isOn {
+            for vendor in AIProvider.keyVendors { if let key = KeychainStore.get(Self.account(for: vendor)) { loaded[vendor] = key } }
+        }
+        keys = loaded
+        linked = Demo.isOn ? [.claude] : Set(loaded.keys)
         appleStatus = Demo.isOn ? .available : AppleAI.status
         preference = AIProvider(rawValue: UserDefaults.standard.string(forKey: Self.preferenceKey) ?? "") ?? .apple
     }
@@ -30,7 +38,14 @@ final class AIConnection {
     func isLinked(_ provider: AIProvider) -> Bool { linked.contains(provider) }
 
     /// Re-checks Apple's model (it can finish downloading, or Apple Intelligence can be switched on).
-    func refreshApple() { appleStatus = Demo.isOn ? .available : AppleAI.status }
+    /// The check is a system call, so it's skipped if the model was found available a moment ago.
+    func refreshApple() {
+        if Demo.isOn { appleStatus = .available; return }
+        if appleStatus.isAvailable, Date().timeIntervalSince(lastAppleCheck) < 30 { return }
+        lastAppleCheck = Date()
+        appleStatus = AppleAI.status
+    }
+    @ObservationIgnored private var lastAppleCheck = Date()
 
     /// Photo features can run with a key (the AI sees the photo) or, more roughly, with Apple's on-device AI.
     var canUseAIForPhotos: Bool { keyClient != nil || appleStatus.isAvailable }
@@ -45,7 +60,7 @@ final class AIConnection {
     var keyClient: LLM? { keyProvider.flatMap(client(for:)) }
 
     func client(for provider: AIProvider) -> LLM? {
-        guard provider.usesKey, let key = KeychainStore.get(Self.account(for: provider)) else { return nil }
+        guard provider.usesKey, let key = keys[provider] else { return nil }
         if provider == .claude { return .claude(key: key) }
         let model = UserDefaults.standard.string(forKey: Self.modelKey(provider)) ?? OpenAIClient.fallbackModel(for: provider)
         return .compatible(provider: provider, key: key, model: model)
@@ -75,6 +90,7 @@ final class AIConnection {
                 return false
             }
             if case .compatible(_, _, let model) = client { UserDefaults.standard.set(model, forKey: Self.modelKey(provider)) }
+            keys[provider] = key
             linked.insert(provider)
             return true
         } catch {
@@ -86,6 +102,7 @@ final class AIConnection {
     func disconnect(_ provider: AIProvider) {
         guard provider.usesKey else { return }
         KeychainStore.remove(Self.account(for: provider))
+        keys[provider] = nil
         linked.remove(provider)
         errorMessage = nil
     }

@@ -1,6 +1,9 @@
 import SwiftUI
 
 struct ScanView: View {
+    /// False when another tab is showing. The camera must not run behind other screens: it competes for the
+    /// processor and makes buttons feel slow.
+    var isActive = true
     @Environment(FamilyStore.self) private var family
     @Environment(HistoryStore.self) private var history
     @State private var manualCode = ""
@@ -97,10 +100,13 @@ struct ScanView: View {
         }
     }
 
+    /// The live camera runs only while nothing covers it.
+    private var scannerShouldRun: Bool { isActive && !showPhoto && !showPlate && product == nil }
+
     @ViewBuilder
     private var scannerArea: some View {
         ZStack {
-            if BarcodeScannerView.isAvailable && product == nil {
+            if BarcodeScannerView.isAvailable && scannerShouldRun {
                 BarcodeScannerView(
                     onScan: { code in lookUp(code) },
                     zoom: zoom,
@@ -115,7 +121,7 @@ struct ScanView: View {
                 stallHints
             } else {
                 Color.black.opacity(0.85)
-                if !BarcodeScannerView.isAvailable {
+                if !BarcodeScannerView.isAvailable && scannerShouldRun {
                     Text("Camera scanning needs a real iPhone.\nType a barcode below to test.")
                         .multilineTextAlignment(.center)
                         .foregroundStyle(.white)

@@ -25,7 +25,7 @@ struct ContentView: View {
                 case .loaded:
                     if family.hasHousehold {
                         TabView(selection: $tab) {
-                            ScanView()
+                            ScanView(isActive: tab == .scan)
                                 .tabItem { Label("Scan", systemImage: "barcode.viewfinder") }
                                 .tag(Tab.scan)
                             HistoryView()

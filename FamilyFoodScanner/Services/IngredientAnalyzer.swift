@@ -169,9 +169,22 @@ struct IngredientAnalyzer {
 
     private func matches(_ flag: IngredientFlag, haystack: String, codes: Set<String>) -> Bool {
         if flag.eCodes.contains(where: codes.contains) { return true }
+        let range = NSRange(haystack.startIndex..., in: haystack)
         return flag.terms.contains { term in
-            let pattern = "(?<![a-z])" + NSRegularExpression.escapedPattern(for: term) + "(?![a-z])"
-            return haystack.range(of: pattern, options: .regularExpression) != nil
+            Self.regex(for: term)?.firstMatch(in: haystack, range: range) != nil
         }
+    }
+
+    /// Each whole-word pattern is compiled once. Compiling one per term on every redraw made result screens sluggish.
+    private static let regexLock = NSLock()
+    private nonisolated(unsafe) static var regexes: [String: NSRegularExpression] = [:]
+
+    private static func regex(for term: String) -> NSRegularExpression? {
+        regexLock.lock(); defer { regexLock.unlock() }
+        if let cached = regexes[term] { return cached }
+        let pattern = "(?<![a-z])" + NSRegularExpression.escapedPattern(for: term) + "(?![a-z])"
+        guard let compiled = try? NSRegularExpression(pattern: pattern) else { return nil }
+        regexes[term] = compiled
+        return compiled
     }
 }
