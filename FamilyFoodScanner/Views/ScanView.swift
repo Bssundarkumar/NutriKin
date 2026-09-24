@@ -27,8 +27,6 @@ struct ScanView: View {
     var body: some View {
         NavigationStack {
             VStack(spacing: 16) {
-                familyChip
-
                 scannerArea
 
                 HStack(spacing: 10) {
@@ -174,20 +172,6 @@ struct ScanView: View {
         Task {
             try? await Task.sleep(for: .seconds(2.5))
             ignoredNotice = false
-        }
-    }
-
-    private var familyChip: some View {
-        HStack(spacing: 10) {
-            HStack(spacing: -10) {
-                ForEach(Array(family.members.prefix(4))) { m in
-                    Avatar(name: m.name, size: 30).overlay(Circle().stroke(Color(.systemBackground), lineWidth: 2))
-                }
-            }
-            Text("Checking for \(family.members.count) family member\(family.members.count == 1 ? "" : "s")")
-                .font(.subheadline.weight(.medium))
-                .foregroundStyle(.secondary)
-            Spacer()
         }
     }
 
