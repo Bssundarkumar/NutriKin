@@ -52,7 +52,7 @@ struct AskAIView: View {
             Spacer()
             Image(systemName: "sparkles").font(.system(size: 48)).foregroundStyle(Theme.brandGradient)
             Text("Ask questions about your food").font(.headline)
-            Text("The AI already knows your family's conditions and allergies. Your iPhone can't run Apple's on-device AI, so link your own Claude key to use this.")
+            Text("The AI already knows your family's conditions and allergies. Your iPhone can't run Apple's on-device AI, so link your own AI key (Claude or OpenAI) to use this.")
                 .font(.subheadline).foregroundStyle(.secondary).multilineTextAlignment(.center)
             if case .unavailable(let reason) = ai.appleStatus {
                 Text(reason).font(.caption).foregroundStyle(.secondary).multilineTextAlignment(.center)
@@ -67,7 +67,7 @@ struct AskAIView: View {
     private var privacyNote: String {
         ai.textProvider == .apple
             ? "Running on your iPhone with Apple Intelligence. Nothing is sent anywhere."
-            : "Sent to Anthropic under your own key."
+            : "Sent to \(ai.textProvider?.vendorName ?? "your AI") under your own key."
     }
 
     private var conversation: some View {
@@ -171,7 +171,7 @@ struct AskAIView: View {
         isSending = true
         let turns = messages.suffix(12).map { (role: $0.role.rawValue, text: $0.text) }
         let system = AskAI.systemPrompt(family: family.members, product: product, compact: provider == .apple)
-        let key = ai.apiKey
+        let llm = provider == .apple ? ai.keyClient : ai.client(for: provider)
         Task {
             defer { isSending = false }
             do {
@@ -182,14 +182,14 @@ struct AskAIView: View {
                         reply = try await AppleAI.chat(system: system, messages: turns)
                     } catch {
                         // On-device AI can refuse or fail; use the person's own key instead if they linked one.
-                        guard let key else { throw error }
-                        reply = try await AnthropicClient(apiKey: key).chat(
+                        guard let llm else { throw error }
+                        reply = try await llm.chat(
                             system: AskAI.systemPrompt(family: family.members, product: product),
                             messages: turns.map { ["role": $0.role, "content": $0.text] }, maxTokens: 700)
                     }
-                case .claude:
-                    guard let key else { throw AnthropicClient.ClientError.invalidKey }
-                    reply = try await AnthropicClient(apiKey: key).chat(
+                case .claude, .openai:
+                    guard let llm else { throw AnthropicClient.ClientError.invalidKey }
+                    reply = try await llm.chat(
                         system: system, messages: turns.map { ["role": $0.role, "content": $0.text] }, maxTokens: 700)
                 }
                 withAnimation(.snappy) { messages.append(Message(role: .assistant, text: reply.trimmingCharacters(in: .whitespacesAndNewlines))) }

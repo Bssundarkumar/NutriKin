@@ -3,22 +3,32 @@ import XCTest
 
 final class AIProviderTests: XCTestCase {
     func testAppleIsUsedWhenAvailableAndPreferred() {
-        XCTAssertEqual(AIProvider.choose(preference: .apple, appleAvailable: true, keyConnected: false), .apple)
-        XCTAssertEqual(AIProvider.choose(preference: .apple, appleAvailable: true, keyConnected: true), .apple)
+        XCTAssertEqual(AIProvider.choose(preference: .apple, appleAvailable: true, linked: []), .apple)
+        XCTAssertEqual(AIProvider.choose(preference: .apple, appleAvailable: true, linked: [.claude, .openai]), .apple)
     }
 
-    func testFallsBackToTheKeyWhenAppleIsUnavailable() {
-        XCTAssertEqual(AIProvider.choose(preference: .apple, appleAvailable: false, keyConnected: true), .claude)
+    func testFallsBackToALinkedKeyWhenAppleIsUnavailable() {
+        XCTAssertEqual(AIProvider.choose(preference: .apple, appleAvailable: false, linked: [.claude]), .claude)
+        XCTAssertEqual(AIProvider.choose(preference: .apple, appleAvailable: false, linked: [.openai]), .openai)
+        XCTAssertEqual(AIProvider.choose(preference: .apple, appleAvailable: false, linked: [.claude, .openai]), .claude)
     }
 
-    func testClaudePreferenceNeedsAKey() {
-        XCTAssertEqual(AIProvider.choose(preference: .claude, appleAvailable: true, keyConnected: true), .claude)
-        XCTAssertEqual(AIProvider.choose(preference: .claude, appleAvailable: true, keyConnected: false), .apple)
+    func testAKeyPreferenceNeedsThatKey() {
+        XCTAssertEqual(AIProvider.choose(preference: .openai, appleAvailable: true, linked: [.openai, .claude]), .openai)
+        XCTAssertEqual(AIProvider.choose(preference: .openai, appleAvailable: true, linked: [.claude]), .apple)
+        XCTAssertEqual(AIProvider.choose(preference: .openai, appleAvailable: false, linked: [.claude]), .claude)
     }
 
     func testNothingSetUpMeansNoProvider() {
-        XCTAssertNil(AIProvider.choose(preference: .apple, appleAvailable: false, keyConnected: false))
-        XCTAssertNil(AIProvider.choose(preference: .claude, appleAvailable: false, keyConnected: false))
+        XCTAssertNil(AIProvider.choose(preference: .apple, appleAvailable: false, linked: []))
+        XCTAssertNil(AIProvider.choose(preference: .claude, appleAvailable: false, linked: []))
+    }
+
+    func testPhotosUseTheKeyMatchingThePreferenceElseAnyKey() {
+        XCTAssertEqual(AIProvider.chooseKey(preference: .openai, linked: [.claude, .openai]), .openai)
+        XCTAssertEqual(AIProvider.chooseKey(preference: .apple, linked: [.openai]), .openai)
+        XCTAssertEqual(AIProvider.chooseKey(preference: .apple, linked: [.claude, .openai]), .claude)
+        XCTAssertNil(AIProvider.chooseKey(preference: .apple, linked: []))
     }
 
     func testStatusCheckNeverCrashesAndHasAMessageWhenUnavailable() {

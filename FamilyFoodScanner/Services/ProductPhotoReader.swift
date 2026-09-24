@@ -16,7 +16,7 @@ struct ProductReading: Equatable {
     var foundAnything: Bool { name != nil || ingredientsText != nil || nutrition.hasAnyValue }
 }
 
-/// Reads packaging photos with the person's own Claude key (Apple's on-device model can't see images).
+/// Reads packaging photos with the person's own AI key (Apple's on-device model can't see images).
 enum ProductPhotoReader {
     static let systemPrompt = """
     You read photos of food packaging for a family nutrition app. Copy what is PRINTED; never guess or invent.
@@ -32,7 +32,7 @@ enum ProductPhotoReader {
     - If a value is not visible, use null. It is far better to leave a field empty than to guess.
     """
 
-    static func read(images: [UIImage], apiKey: String) async throws -> ProductReading {
+    static func read(images: [UIImage], client: LLM) async throws -> ProductReading {
         var content: [[String: Any]] = []
         for image in images.prefix(3) {
             guard let jpeg = PlateService.downscaledJPEG(image, maxSide: 1600, quality: 0.8) else { continue }
@@ -41,7 +41,7 @@ enum ProductPhotoReader {
         }
         guard !content.isEmpty else { throw AnthropicClient.ClientError.badResponse }
         content.append(["type": "text", "text": "Read this product's packaging."])
-        let reply = try await AnthropicClient(apiKey: apiKey).send(system: systemPrompt, content: content, maxTokens: 1800)
+        let reply = try await client.send(system: systemPrompt, content: content, maxTokens: 1800)
         return try parse(reply)
     }
 

@@ -102,10 +102,12 @@ final class PlateMathTests: XCTestCase {
 
 final class AIConnectionTests: XCTestCase {
     func testKeyShapeCheck() {
-        XCTAssertTrue(AIConnection.looksLikeKey("sk-ant-api03-abcdefghijklmnop"))
-        XCTAssertFalse(AIConnection.looksLikeKey("sk-abcdefghijklmnopqrstuvwxyz"))
-        XCTAssertFalse(AIConnection.looksLikeKey("sk-ant-short"))
-        XCTAssertFalse(AIConnection.looksLikeKey("sk-ant-api03-abc defghijklmnop"))
+        XCTAssertTrue(AIConnection.looksLikeKey("sk-ant-api03-abcdefghijklmnop", for: .claude))
+        XCTAssertFalse(AIConnection.looksLikeKey("sk-abcdefghijklmnopqrstuvwxyz", for: .claude))
+        XCTAssertFalse(AIConnection.looksLikeKey("sk-ant-short", for: .claude))
+        XCTAssertFalse(AIConnection.looksLikeKey("sk-ant-api03-abc defghijklmnop", for: .claude))
+        XCTAssertTrue(AIConnection.looksLikeKey("sk-proj-abcdefghijklmnopqrstuvwxyz", for: .openai))
+        XCTAssertFalse(AIConnection.looksLikeKey("sk-ant-api03-abcdefghijklmnop", for: .openai))   // a Claude key isn't an OpenAI key
         XCTAssertEqual(AIConnection.cleaned("  sk-ant-x \n"), "sk-ant-x")
     }
 

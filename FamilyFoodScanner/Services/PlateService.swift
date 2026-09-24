@@ -4,7 +4,7 @@ import UIKit
 /// Sends a photo of a plate to the person's own AI and turns the answer into
 /// editable estimates. The model only estimates; the person always reviews.
 struct PlateService {
-    var apiKey: String
+    var client: LLM
 
     static func systemPrompt(plateDiameterCm: Int) -> String {
         """
@@ -29,7 +29,7 @@ struct PlateService {
              "source": ["type": "base64", "media_type": "image/jpeg", "data": jpeg.base64EncodedString()]],
             ["type": "text", "text": "Estimate the food on this plate."],
         ]
-        let text = try await AnthropicClient(apiKey: apiKey).send(
+        let text = try await client.send(
             system: Self.systemPrompt(plateDiameterCm: plateDiameterCm), content: content, maxTokens: 1500)
         return try PlateParser.parse(text)
     }

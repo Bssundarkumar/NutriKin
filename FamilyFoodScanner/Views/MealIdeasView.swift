@@ -123,11 +123,11 @@ struct MealIdeasView: View {
     private func generate() {
         guard let provider = ai.textProvider else { showConnect = true; return }
         phase = .loading
-        let key = ai.apiKey
+        let llm = provider == .apple ? ai.keyClient : ai.client(for: provider)
         Task {
             do {
                 let ideas = try await MealIdeasService.generate(member: member, plan: plan, preferences: preferences,
-                                                                provider: provider, apiKey: key)
+                                                                provider: provider, client: llm)
                 phase = ideas.slots.isEmpty ? .failed("The AI didn't return usable meals. Try again.") : .loaded(ideas)
                 if !ideas.slots.isEmpty { UINotificationFeedbackGenerator().notificationOccurred(.success) }
             } catch {

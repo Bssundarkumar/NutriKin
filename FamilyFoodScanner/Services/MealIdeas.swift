@@ -68,7 +68,7 @@ enum MealIdeasService {
     }
 
     static func generate(member: Member, plan: NutritionPlan?, preferences: String,
-                         provider: AIProvider, apiKey: String?) async throws -> MealIdeas {
+                         provider: AIProvider, client: LLM?) async throws -> MealIdeas {
         let target = plan?.dailyKcal ?? Int(member.goals.dailyCalories ?? ScoringEngine.defaultCalorieGoal(for: member.sex))
         let request = "Plan today's meals for \(member.name)."
         let text: String
@@ -79,14 +79,14 @@ enum MealIdeasService {
                     system: systemPrompt(member: member, plan: plan, targetKcal: target, preferences: preferences, expectJSON: false),
                     prompt: request)
             } catch {
-                guard let apiKey else { throw error }       // fall back to the person's own key
-                text = try await AnthropicClient(apiKey: apiKey).send(
+                guard let client else { throw error }       // fall back to the person's own key
+                text = try await client.send(
                     system: systemPrompt(member: member, plan: plan, targetKcal: target, preferences: preferences),
                     content: [["type": "text", "text": request]], maxTokens: 2000)
             }
-        case .claude:
-            guard let apiKey else { throw AnthropicClient.ClientError.invalidKey }
-            text = try await AnthropicClient(apiKey: apiKey).send(
+        case .claude, .openai:
+            guard let client else { throw AnthropicClient.ClientError.invalidKey }
+            text = try await client.send(
                 system: systemPrompt(member: member, plan: plan, targetKcal: target, preferences: preferences),
                 content: [["type": "text", "text": request]], maxTokens: 2000)
         }

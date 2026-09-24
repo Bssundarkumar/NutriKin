@@ -9,16 +9,35 @@ enum AIProvider: String, CaseIterable, Identifiable {
     case apple
     /// The person's own Anthropic key.
     case claude
+    /// The person's own OpenAI key.
+    case openai
 
     var id: String { rawValue }
-    var title: String { self == .apple ? "Apple (on this iPhone)" : "Claude (your key)" }
-
-    /// The provider to use given what the person prefers and what's available. Pure, so it's tested.
-    static func choose(preference: AIProvider, appleAvailable: Bool, keyConnected: Bool) -> AIProvider? {
-        switch preference {
-        case .apple: return appleAvailable ? .apple : (keyConnected ? .claude : nil)
-        case .claude: return keyConnected ? .claude : (appleAvailable ? .apple : nil)
+    var title: String {
+        switch self {
+        case .apple: "Apple (on this iPhone)"
+        case .claude: "Claude (your key)"
+        case .openai: "OpenAI (your key)"
         }
+    }
+    var vendorName: String {
+        switch self { case .apple: "Apple"; case .claude: "Anthropic"; case .openai: "OpenAI" }
+    }
+    /// The two that use a key the person supplies.
+    var usesKey: Bool { self != .apple }
+
+    /// The provider for chat and meals, given what the person prefers and what's set up. Pure, so it's tested.
+    static func choose(preference: AIProvider, appleAvailable: Bool, linked: Set<AIProvider>) -> AIProvider? {
+        let firstKey = [AIProvider.claude, .openai].first(where: linked.contains)
+        if preference == .apple { return appleAvailable ? .apple : firstKey }
+        if linked.contains(preference) { return preference }
+        return appleAvailable ? .apple : firstKey
+    }
+
+    /// The key-based provider for anything Apple's model can't do (photos) or as a fallback.
+    static func chooseKey(preference: AIProvider, linked: Set<AIProvider>) -> AIProvider? {
+        if preference.usesKey, linked.contains(preference) { return preference }
+        return [AIProvider.claude, .openai].first(where: linked.contains)
     }
 }
 

@@ -93,8 +93,8 @@ struct PlateScanView: View {
                     .buttonStyle(PressableStyle())
                 } else {
                     VStack(spacing: 10) {
-                        Label("Plate photos need a Claude key", systemImage: "key.fill").font(.headline).foregroundStyle(Theme.brand)
-                        Text("Apple's on-device AI reads text, not photos, so this one feature uses your own Anthropic account. It takes a minute to set up.")
+                        Label("Plate photos need an AI key", systemImage: "key.fill").font(.headline).foregroundStyle(Theme.brand)
+                        Text("Apple's on-device AI reads text, not photos, so this one feature uses your own Claude or OpenAI account. It takes a minute to set up.")
                             .font(.footnote).foregroundStyle(.secondary).multilineTextAlignment(.center)
                         Button { showConnect = true } label: { bigButton("Link your key", "key", filled: true) }
                             .buttonStyle(PressableStyle())
@@ -242,13 +242,13 @@ struct PlateScanView: View {
     // MARK: Analysis
 
     private func analyze(_ picture: UIImage) {
-        guard let key = ai.apiKey else { showConnect = true; return }
+        guard let client = ai.keyClient else { showConnect = true; return }
         image = picture
         phase = .analyzing
         task?.cancel()
         task = Task {
             do {
-                let analysis = try await PlateService(apiKey: key).analyze(image: picture, plateDiameterCm: plateCm)
+                let analysis = try await PlateService(client: client).analyze(image: picture, plateDiameterCm: plateCm)
                 guard !Task.isCancelled else { return }
                 items = analysis.items
                 note = analysis.note

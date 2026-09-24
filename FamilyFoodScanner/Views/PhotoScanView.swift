@@ -130,7 +130,7 @@ struct PhotoScanView: View {
                     .padding(.horizontal, 32)
             }
             Text(ai.isConnected && useAI
-                 ? "Photos are read on your phone first. If it isn't a known barcode, they're also sent to Anthropic under your own key so the AI can read the name, ingredients and nutrition. You confirm everything before it's scored."
+                 ? "Photos are read on your phone first. If it isn't a known barcode, they're also sent to \(ai.keyProvider?.vendorName ?? "your AI") under your own key so the AI can read the name, ingredients and nutrition. You confirm everything before it's scored."
                  : "Photos are read on your phone and are never uploaded.")
                 .font(.caption)
                 .foregroundStyle(.secondary)
@@ -184,7 +184,7 @@ struct PhotoScanView: View {
                 Section {
                     Button { showConnect = true } label: { Label("Read it with AI instead", systemImage: "sparkles") }
                 } footer: {
-                    Text("Link your own Claude key and the AI can read the name, ingredients and nutrition from your photos. You confirm before it's scored.")
+                    Text("Link your own AI key (Claude or OpenAI) and the AI can read the name, ingredients and nutrition from your photos. You confirm before it's scored.")
                 }
             }
 
@@ -346,11 +346,11 @@ struct PhotoScanView: View {
                     fill(from: parsed)
                     nameGuesses = guesses
                     aiRead = false; aiNote = nil; spottedBarcode = nil
-                    if useAI, let key = ai.apiKey {
+                    if useAI, let client = ai.keyClient {
                         aiReading = true
                         defer { aiReading = false }
                         do {
-                            let reading = ProductPhotoReader.merge(ai: try await ProductPhotoReader.read(images: images, apiKey: key), ocr: parsed)
+                            let reading = ProductPhotoReader.merge(ai: try await ProductPhotoReader.read(images: images, client: client), ocr: parsed)
                             if reading.foundAnything {
                                 apply(reading)
                                 phase = .review(readNothing: false)
