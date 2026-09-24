@@ -8,6 +8,9 @@ struct SignInView: View {
     @State private var code = ""
     @State private var password = ""
     @State private var appleNonce = ""
+    @Environment(\.colorScheme) private var colorScheme
+    private static let buttonHeight: CGFloat = 48
+    private static let buttonRadius: CGFloat = 12
     @FocusState private var focused: Bool
 
     var body: some View {
@@ -65,8 +68,12 @@ struct SignInView: View {
                 .focused($focused)
                 .submitLabel(.send)
                 .onSubmit { Task { await auth.sendCode(to: email) } }
-            Button("Send me a code") { Task { await auth.sendCode(to: email) } }
+            Button { Task { await auth.sendCode(to: email) } } label: {
+                Text("Send me a code").frame(maxWidth: .infinity)
+            }
                 .buttonStyle(.borderedProminent)
+                .controlSize(.large)
+                .buttonBorderShape(.roundedRectangle(radius: Self.buttonRadius))
                 .disabled(AuthStore.normalizedEmail(email) == nil || auth.isWorking)
 
             HStack {
@@ -83,8 +90,9 @@ struct SignInView: View {
             } onCompletion: { result in
                 Task { await auth.handleApple(result, nonce: appleNonce) }
             }
-            .signInWithAppleButtonStyle(.black)
-            .frame(height: 44)
+            .signInWithAppleButtonStyle(colorScheme == .dark ? .white : .black)
+            .frame(height: Self.buttonHeight)
+            .clipShape(RoundedRectangle(cornerRadius: Self.buttonRadius))
             .disabled(auth.isWorking)
 
             Button { Task { await auth.signInWithGoogle() } } label: {
@@ -92,9 +100,14 @@ struct SignInView: View {
                     Image("GoogleG").resizable().scaledToFit().frame(width: 18, height: 18)
                     Text("Continue with Google")
                 }
-                .frame(maxWidth: .infinity, minHeight: 32)
+                .font(.system(size: 17, weight: .medium))
+                .frame(maxWidth: .infinity)
+                .frame(height: Self.buttonHeight)
+                .foregroundStyle(.primary)
+                .background(Color(.secondarySystemBackground), in: RoundedRectangle(cornerRadius: Self.buttonRadius))
+                .overlay(RoundedRectangle(cornerRadius: Self.buttonRadius).strokeBorder(.quaternary))
             }
-            .buttonStyle(.bordered)
+            .buttonStyle(PressableStyle())
             .disabled(auth.isWorking)
 
             DisclosureGroup("Sign in with a password") {
