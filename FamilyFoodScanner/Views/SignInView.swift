@@ -88,8 +88,11 @@ struct SignInView: View {
             .disabled(auth.isWorking)
 
             Button { Task { await auth.signInWithGoogle() } } label: {
-                Label("Continue with Google", systemImage: "g.circle.fill")
-                    .frame(maxWidth: .infinity, minHeight: 32)
+                HStack(spacing: 8) {
+                    Image("GoogleG").resizable().scaledToFit().frame(width: 18, height: 18)
+                    Text("Continue with Google")
+                }
+                .frame(maxWidth: .infinity, minHeight: 32)
             }
             .buttonStyle(.bordered)
             .disabled(auth.isWorking)
