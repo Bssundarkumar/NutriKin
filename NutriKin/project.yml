@@ -1,6 +1,6 @@
 name: NutriKin
 options:
-  bundleIdPrefix: com.nutrikin
+  bundleIdPrefix: com.sundarBandiguptapu
   deploymentTarget:
     iOS: "17.0"
 packages:
@@ -37,7 +37,7 @@ targets:
         UISupportedInterfaceOrientations: [UIInterfaceOrientationPortrait]
         UILaunchScreen: {}
         CFBundleURLTypes:
-          - CFBundleURLName: com.nutrikin.NutriKin
+          - CFBundleURLName: com.sundarBandiguptapu.NutriKin
             CFBundleURLSchemes: [nutrikin]
         NSCameraUsageDescription: Scan product barcodes and photograph labels to check them for your family.
         NSHealthShareUsageDescription: Read your health data to personalise food recommendations.
@@ -53,7 +53,7 @@ targets:
         # which the plain HealthKit capability above already covers.
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: com.nutrikin.NutriKin
+        PRODUCT_BUNDLE_IDENTIFIER: com.sundarBandiguptapu.NutriKin
         SWIFT_VERSION: "5.0"
         GENERATE_INFOPLIST_FILE: NO
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
