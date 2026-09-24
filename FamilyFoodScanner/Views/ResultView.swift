@@ -77,6 +77,9 @@ struct ResultView: View {
                 Text("Guidance only, not medical advice.")
                     .font(.footnote)
                     .foregroundStyle(.secondary)
+                Text("Product data from [Open Food Facts](https://world.openfoodfacts.org/product/\(product.barcode)) (ODbL). Photos CC BY-SA.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
             }
         }
         .navigationTitle("Scan result")

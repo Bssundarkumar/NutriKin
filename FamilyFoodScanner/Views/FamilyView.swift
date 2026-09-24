@@ -73,6 +73,17 @@ struct FamilyView: View {
                 }
 
                 Section {
+                    Text("Product names, ingredients, nutrition facts and photos come from Open Food Facts, a free database built by volunteers around the world. The data is available under the Open Database License (ODbL) and product photos under CC BY-SA.")
+                        .font(.footnote)
+                    Link("Open Food Facts", destination: URL(string: "https://world.openfoodfacts.org")!)
+                    Link("About the licences", destination: URL(string: "https://world.openfoodfacts.org/terms-of-use")!)
+                } header: {
+                    Text("Credits")
+                } footer: {
+                    Text("Product data can be incomplete or out of date. Always check the package label, especially for allergies.")
+                }
+
+                Section {
                     if case .signedIn(let email) = auth.state {
                         LabeledContent("Signed in as", value: email)
                     }

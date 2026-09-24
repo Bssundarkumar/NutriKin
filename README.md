@@ -131,3 +131,13 @@ cd NutriKin && xcodebuild test -project NutriKin.xcodeproj -scheme NutriKin \
 1. Use Apple Health readings in scoring.
 2. Read the label from a photo when a product isn't in the database.
 3. Invite-code rotation and removing members.
+
+## Data sources and licences
+
+Product data comes from [Open Food Facts](https://world.openfoodfacts.org): the
+database is under the Open Database License (ODbL), individual contents under the
+Database Contents License, and product photos under CC BY-SA. Commercial use is
+allowed with attribution, which the app shows on the result screen and in
+Family, Credits. Keep that credit in place. If you ever publish a database built
+from Open Food Facts data (rather than showing it in the app), the ODbL's
+share-alike terms apply, so read them first.
