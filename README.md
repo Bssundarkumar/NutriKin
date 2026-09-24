@@ -36,7 +36,20 @@ SwiftUI, iOS 17+, backed by Supabase for shared family data.
 - **Invite** relatives from the Family tab: a share button sends the code (and a
   `nutrikin://join?code=...` link that opens the app) by Messages, Mail or any
   share target.
-- **History** of past scans with each member's verdict at the time.
+- **Missing data is never "safe":** no ingredient list, "may contain" traces or a
+  missing key figure (sugar for diabetes, and so on) caps an affected member at
+  "caution" instead of "okay".
+- **Quality grades:** Nutri-Score and NOVA from Open Food Facts (with an in-app
+  explainer; hidden for dietary supplements), and "Try this instead" alternatives
+  ranked per 100 g and safe for everyone.
+- **Weight and intake plan** per adult from BMI: target weight, a paced calorie
+  target (Mifflin-St Jeor, with a safe floor; no plans for children) and a
+  shortcut that saves it as the calorie goal.
+- **Optional AI features** on the person's own Anthropic key (stored only in the
+  iPhone Keychain, sent only to Anthropic): scan a plate to estimate calories,
+  ask questions about a scanned product, and get a day of meal ideas per member.
+  The app re-checks every AI meal against the person's allergies.
+- **History** of past scans, one entry per product, with each member's verdict at the time.
 - **Apple Health** read access for the device owner (weight, glucose, blood
   pressure, calories).
 
@@ -46,7 +59,7 @@ SwiftUI, iOS 17+, backed by Supabase for shared family data.
 |---|---|
 | `FamilyFoodScanner/App` | App entry point |
 | `FamilyFoodScanner/Models` | Members, conditions, allergens, products, scores |
-| `FamilyFoodScanner/Services` | Scoring, ingredient analysis, Open Food Facts, Supabase, HealthKit |
+| `FamilyFoodScanner/Services` | Scoring, ingredient analysis, Open Food Facts, Supabase, HealthKit, nutrition planner, AI client |
 | `FamilyFoodScanner/Views` | Scan, result, family, onboarding and edit screens |
 | `FamilyFoodScanner/Tests` | Unit tests (scoring, ingredient alerts, scanner parsing) |
 | `FamilyFoodScanner/Assets.xcassets` | App icon and images |

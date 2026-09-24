@@ -74,7 +74,15 @@
 	</array>
 
 	<!-- The app itself calls none of Apple's "required reason" APIs. -->
+	<!-- @AppStorage keeps the app's own settings (plate size, activity level, meal preferences) in UserDefaults. -->
 	<key>NSPrivacyAccessedAPITypes</key>
-	<array/>
+	<array>
+		<dict>
+			<key>NSPrivacyAccessedAPIType</key>
+			<string>NSPrivacyAccessedAPICategoryUserDefaults</string>
+			<key>NSPrivacyAccessedAPITypeReasons</key>
+			<array><string>CA92.1</string></array>
+		</dict>
+	</array>
 </dict>
 </plist>
