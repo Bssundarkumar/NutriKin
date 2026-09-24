@@ -1,0 +1,58 @@
+import Foundation
+
+/// Debug builds only: launch with `-demoMode` to skip sign-in and use sample data,
+/// so screens can be looked at without an account. Not compiled into release builds.
+enum Demo {
+    #if DEBUG
+    static let isOn = CommandLine.arguments.contains("-demoMode")
+    static var startTab: String { CommandLine.arguments.drop { $0 != "-demoTab" }.dropFirst().first ?? "scan" }
+    static var opensProduct: Bool { CommandLine.arguments.contains("-demoProduct") }
+
+    static let members: [Member] = [
+        Member(name: "Amma", conditions: [.diabetes], goals: Goals(dailySugarGrams: 25), age: 54, sex: .female),
+        Member(name: "Arjun", conditions: [.allergy(.nuts)], isManagedByParent: true, age: 8, sex: .male),
+        Member(name: "Priya", conditions: [], age: 29, sex: .female),
+    ]
+
+    static var product: Product? { opensProduct ? sampleProduct : nil }
+
+    static let sampleProduct: Product = {
+        var p = Product(
+            barcode: "3017620422003", name: "Nutella", brand: "Ferrero", imageURL: nil,
+            ingredientsText: "Sugar, palm oil, hazelnuts 13%, skimmed milk powder 8.7%, fat-reduced cocoa 7.4%, emulsifier: lecithins (soya), vanillin",
+            allergenTags: ["en:milk", "en:nuts", "en:soybeans"],
+            nutrition: Nutrition(calories: 539, sugarG: 56.3, carbsG: 57.5, sodiumMg: 40, satFatG: 10.6,
+                                 transFatG: 0, proteinG: 6.3, basis: "per 100 g"))
+        p.ingredientAmounts = [
+            IngredientAmount(id: "en:sugar", text: "Sugar", percent: 56, isStated: false),
+            IngredientAmount(id: "en:palm-oil", text: "Palm oil", percent: 21, isStated: false),
+            IngredientAmount(id: "en:hazelnut", text: "Hazelnuts", percent: 13, isStated: true),
+            IngredientAmount(id: "en:skimmed-milk-powder", text: "Skimmed milk powder", percent: 8.7, isStated: true),
+            IngredientAmount(id: "en:cocoa", text: "Fat-reduced cocoa", percent: 7.4, isStated: true),
+        ]
+        p.nutriScore = "e"; p.novaGroup = 4
+        p.per100g = p.nutrition
+        return p
+    }()
+
+    static let records: [ScanRecord] = [
+        ScanRecord(barcode: "3017620422003", productName: "Nutella", brand: "Ferrero",
+                   results: [.init(memberName: "Amma", score: 28, verdict: 0, blockedByAllergy: false),
+                             .init(memberName: "Arjun", score: 0, verdict: 0, blockedByAllergy: true),
+                             .init(memberName: "Priya", score: 61, verdict: 1, blockedByAllergy: false)],
+                   alerts: ["Added sugars", "Palm / coconut oil"]),
+        ScanRecord(barcode: "5449000000996", productName: "Coca-Cola Zero Sugar", brand: "Coca-Cola",
+                   results: [.init(memberName: "Amma", score: 88, verdict: 2, blockedByAllergy: false),
+                             .init(memberName: "Arjun", score: 84, verdict: 2, blockedByAllergy: false),
+                             .init(memberName: "Priya", score: 90, verdict: 2, blockedByAllergy: false)],
+                   alerts: ["Artificial sweeteners"], scannedAt: Date().addingTimeInterval(-86_400)),
+    ]
+    #else
+    static let isOn = false
+    static let startTab = "scan"
+    static let opensProduct = false
+    static let members: [Member] = []
+    static let product: Product? = nil
+    static let records: [ScanRecord] = []
+    #endif
+}

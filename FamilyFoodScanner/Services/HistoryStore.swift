@@ -16,6 +16,7 @@ final class HistoryStore {
 
     /// Loads the latest scans (or clears them when there's no household).
     func load(householdId: UUID?) async {
+        if Demo.isOn { records = Demo.records; return }
         guard let householdId else { records = []; return }
         isLoading = true
         errorMessage = nil

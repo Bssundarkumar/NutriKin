@@ -4,7 +4,7 @@ struct ContentView: View {
     @Environment(AuthStore.self) private var auth
     @Environment(FamilyStore.self) private var family
     @Environment(HistoryStore.self) private var history
-    @State private var tab: Tab = .scan
+    @State private var tab: Tab = Demo.startTab == "history" ? .history : Demo.startTab == "family" ? .family : .scan
 
     private enum Tab: Hashable { case scan, history, family }
 
@@ -41,7 +41,7 @@ struct ContentView: View {
                 }
             }
         }
-        .tint(Color(red: 0.12, green: 0.35, blue: 0.24))
+        .tint(Theme.brand)
         .animation(.smooth(duration: 0.3), value: auth.state)
         .animation(.smooth(duration: 0.3), value: family.phase)
         // Runs on launch and again whenever the signed-in account changes.

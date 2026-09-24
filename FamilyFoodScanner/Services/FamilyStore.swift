@@ -49,6 +49,11 @@ final class FamilyStore {
     /// Looks up the family this account belongs to (row-level security means
     /// the query only ever returns families you're a member of).
     func loadHousehold() async {
+        if Demo.isOn {
+            householdId = UUID(); householdName = "Bandi family"; inviteCode = "K7QM2X"
+            members = Demo.members; phase = .loaded
+            return
+        }
         phase = .loading
         do {
             let rows: [HouseholdRow] = try await withRetry {

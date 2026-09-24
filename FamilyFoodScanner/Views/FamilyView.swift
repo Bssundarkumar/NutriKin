@@ -21,6 +21,8 @@ struct FamilyView: View {
                             .foregroundStyle(.secondary)
                     }
                     ForEach(family.members) { m in
+                        HStack(alignment: .top, spacing: 12) {
+                        Avatar(name: m.name, size: 44)
                         VStack(alignment: .leading, spacing: 4) {
                             Text(m.name).font(.headline)
                             if let vitals = vitalsText(m) {
@@ -39,6 +41,7 @@ struct FamilyView: View {
                             Text(m.isManagedByParent ? "Managed by a parent" : "Syncs from their iPhone")
                                 .font(.caption)
                                 .foregroundStyle(.green)
+                        }
                         }
                         .padding(.vertical, 2)
                         .contentShape(Rectangle())
@@ -101,6 +104,7 @@ struct FamilyView: View {
                 }
             }
             .animation(.snappy, value: family.members)
+            .softList()
             .navigationTitle(family.householdName.isEmpty ? "Family" : family.householdName)
             .toolbar {
                 ToolbarItem(placement: .primaryAction) {
@@ -123,34 +127,56 @@ struct FamilyView: View {
     private var inviteSection: some View {
         Section {
             if !family.inviteCode.isEmpty {
-                HStack {
+                VStack(spacing: 12) {
+                    Text("FAMILY INVITE CODE")
+                        .font(.caption.weight(.semibold))
+                        .tracking(1.5)
+                        .opacity(0.85)
                     Text(family.inviteCode)
-                        .font(.title3.monospaced().weight(.semibold))
+                        .font(.system(size: 36, weight: .bold, design: .rounded).monospaced())
+                        .tracking(6)
                         .textSelection(.enabled)
-                    Spacer()
-                    Button {
-                        UIPasteboard.general.string = family.inviteCode
-                        didCopyCode = true
-                        Task {
-                            try? await Task.sleep(for: .seconds(1.5))
-                            didCopyCode = false
+                    HStack(spacing: 10) {
+                        Button {
+                            UIPasteboard.general.string = family.inviteCode
+                            didCopyCode = true
+                            Task {
+                                try? await Task.sleep(for: .seconds(1.5))
+                                didCopyCode = false
+                            }
+                        } label: {
+                            Label(didCopyCode ? "Copied" : "Copy", systemImage: didCopyCode ? "checkmark" : "doc.on.doc")
+                                .contentTransition(.symbolEffect(.replace))
+                                .font(.subheadline.weight(.semibold))
+                                .padding(.horizontal, 16).padding(.vertical, 9)
+                                .background(.white.opacity(0.22), in: Capsule())
                         }
-                    } label: {
-                        Image(systemName: didCopyCode ? "checkmark" : "doc.on.doc")
+                        ShareLink(
+                            item: InviteLink.message(familyName: family.householdName, code: family.inviteCode),
+                            subject: Text("Join our family on NutriKin")
+                        ) {
+                            Label("Invite", systemImage: "square.and.arrow.up")
+                                .font(.subheadline.weight(.semibold))
+                                .padding(.horizontal, 16).padding(.vertical, 9)
+                                .background(.white, in: Capsule())
+                                .foregroundStyle(Theme.brand)
+                        }
                     }
+                    .buttonStyle(.plain)
+                    .animation(.snappy, value: didCopyCode)
                 }
-                ShareLink(
-                    item: InviteLink.message(familyName: family.householdName, code: family.inviteCode),
-                    subject: Text("Join our family on NutriKin")
-                ) {
-                    Label("Invite by message or email", systemImage: "square.and.arrow.up")
-                }
+                .foregroundStyle(.white)
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 18)
+                .listRowBackground(
+                    RoundedRectangle(cornerRadius: 22, style: .continuous).fill(Theme.brandGradient)
+                        .shadow(color: Theme.brand.opacity(0.35), radius: 12, y: 6)
+                )
                 Text("Share this code so another family member can sign in on their own iPhone and join.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
+                    .listRowBackground(Color.clear)
             }
-        } header: {
-            Text("Invite code")
         }
     }
 

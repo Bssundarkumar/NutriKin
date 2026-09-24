@@ -24,6 +24,7 @@ struct SignInView: View {
                     .frame(width: 112, height: 112)
                     .accessibilityHidden(true)
                     .popIn()
+                    .floating()
                 Text("Sign in to NutriKin")
                     .font(.title2.bold())
 
@@ -49,6 +50,7 @@ struct SignInView: View {
                 Spacer()
             }
             .padding()
+            .background(AppBackground())
         }
     }
 

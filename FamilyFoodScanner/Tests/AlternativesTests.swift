@@ -109,3 +109,25 @@ final class ProductGradesTests: XCTestCase {
         XCTAssertEqual(ProductService.searchableCategories(tags), ["en:spreads", "en:sweet-spreads"])
     }
 }
+
+final class SupplementTests: XCTestCase {
+    private func product(tags: [String]) -> Product {
+        var p = Product(barcode: "12345678", name: "Vitamin D3", brand: nil, imageURL: nil, ingredientsText: nil,
+                        allergenTags: [], nutrition: Nutrition(calories: nil, sugarG: nil, carbsG: nil, sodiumMg: nil,
+                                                              satFatG: nil, transFatG: nil, proteinG: nil, basis: "per 100 g"))
+        p.categoryTags = tags
+        return p
+    }
+
+    func testSupplementsAreDetectedFromCategories() {
+        XCTAssertTrue(product(tags: ["en:dietary-supplements", "en:vitamins"]).isSupplement)
+        XCTAssertTrue(product(tags: ["en:food-supplements"]).isSupplement)
+        XCTAssertTrue(product(tags: ["en:vitamin-supplements"]).isSupplement)
+    }
+
+    func testOrdinaryFoodsAndVitaminWaterAreNotSupplements() {
+        XCTAssertFalse(product(tags: ["en:spreads", "en:sweet-spreads"]).isSupplement)
+        XCTAssertFalse(product(tags: ["en:beverages", "en:vitamin-waters"]).isSupplement)
+        XCTAssertFalse(product(tags: []).isSupplement)
+    }
+}

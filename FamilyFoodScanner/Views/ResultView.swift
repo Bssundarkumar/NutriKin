@@ -18,7 +18,9 @@ struct ResultView: View {
         let ingredientAlerts = analyzer.alerts(for: product, members: family.members)
 
         List {
-            Section { header.staggeredAppear(0) }
+            Section { ResultHero(product: product, results: results) }
+                .listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 8, trailing: 16))
+                .listRowBackground(Color.clear)
 
             if product.barcode.hasPrefix("photo-") {
                 Section {
@@ -43,7 +45,15 @@ struct ResultView: View {
                 }
             }
 
-            if product.nutriScore != nil || product.novaGroup != nil {
+            if product.isSupplement {
+                Section {
+                    Label("Dietary supplement", systemImage: "pills.fill")
+                        .font(.subheadline.weight(.semibold))
+                    Text("Nutri-Score and NOVA grades are designed for everyday foods, so they're not shown for supplements. Follow the dose on the label and ask a doctor or pharmacist if you're unsure.")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                }
+            } else if product.nutriScore != nil || product.novaGroup != nil {
                 Section {
                     QualityBadges(nutriScore: product.nutriScore, novaGroup: product.novaGroup)
                         .padding(.vertical, 4)
@@ -58,11 +68,16 @@ struct ResultView: View {
 
             if !allergyHits.isEmpty {
                 Section {
-                    Label("Allergy alert for \(allergyHits.map(\.member.name).joined(separator: ", "))",
-                          systemImage: "exclamationmark.triangle.fill")
-                        .foregroundStyle(.red)
-                        .fontWeight(.semibold)
+                    Label {
+                        Text("Allergy alert for \(allergyHits.map(\.member.name).joined(separator: ", "))")
+                    } icon: {
+                        Image(systemName: "exclamationmark.triangle.fill")
+                            .symbolEffect(.pulse, options: .repeat(4))
+                    }
+                    .foregroundStyle(.red)
+                    .fontWeight(.semibold)
                 }
+                .listRowBackground(Color.red.opacity(0.12))
             }
 
             if !ingredientAlerts.isEmpty {
@@ -106,6 +121,7 @@ struct ResultView: View {
                     .foregroundStyle(.secondary)
             }
         }
+        .softList()
         .navigationTitle("Scan result")
         .navigationBarTitleDisplayMode(.inline)
         .task(id: product.barcode) { await loadAlternatives(for: results) }
@@ -121,7 +137,7 @@ struct ResultView: View {
 
     /// Only looks for alternatives when someone in the family isn't fully "okay" with this product.
     private func loadAlternatives(for results: [MemberScore]) async {
-        guard !product.barcode.hasPrefix("photo-"), product.normalizedTo100g != nil,
+        guard !product.barcode.hasPrefix("photo-"), !product.isSupplement, product.normalizedTo100g != nil,
               !product.categoryTags.isEmpty, results.contains(where: { $0.verdict != .okay }) else {
             alternatives = .unavailable
             return
@@ -133,25 +149,6 @@ struct ResultView: View {
             alternatives = .loaded(ranked)
         } catch {
             alternatives = .unavailable
-        }
-    }
-
-    private var header: some View {
-        HStack(spacing: 14) {
-            AsyncImage(url: product.imageURL) { img in
-                img.resizable().scaledToFit()
-            } placeholder: {
-                Color.secondary.opacity(0.15)
-            }
-            .frame(width: 64, height: 64)
-            .clipShape(RoundedRectangle(cornerRadius: 12))
-
-            VStack(alignment: .leading, spacing: 2) {
-                Text(product.name).font(.title3.weight(.semibold))
-                if let brand = product.brand {
-                    Text(brand).font(.subheadline).foregroundStyle(.secondary)
-                }
-            }
         }
     }
 
@@ -179,13 +176,10 @@ struct ResultView: View {
 
 struct MemberScoreRow: View {
     let score: MemberScore
-    /// Counts up from 0 when the row appears.
-    @State private var shownScore = 0
-    @State private var popped = false
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
-        HStack {
+        HStack(spacing: 12) {
+            Avatar(name: score.member.name, size: 40)
             VStack(alignment: .leading, spacing: 2) {
                 Text(score.member.name).font(.headline)
                 Text(conditionsText)
@@ -193,39 +187,19 @@ struct MemberScoreRow: View {
                     .foregroundStyle(.secondary)
             }
             Spacer()
-            VStack(spacing: 0) {
-                Text("\(shownScore)")
-                    .font(.headline.monospacedDigit())
-                    .contentTransition(.numericText(value: Double(shownScore)))
-                Text(score.verdict.label).font(.caption.weight(.semibold))
+            VStack(spacing: 2) {
+                ScoreRing(score: score.score, color: color, size: 46, lineWidth: 5)
+                Text(score.verdict.label).font(.caption2.weight(.semibold)).foregroundStyle(color)
             }
-            .frame(minWidth: 60)
-            .padding(.vertical, 6)
-            .background(color.opacity(0.15), in: RoundedRectangle(cornerRadius: 10))
-            .foregroundStyle(color)
-            .scaleEffect(popped ? 1 : 0.7)
-            .opacity(popped ? 1 : 0)
-        }
-        .onAppear {
-            guard !popped else { return }
-            if reduceMotion { shownScore = score.score; popped = true; return }
-            withAnimation(.spring(response: 0.5, dampingFraction: 0.6).delay(0.15)) { popped = true }
-            withAnimation(.easeOut(duration: 0.9).delay(0.15)) { shownScore = score.score }
         }
     }
 
     private var conditionsText: String {
-        let text = score.member.conditions.map(\.displayName).joined(separator: " · ")
+        let text = score.member.conditions.map(\.displayName).joined(separator: " \u{00B7} ")
         return text.isEmpty ? "No conditions" : text
     }
 
-    private var color: Color {
-        switch score.verdict {
-        case .okay: .green
-        case .caution: .orange
-        case .avoid: .red
-        }
-    }
+    private var color: Color { Theme.color(for: score.verdict) }
 }
 
 

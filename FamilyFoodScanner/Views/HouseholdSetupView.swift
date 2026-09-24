@@ -22,6 +22,7 @@ struct HouseholdSetupView: View {
                     .frame(width: 112, height: 112)
                     .accessibilityHidden(true)
                     .popIn()
+                    .floating()
                 Text("Set up your family")
                     .font(.title2.bold())
                 Text("Create a new family, or join one with an invite code from another member's phone.")

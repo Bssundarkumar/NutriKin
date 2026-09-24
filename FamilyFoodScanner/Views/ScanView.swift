@@ -6,7 +6,7 @@ struct ScanView: View {
     @State private var manualCode = ""
     @State private var isLoading = false
     @State private var errorMessage: String?
-    @State private var product: Product?
+    @State private var product: Product? = Demo.product
     @State private var zoom = 1.0
     @State private var autoZoom = true
     @State private var hasRegion = false
@@ -22,26 +22,33 @@ struct ScanView: View {
     var body: some View {
         NavigationStack {
             VStack(spacing: 16) {
-                Text("Checking for \(family.members.count) family members")
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
-                    .frame(maxWidth: .infinity, alignment: .leading)
+                familyChip
 
                 scannerArea
 
-                HStack {
+                HStack(spacing: 10) {
+                    Image(systemName: "number").foregroundStyle(.secondary)
                     TextField("Or type a barcode", text: $manualCode)
                         .keyboardType(.numberPad)
-                        .textFieldStyle(.roundedBorder)
                     Button("Look up") { lookUp(manualCode) }
                         .buttonStyle(.borderedProminent)
+                        .buttonBorderShape(.capsule)
                         .disabled(manualCode.count < 8 || isLoading)
                 }
+                .padding(.leading, 14).padding(.trailing, 8).padding(.vertical, 8)
+                .background(Color(.secondarySystemGroupedBackground), in: Capsule())
+                .shadow(color: .black.opacity(0.06), radius: 8, y: 3)
 
                 Button { showPhoto = true } label: {
                     Label("No barcode? Take a photo or upload one", systemImage: "camera.viewfinder")
-                        .font(.subheadline.weight(.medium))
+                        .font(.subheadline.weight(.semibold))
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 13)
+                        .foregroundStyle(.white)
+                        .background(Theme.brandGradient, in: Capsule())
+                        .shadow(color: Theme.brand.opacity(0.35), radius: 10, y: 5)
                 }
+                .buttonStyle(PressableStyle())
 
                 if let errorMessage {
                     VStack(spacing: 6) {
@@ -58,6 +65,7 @@ struct ScanView: View {
                 }
             }
             .padding()
+            .background(AppBackground())
             .animation(.smooth(duration: 0.25), value: errorMessage)
             .navigationTitle("Scan a product")
             .navigationDestination(item: $product) { ResultView(product: $0) }
@@ -94,8 +102,24 @@ struct ScanView: View {
             }
             if isLoading { ProgressView().tint(.white).controlSize(.large) }
         }
-        .clipShape(RoundedRectangle(cornerRadius: 24))
+        .clipShape(RoundedRectangle(cornerRadius: 30, style: .continuous))
+        .overlay(RoundedRectangle(cornerRadius: 30, style: .continuous).strokeBorder(.white.opacity(0.5), lineWidth: 2))
+        .shadow(color: Theme.brand.opacity(0.3), radius: 16, y: 8)
         .frame(maxHeight: .infinity)
+    }
+
+    private var familyChip: some View {
+        HStack(spacing: 10) {
+            HStack(spacing: -10) {
+                ForEach(Array(family.members.prefix(4))) { m in
+                    Avatar(name: m.name, size: 30).overlay(Circle().stroke(Color(.systemBackground), lineWidth: 2))
+                }
+            }
+            Text("Checking for \(family.members.count) family member\(family.members.count == 1 ? "" : "s")")
+                .font(.subheadline.weight(.medium))
+                .foregroundStyle(.secondary)
+            Spacer()
+        }
     }
 
     /// Hint, zoom buttons and (after a tap) a way back to scanning the whole view.

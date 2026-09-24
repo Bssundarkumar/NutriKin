@@ -191,6 +191,13 @@ struct Product: Identifiable, Hashable {
     /// The same nutrition on a fixed per-100 g basis, so different products can be compared fairly.
     var per100g: Nutrition?
 
+    /// Dietary supplements (vitamins, capsules and the like). Open Food Facts still
+    /// computes NOVA and Nutri-Score for them from the ingredient list, but both
+    /// grades were built for foods and would mislead here.
+    var isSupplement: Bool {
+        categoryTags.contains { $0.lowercased().hasPrefix("en:") && $0.lowercased().contains("supplement") }
+    }
+
     /// A copy scored on the per-100 g figures, or nil when the product has none.
     var normalizedTo100g: Product? {
         guard let per100g else { return nil }

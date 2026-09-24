@@ -58,6 +58,25 @@ extension View {
     func popIn() -> some View { modifier(PopIn()) }
 }
 
+/// A slow, gentle bob for a hero image such as the logo.
+private struct Floating: ViewModifier {
+    @State private var up = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    func body(content: Content) -> some View {
+        content
+            .offset(y: up ? -6 : 6)
+            .onAppear {
+                guard !reduceMotion else { return }
+                withAnimation(.easeInOut(duration: 2.6).repeatForever(autoreverses: true)) { up = true }
+            }
+    }
+}
+
+extension View {
+    func floating() -> some View { modifier(Floating()) }
+}
+
 /// Slides between steps of a flow (e.g. email, then code).
 extension AnyTransition {
     static var step: AnyTransition {
@@ -69,17 +88,27 @@ extension AnyTransition {
 /// Four corner marks that gently "breathe", telling people where to aim the barcode.
 struct ScannerFrame: View {
     @State private var breathe = false
+    @State private var sweep = false
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         CornerBrackets(length: 30, radius: 12)
             .stroke(.white.opacity(0.9), style: StrokeStyle(lineWidth: 4, lineCap: .round, lineJoin: .round))
             .frame(width: 250, height: 150)
+            .overlay {
+                Capsule()
+                    .fill(LinearGradient(colors: [.clear, .white.opacity(0.9), .clear], startPoint: .leading, endPoint: .trailing))
+                    .frame(width: 210, height: 3)
+                    .shadow(color: .white.opacity(0.8), radius: 6)
+                    .offset(y: sweep ? 58 : -58)
+                    .opacity(reduceMotion ? 0 : 1)
+            }
             .scaleEffect(breathe ? 1.04 : 0.97)
             .shadow(color: .black.opacity(0.35), radius: 4)
             .onAppear {
                 guard !reduceMotion else { return }
                 withAnimation(.easeInOut(duration: 1.4).repeatForever(autoreverses: true)) { breathe = true }
+                withAnimation(.easeInOut(duration: 1.8).repeatForever(autoreverses: true)) { sweep = true }
             }
             .allowsHitTesting(false)
             .accessibilityHidden(true)

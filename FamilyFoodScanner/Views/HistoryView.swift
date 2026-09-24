@@ -20,9 +20,21 @@ struct HistoryView: View {
                         .foregroundStyle(.secondary)
                 }
 
-                ForEach(history.records) { record in
+                ForEach(Array(history.records.enumerated()), id: \.element.id) { index, record in
                     Button { open(record) } label: { HistoryRow(record: record, isOpening: openingBarcode == record.barcode) }
                         .buttonStyle(PressableStyle())
+                        .staggeredAppear(index)
+                        .listRowSeparator(.hidden)
+                        .listRowBackground(
+                            RoundedRectangle(cornerRadius: 18, style: .continuous)
+                                .fill(Color(.secondarySystemGroupedBackground))
+                                .overlay(alignment: .leading) {
+                                    Capsule().fill(record.worstVerdict.map(Theme.color(for:)) ?? .gray)
+                                        .frame(width: 5).padding(.vertical, 12).padding(.leading, 6)
+                                }
+                                .shadow(color: .black.opacity(0.06), radius: 8, y: 3)
+                                .padding(.vertical, 4)
+                        )
                         .swipeActions {
                             Button("Delete", role: .destructive) { Task { await history.delete(record) } }
                         }
@@ -33,6 +45,7 @@ struct HistoryView: View {
                 }
             }
             .animation(.snappy, value: history.records)
+            .softList()
             .navigationTitle("History")
             .navigationDestination(item: $product) { ResultView(product: $0) }
             .overlay { if history.isLoading && history.records.isEmpty { ProgressView() } }
@@ -66,10 +79,13 @@ private struct HistoryRow: View {
             AsyncImage(url: record.imageUrl.flatMap(URL.init(string:))) { img in
                 img.resizable().scaledToFit()
             } placeholder: {
-                Color.secondary.opacity(0.15)
+                Image(systemName: "fork.knife").foregroundStyle(.secondary)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .background(Color.secondary.opacity(0.12))
             }
-            .frame(width: 48, height: 48)
-            .clipShape(RoundedRectangle(cornerRadius: 10))
+            .frame(width: 52, height: 52)
+            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+            .padding(.leading, 10)
 
             VStack(alignment: .leading, spacing: 4) {
                 Text(record.productName).font(.headline).lineLimit(2)
@@ -115,10 +131,6 @@ private struct FlowChips: View {
     }
 
     private func color(_ v: Verdict) -> Color {
-        switch v {
-        case .okay: .green
-        case .caution: .orange
-        case .avoid: .red
-        }
+        Theme.color(for: v)
     }
 }

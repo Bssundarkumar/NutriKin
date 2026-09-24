@@ -25,6 +25,7 @@ final class AuthStore {
 
     private var auth: AuthClient { Backend.client.auth }
     init() {
+        if Demo.isOn { state = .signedIn(email: "demo@nutrikin.app") }
         // Lives as long as the app; exits on its own if the store is released.
         Task { [weak self] in
             for await (event, session) in Backend.client.auth.authStateChanges {
@@ -35,6 +36,7 @@ final class AuthStore {
     }
 
     private func apply(event: AuthChangeEvent, session: Session?) {
+        if Demo.isOn { return }
         if let session {
             // An expired stored session is being refreshed; wait for that
             // result instead of flashing the sign-in screen.
