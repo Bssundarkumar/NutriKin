@@ -43,6 +43,10 @@ struct HistoryView: View {
 
     private func open(_ record: ScanRecord) {
         guard openingBarcode == nil else { return }
+        if record.barcode.hasPrefix("photo-") {
+            openError = "Photo scans can't be reopened, because the label picture isn't kept."
+            return
+        }
         openingBarcode = record.barcode
         openError = nil
         Task {

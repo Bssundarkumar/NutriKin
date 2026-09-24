@@ -19,6 +19,16 @@ struct ResultView: View {
         List {
             Section { header.staggeredAppear(0) }
 
+            if product.barcode.hasPrefix("photo-") {
+                Section {
+                    Label("Read from a photo", systemImage: "camera.viewfinder")
+                        .font(.subheadline.weight(.semibold))
+                    Text("This uses the text you confirmed, not a database. Compare it with the package, especially for allergies.")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                }
+            }
+
             if let failed = history.failedSave, failed.barcode == product.barcode {
                 Section {
                     Label("Not saved to History", systemImage: "exclamationmark.icloud.fill")

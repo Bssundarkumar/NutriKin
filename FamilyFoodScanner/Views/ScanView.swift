@@ -11,6 +11,11 @@ struct ScanView: View {
     @State private var autoZoom = true
     @State private var hasRegion = false
     @State private var resetRegionToken = 0
+    @State private var showPhoto = false
+    /// Set by the photo sheet, acted on once the sheet has closed.
+    @State private var photoProduct: Product?
+    @State private var photoBarcode: String?
+    @State private var lookupWasNotFound = false
 
     private let service = ProductService()
 
@@ -33,15 +38,35 @@ struct ScanView: View {
                         .disabled(manualCode.count < 8 || isLoading)
                 }
 
+                Button { showPhoto = true } label: {
+                    Label("No barcode? Take a photo or upload one", systemImage: "camera.viewfinder")
+                        .font(.subheadline.weight(.medium))
+                }
+
                 if let errorMessage {
-                    Text(errorMessage)
-                        .font(.footnote)
-                        .foregroundStyle(.red)
+                    VStack(spacing: 6) {
+                        Text(errorMessage)
+                            .font(.footnote)
+                            .foregroundStyle(.red)
+                            .multilineTextAlignment(.center)
+                        if lookupWasNotFound {
+                            Button("Photograph the label instead") { showPhoto = true }
+                                .font(.footnote.weight(.semibold))
+                        }
+                    }
+                    .transition(.opacity)
                 }
             }
             .padding()
+            .animation(.smooth(duration: 0.25), value: errorMessage)
             .navigationTitle("Scan a product")
             .navigationDestination(item: $product) { ResultView(product: $0) }
+            .sheet(isPresented: $showPhoto, onDismiss: photoSheetClosed) {
+                PhotoScanView(
+                    onBarcode: { photoBarcode = $0 },
+                    onProduct: { photoProduct = $0 }
+                )
+            }
         }
     }
 
@@ -119,6 +144,7 @@ struct ScanView: View {
         guard !isLoading, product == nil else { return } // ignore repeat scans
         isLoading = true
         errorMessage = nil
+        lookupWasNotFound = false
         Task {
             defer { isLoading = false }
             do {
@@ -129,7 +155,21 @@ struct ScanView: View {
                 Task { await history.record(fetched, family: family) }
             } catch {
                 errorMessage = error.localizedDescription
+                if let e = error as? ProductError, case .notFound = e { lookupWasNotFound = true }
             }
+        }
+    }
+
+    /// Acts on what the photo sheet produced, after it has finished closing
+    /// (pushing a screen while a sheet is still dismissing is unreliable).
+    private func photoSheetClosed() {
+        if let code = photoBarcode {
+            photoBarcode = nil
+            lookUp(code)
+        } else if let scanned = photoProduct {
+            photoProduct = nil
+            product = scanned
+            Task { await history.record(scanned, family: family) }
         }
     }
 }

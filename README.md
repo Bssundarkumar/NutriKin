@@ -13,6 +13,11 @@ SwiftUI, iOS 17+, backed by Supabase for shared family data.
   1x/2x/3x buttons to zoom, or leave **Auto** on to let it step the zoom when it
   can't find a code. QR codes work too when they carry a product number (GS1
   Digital Link).
+- **No barcode?** Take photos of the label (Apple's document camera) or choose
+  pictures from the photo library. The phone reads the ingredients and nutrition
+  table on-device with Vision (nothing is uploaded), you check and correct what
+  it read, and it's scored like any other product. If a barcode is in the photo
+  it's used instead. Photo scans can't be reopened from History.
 - **Score** the product 0-100 for every family member, with a readable reason
   for each deduction. Allergies are a hard block.
 - **Ingredient amounts:** each ingredient shows how much of the product it makes
