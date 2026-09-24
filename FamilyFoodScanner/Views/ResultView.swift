@@ -23,6 +23,18 @@ struct ResultView: View {
                 .listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 8, trailing: 16))
                 .listRowBackground(Color.clear)
 
+            if !product.dataWarnings.isEmpty {
+                Section {
+                    Label("Some information is missing", systemImage: "questionmark.diamond.fill")
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(.orange)
+                    ForEach(product.dataWarnings, id: \.self) { Text($0).font(.footnote) }
+                    Text("Scores can't be fully trusted without it. Check the package, or go back and photograph the label.")
+                        .font(.footnote).foregroundStyle(.secondary)
+                }
+                .listRowBackground(Color.orange.opacity(0.12))
+            }
+
             if product.barcode.hasPrefix("photo-") {
                 Section {
                     Label("Read from a photo", systemImage: "camera.viewfinder")

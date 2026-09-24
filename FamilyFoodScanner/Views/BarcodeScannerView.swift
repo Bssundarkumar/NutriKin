@@ -17,6 +17,8 @@ struct BarcodeScannerView: UIViewControllerRepresentable {
     var onRegionChange: (Bool) -> Void = { _ in }
     /// Called when the scanner changes the zoom itself (auto zoom).
     var onZoomChange: (Double) -> Void = { _ in }
+    /// A code was seen that isn't a product barcode (a website QR, say).
+    var onIgnored: () -> Void = {}
 
     static var isAvailable: Bool {
         DataScannerViewController.isSupported && DataScannerViewController.isAvailable
@@ -68,6 +70,7 @@ struct BarcodeScannerView: UIViewControllerRepresentable {
         c.onScan = onScan
         c.onRegionChange = onRegionChange
         c.onZoomChange = onZoomChange
+        c.onIgnored = onIgnored
         if !vc.isScanning { try? vc.startScanning() }
         c.setAutoZoom(autoZoom)
         if !c.didTuneFocus {
@@ -96,6 +99,7 @@ struct BarcodeScannerView: UIViewControllerRepresentable {
         var onScan: (String) -> Void
         var onRegionChange: (Bool) -> Void
         var onZoomChange: (Double) -> Void
+        var onIgnored: () -> Void = {}
         weak var scanner: DataScannerViewController?
         var lastZoom: Double = 1
         var lastResetToken = 0
@@ -176,6 +180,8 @@ struct BarcodeScannerView: UIViewControllerRepresentable {
                         UINotificationFeedbackGenerator().notificationOccurred(.success)
                         onScan(value)
                         return
+                    } else {
+                        onIgnored()
                     }
                 } else {
                     // Seen but not readable yet (too small or blurry): move closer.

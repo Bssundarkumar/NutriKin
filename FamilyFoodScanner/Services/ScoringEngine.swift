@@ -96,6 +96,32 @@ struct ScoringEngine {
             reasons.append("\(fmt(cal)) kcal is \(pct(share)) of the \(fmt(goal)) kcal daily goal.")
         }
 
+        // 6. Unknown is not the same as safe. Missing data must never produce a comfortable
+        //    "okay" for something the person needs to check, so cap those cases at "caution".
+        var cap = 100.0
+        var warnings: [String] = []
+
+        let allergyNames = (member.allergies.map(\.displayName) + member.customAllergyNames).map { $0.lowercased() }
+        if !allergyNames.isEmpty, !product.hasIngredientInfo, product.allergenTags.isEmpty {
+            cap = min(cap, 60)
+            warnings.append("This product has no ingredient list, so \(member.name)'s \(allergyNames.joined(separator: ", ")) allergy can't be ruled out. Check the package.")
+        }
+        let traces = member.allergies.filter(product.mayContainTraces).map { $0.displayName.lowercased() }
+        if !traces.isEmpty {
+            cap = min(cap, 60)
+            warnings.append("The label says it may contain traces of \(traces.joined(separator: ", ")). Take care with \(member.name)'s allergy.")
+        }
+        var missing: [String] = []
+        if member.has(.diabetes), n.sugarG == nil { missing.append("sugar (diabetes)") }
+        if member.has(.hypertension), n.sodiumMg == nil { missing.append("sodium (blood pressure)") }
+        if member.has(.highCholesterol), n.satFatG == nil { missing.append("saturated fat (cholesterol)") }
+        if !missing.isEmpty {
+            cap = min(cap, 69)
+            warnings.append("No \(missing.joined(separator: ", ")) figure on this product, so it can't be fully checked for \(member.name).")
+        }
+        score = min(score, cap)
+        reasons.insert(contentsOf: warnings, at: 0)
+
         let final = Int(max(0, min(100, score.rounded())))
         let verdict: Verdict = final >= 70 ? .okay : (final >= 40 ? .caution : .avoid)
         if reasons.isEmpty {

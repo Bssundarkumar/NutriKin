@@ -84,7 +84,7 @@ struct ProductService {
         }
     }
 
-    private static let productFields = "code,product_name,brands,image_front_small_url,ingredients_text,ingredients_tags,ingredients,additives_tags,allergens_tags,serving_size,nutriments,nutriscore_grade,nova_group,categories_tags"
+    private static let productFields = "code,product_name,brands,image_front_small_url,ingredients_text,ingredients_tags,ingredients,additives_tags,allergens_tags,serving_size,nutriments,nutriscore_grade,nova_group,categories_tags,traces_tags"
 
     /// Popular products from the same category as `product`, for ranking as
     /// alternatives. Tries the most specific category first and widens only
@@ -161,6 +161,7 @@ private struct OFFProduct: Decodable {
     let nutriscore_grade: String?
     let nova_group: FlexibleInt?
     let categories_tags: [String]?
+    let traces_tags: [String]?
     let product_name: String?
     let brands: String?
     let image_front_small_url: String?
@@ -213,7 +214,8 @@ private struct OFFProduct: Decodable {
             nutriScore: ["a", "b", "c", "d", "e"].contains(grade ?? "") ? grade : nil,
             novaGroup: nova_group?.value.flatMap { (1...4).contains($0) ? $0 : nil },
             categoryTags: categories_tags ?? [],
-            per100g: nut["energy-kcal_100g"] != nil ? nutrition(suffix: "_100g", basis: "per 100 g") : nil
+            per100g: nut["energy-kcal_100g"] != nil ? nutrition(suffix: "_100g", basis: "per 100 g") : nil,
+            tracesTags: traces_tags ?? []
         )
     }
 }

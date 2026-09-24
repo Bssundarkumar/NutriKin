@@ -17,6 +17,10 @@ struct ScanView: View {
     @State private var photoProduct: Product?
     @State private var photoBarcode: String?
     @State private var lookupWasNotFound = false
+    @State private var lastCode = ""
+    @State private var stalled = false
+    @State private var scanAttempt = 0
+    @State private var ignoredNotice = false
 
     private let service = ProductService()
 
@@ -71,6 +75,10 @@ struct ScanView: View {
                         if lookupWasNotFound {
                             Button("Photograph the label instead") { showPhoto = true }
                                 .font(.footnote.weight(.semibold))
+                            if let url = URL(string: "https://world.openfoodfacts.org/cgi/product.pl?type=add&code=\(lastCode)") {
+                                Link("Add it to Open Food Facts", destination: url)
+                                    .font(.footnote)
+                            }
                         }
                     }
                     .transition(.opacity)
@@ -101,10 +109,12 @@ struct ScanView: View {
                     resetRegionToken: resetRegionToken,
                     autoZoom: autoZoom,
                     onRegionChange: { hasRegion = $0 },
-                    onZoomChange: { zoom = $0 }
+                    onZoomChange: { zoom = $0 },
+                    onIgnored: { showIgnoredNotice() }
                 )
                 if !hasRegion { ScannerFrame().transition(.opacity) }
                 scannerControls
+                stallHints
             } else {
                 Color.black.opacity(0.85)
                 if !BarcodeScannerView.isAvailable {
@@ -115,10 +125,56 @@ struct ScanView: View {
             }
             if isLoading { ProgressView().tint(.white).controlSize(.large) }
         }
+        .task(id: scanAttempt) {
+            stalled = false
+            try? await Task.sleep(for: .seconds(12))
+            if !Task.isCancelled, product == nil, !isLoading, BarcodeScannerView.isAvailable { stalled = true }
+        }
         .clipShape(RoundedRectangle(cornerRadius: 30, style: .continuous))
         .overlay(RoundedRectangle(cornerRadius: 30, style: .continuous).strokeBorder(.white.opacity(0.5), lineWidth: 2))
         .shadow(color: Theme.brand.opacity(0.3), radius: 16, y: 8)
         .frame(maxHeight: .infinity)
+    }
+
+    /// Nudges that appear over the camera: a website QR was ignored, or nothing has scanned for a while.
+    private var stallHints: some View {
+        VStack(spacing: 8) {
+            Spacer()
+            if ignoredNotice {
+                hintPill("That code isn't a product barcode.", symbol: "qrcode")
+                    .transition(.move(edge: .bottom).combined(with: .opacity))
+            } else if stalled {
+                VStack(spacing: 6) {
+                    hintPill("Having trouble? Get closer, tap the barcode, or add light.", symbol: "lightbulb.fill")
+                    HStack(spacing: 8) {
+                        Button("Photograph the label") { showPhoto = true }
+                        Text("or type the number below").foregroundStyle(.white.opacity(0.85))
+                    }
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(.white)
+                }
+                .transition(.move(edge: .bottom).combined(with: .opacity))
+            }
+            Color.clear.frame(height: 52)
+        }
+        .animation(.smooth, value: stalled)
+        .animation(.smooth, value: ignoredNotice)
+    }
+
+    private func hintPill(_ text: String, symbol: String) -> some View {
+        Label(text, systemImage: symbol)
+            .font(.caption.weight(.medium))
+            .padding(.horizontal, 12).padding(.vertical, 7)
+            .background(.black.opacity(0.65), in: Capsule())
+            .foregroundStyle(.white)
+    }
+
+    private func showIgnoredNotice() {
+        ignoredNotice = true
+        Task {
+            try? await Task.sleep(for: .seconds(2.5))
+            ignoredNotice = false
+        }
     }
 
     private var familyChip: some View {
@@ -179,11 +235,13 @@ struct ScanView: View {
 
     private func lookUp(_ code: String) {
         guard !isLoading, product == nil else { return } // ignore repeat scans
+        lastCode = code
+        scanAttempt += 1
         isLoading = true
         errorMessage = nil
         lookupWasNotFound = false
         Task {
-            defer { isLoading = false }
+            defer { isLoading = false; scanAttempt += 1 }
             do {
                 let fetched = try await service.fetch(barcode: code)
                 product = fetched

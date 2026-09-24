@@ -190,6 +190,29 @@ struct Product: Identifiable, Hashable {
     var categoryTags: [String] = []
     /// The same nutrition on a fixed per-100 g basis, so different products can be compared fairly.
     var per100g: Nutrition?
+    /// Allergens the label says it "may contain" (cross-contact), e.g. "en:nuts".
+    var tracesTags: [String] = []
+
+    /// True when there is any ingredient information to check allergies against.
+    var hasIngredientInfo: Bool {
+        !(ingredientsText ?? "").trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || !ingredientTags.isEmpty
+    }
+
+    /// True when the product has at least one nutrition figure.
+    var hasAnyNutrition: Bool {
+        let n = nutrition
+        return [n.calories, n.sugarG, n.carbsG, n.sodiumMg, n.satFatG, n.proteinG].contains { $0 != nil }
+    }
+
+    func mayContainTraces(of allergen: Allergen) -> Bool { tracesTags.contains(allergen.offTag) }
+
+    /// Plain-language gaps in this product's data, shown on the result screen.
+    var dataWarnings: [String] {
+        var out: [String] = []
+        if !hasIngredientInfo { out.append("No ingredient list is available for this product.") }
+        if !hasAnyNutrition { out.append("No nutrition facts are available for this product.") }
+        return out
+    }
 
     /// Dietary supplements (vitamins, capsules and the like). Open Food Facts still
     /// computes NOVA and Nutri-Score for them from the ingredient list, but both
