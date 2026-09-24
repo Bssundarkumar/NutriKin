@@ -53,6 +53,11 @@ SwiftUI, iOS 17+, backed by Supabase for shared family data.
   reading a product label from photos need the key, because the on-device model reads
   text, not images. The app re-checks every AI meal against the person's allergies, and
   the person confirms every AI-read label before it's scored.
+- **AI guardrails** (`Services/AIGuardrails.swift`) apply to every AI feature: prompts confine the AI to food and
+  nutrition for the family; emergencies, crisis language, medication or dose questions and jailbreak attempts get a
+  fixed, human-written reply and never reach the AI; product, label and family text is passed as data, not
+  instructions; replies have links and dosing advice removed, allergen mentions flagged and length capped; AI meal
+  plans are re-checked against allergies; and model-written fields are sanitised. All of it is unit tested.
 - **History** of past scans, one entry per product, with each member's verdict at the time.
 - **Apple Health** read access for the device owner (weight, glucose, blood
   pressure, calories).

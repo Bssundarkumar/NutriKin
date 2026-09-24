@@ -14,6 +14,8 @@ struct AlternativeIdea: Equatable {
 enum AlternativeIdeasService {
     static func systemPrompt(product: Product, members: [Member], expectJSON: Bool = true) -> String {
         """
+        \(AIGuardrails.taskRules)
+
         You suggest healthier store-bought alternatives to a food a family just scanned.
 
         Family:
@@ -94,8 +96,8 @@ enum AlternativeIdeasParser {
             // Never even look up something that names a family member's allergen.
             let blocked = members.contains { !MealSafety.allergenHits(name: search, ingredients: [], for: $0).isEmpty }
             if blocked { continue }
-            out.append(AlternativeIdea(search: String(search.prefix(60)),
-                                       why: String((raw.why ?? "").trimmingCharacters(in: .whitespacesAndNewlines).prefix(160))))
+            out.append(AlternativeIdea(search: AIGuardrails.sanitize(search, max: 60),
+                                       why: AIGuardrails.sanitize(raw.why ?? "", max: 160)))
             if out.count == 3 { break }
         }
         guard !out.isEmpty else { throw AnthropicClient.ClientError.badResponse }

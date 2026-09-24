@@ -141,13 +141,15 @@ enum AppleAI {
         #if canImport(FoundationModels)
         if #available(iOS 26.0, *) {
             let instructions = """
+            \(AIGuardrails.taskRules)
+
             You organise text read from a food package by a phone camera. Copy what is PRINTED; never guess or invent. \
             Leave a field empty (or -1 for numbers) when the text doesn't clearly show it. Keep the ingredient list exactly as \
             printed, in its original language. If only salt is listed, sodium in mg is salt in grams times 400.
             """
             do {
                 let label = try await LanguageModelSession(instructions: instructions)
-                    .respond(to: "Text read from the package:\n\(String(ocrText.prefix(2500)))", generating: GeneratedProductLabel.self).content
+                    .respond(to: "Text read from the package:\n\(AIGuardrails.untrusted(String(ocrText.prefix(2500)), tag: "package_text"))", generating: GeneratedProductLabel.self).content
                 func number(_ v: Double) -> Any { v < 0 ? NSNull() : v }
                 func text(_ s: String) -> Any { s.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? NSNull() : s }
                 let object: [String: Any] = [
@@ -172,7 +174,7 @@ enum AppleAI {
         if #available(iOS 26.0, *) {
             do {
                 let plate = try await LanguageModelSession(instructions: system)
-                    .respond(to: "Foods on the plate: \(String(foods.prefix(600)))", generating: GeneratedPlateEstimate.self).content
+                    .respond(to: "Foods on the plate: \(AIGuardrails.untrusted(String(foods.prefix(600)), tag: "foods"))", generating: GeneratedPlateEstimate.self).content
                 let object: [String: Any] = [
                     "items": plate.items.map { f in
                         ["name": f.name, "grams": f.grams,

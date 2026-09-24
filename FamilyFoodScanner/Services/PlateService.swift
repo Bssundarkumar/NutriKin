@@ -18,6 +18,8 @@ struct PlateService {
             shape = #"{"plate_diameter_cm":26,"items":[{"name":"Rice","grams":180,"per_100g":{"calories":130,"sugar_g":0.1,"carbs_g":28,"sodium_mg":1,"sat_fat_g":0.1,"protein_g":2.7},"confidence":"high","allergens":[]}],"note":"one short sentence about the biggest uncertainty"}"#
         }
         return """
+        \(AIGuardrails.taskRules)
+
         You estimate the nutrition of a plate of food for a family health app. The photo shows one plate, \
         ideally from above. \(scale)
 
@@ -48,6 +50,8 @@ struct PlateService {
     static func estimateOnDevice(foods: String, plateDiameterCm: Int?) async throws -> PlateAnalysis {
         let scale = plateDiameterCm.map { "The plate is \($0) cm across." } ?? "The plate is a normal dinner plate, about 26 cm across."
         let system = """
+        \(AIGuardrails.taskRules)
+
         You estimate the nutrition of a plate of food for a family health app. \(scale) The person lists what is on it, \
         sometimes with amounts ("2 rotis", "small bowl of dal"). Work out a realistic cooked weight in grams for each food as \
         served on a plate of that size, and typical nutrition per 100 g. If no amount is given, assume a normal single serving. \
@@ -107,7 +111,7 @@ enum PlateParser {
             let name = (raw.name ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
             guard !name.isEmpty, let grams = raw.grams, grams > 0, let p = raw.per100g, let kcal = p.calories else { return nil }
             return PlateItem(
-                name: String(name.prefix(60)),
+                name: AIGuardrails.sanitize(name, max: 60),
                 grams: min(max(grams, 5), 1500),
                 per100g: .init(calories: clamp(kcal, 900), sugarG: clamp(p.sugarG, 100), carbsG: clamp(p.carbsG, 100),
                                sodiumMg: clamp(p.sodiumMg, 5000), satFatG: clamp(p.satFatG, 100), proteinG: clamp(p.proteinG, 100)),

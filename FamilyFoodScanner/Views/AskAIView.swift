@@ -8,6 +8,9 @@ struct AskAIView: View {
         let id = UUID()
         let role: Role
         let text: String
+        /// A fixed safety reply written by the app (not the AI). It and the question it answered stay out of the AI's context.
+        var isNotice = false
+        var excludedFromContext = false
     }
 
     var product: Product?
@@ -74,7 +77,7 @@ struct AskAIView: View {
         ScrollViewReader { proxy in
             ScrollView {
                 VStack(spacing: 12) {
-                    Text("\(privacyNote) AI can be wrong. It isn't a doctor. For allergies, always read the label.")
+                    Text("\(privacyNote) Answers stay within food and nutrition for your family. AI can be wrong and isn't a doctor: for allergies, always read the label.")
                         .font(.caption).foregroundStyle(.secondary).multilineTextAlignment(.center).padding(.top, 8)
 
                     if messages.isEmpty {
@@ -118,15 +121,23 @@ struct AskAIView: View {
         let isUser = m.role == .user
         return HStack {
             if isUser { Spacer(minLength: 40) }
-            Text(markdown(m.text))
-                .font(.subheadline)
-                .padding(.horizontal, 14).padding(.vertical, 10)
-                .foregroundStyle(isUser ? Color.white : Color.primary)
-                .background {
-                    if isUser { RoundedRectangle(cornerRadius: 18, style: .continuous).fill(Theme.brandGradient) }
-                    else { RoundedRectangle(cornerRadius: 18, style: .continuous).fill(Color(.secondarySystemGroupedBackground)) }
+            Group {
+                if m.isNotice {
+                    Label { Text(m.text).font(.subheadline) } icon: { Image(systemName: "shield.lefthalf.filled").foregroundStyle(.orange) }
+                        .padding(.horizontal, 14).padding(.vertical, 10)
+                        .background(RoundedRectangle(cornerRadius: 18, style: .continuous).fill(Color.orange.opacity(0.14)))
+                } else {
+                    Text(markdown(m.text))
+                        .font(.subheadline)
+                        .padding(.horizontal, 14).padding(.vertical, 10)
+                        .foregroundStyle(isUser ? Color.white : Color.primary)
+                        .background {
+                            if isUser { RoundedRectangle(cornerRadius: 18, style: .continuous).fill(Theme.brandGradient) }
+                            else { RoundedRectangle(cornerRadius: 18, style: .continuous).fill(Color(.secondarySystemGroupedBackground)) }
+                        }
                 }
-                .textSelection(.enabled)
+            }
+            .textSelection(.enabled)
             if !isUser { Spacer(minLength: 40) }
         }
         .transition(.move(edge: .bottom).combined(with: .opacity))
@@ -156,12 +167,22 @@ struct AskAIView: View {
     }
 
     private func send(_ raw: String) {
-        let text = raw.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !text.isEmpty, !isSending else { return }
+        guard !raw.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty, !isSending else { return }
         input = ""
         error = nil
-        withAnimation(.snappy) { messages.append(Message(role: .user, text: text)) }
-        ask()
+        switch AIGuardrails.screen(raw) {
+        case .allow(let text):
+            withAnimation(.snappy) { messages.append(Message(role: .user, text: text)) }
+            ask()
+        case .notice(let kind, let reply):
+            // Answered by the app itself; the AI never sees it.
+            withAnimation(.snappy) {
+                messages.append(Message(role: .user, text: String(raw.trimmingCharacters(in: .whitespacesAndNewlines).prefix(300)),
+                                        excludedFromContext: true))
+                messages.append(Message(role: .assistant, text: reply, isNotice: true, excludedFromContext: true))
+            }
+            UINotificationFeedbackGenerator().notificationOccurred(kind == .offTopic ? .warning : .error)
+        }
     }
 
     private func retry() { error = nil; ask() }
@@ -169,7 +190,7 @@ struct AskAIView: View {
     private func ask() {
         guard let provider = ai.textProvider else { showConnect = true; return }
         isSending = true
-        let turns = messages.suffix(12).map { (role: $0.role.rawValue, text: $0.text) }
+        let turns = messages.filter { !$0.excludedFromContext }.suffix(12).map { (role: $0.role.rawValue, text: $0.text) }
         let system = AskAI.systemPrompt(family: family.members, product: product, compact: provider == .apple)
         let llm = provider == .apple ? ai.keyClient : ai.client(for: provider)
         Task {
@@ -192,7 +213,8 @@ struct AskAIView: View {
                     reply = try await llm.chat(
                         system: system, messages: turns.map { ["role": $0.role, "content": $0.text] }, maxTokens: 700)
                 }
-                withAnimation(.snappy) { messages.append(Message(role: .assistant, text: reply.trimmingCharacters(in: .whitespacesAndNewlines))) }
+                let reviewed = AIGuardrails.review(reply: reply, members: family.members)
+                withAnimation(.snappy) { messages.append(Message(role: .assistant, text: reviewed)) }
             } catch {
                 self.error = error.localizedDescription
             }

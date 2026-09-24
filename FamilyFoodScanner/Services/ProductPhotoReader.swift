@@ -19,6 +19,8 @@ struct ProductReading: Equatable {
 /// Reads packaging photos with the person's own AI key (Apple's on-device model can't see images).
 enum ProductPhotoReader {
     static let systemPrompt = """
+    \(AIGuardrails.taskRules)
+
     You read photos of food packaging for a family nutrition app. Copy what is PRINTED; never guess or invent.
     The photos may show the front of the pack, the ingredient list, the nutrition table, or a barcode.
 
@@ -77,7 +79,8 @@ enum ProductPhotoReader {
         }
         func clean(_ s: String?, max: Int) -> String? {
             let t = (s ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
-            return t.isEmpty || t.lowercased() == "null" ? nil : String(t.prefix(max))
+            let safe = AIGuardrails.sanitize(t, max: max, keepNewlines: true)
+            return safe.isEmpty || safe.lowercased() == "null" ? nil : safe
         }
         func clamp(_ v: Double?, _ hi: Double) -> Double? { v.map { min(max($0, 0), hi) } }
 

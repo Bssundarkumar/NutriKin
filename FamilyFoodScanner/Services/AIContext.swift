@@ -5,8 +5,8 @@ import Foundation
 /// about the phone or account.
 enum AIContext {
     static func family(_ members: [Member]) -> String {
-        guard !members.isEmpty else { return "No family members have been added yet." }
-        return members.map(describe).joined(separator: "\n")
+        guard !members.isEmpty else { return "<family_data>\nNo family members have been added yet.\n</family_data>" }
+        return AIGuardrails.untrusted(members.map(describe).joined(separator: "\n"), tag: "family_data")
     }
 
     static func describe(_ m: Member) -> String {
@@ -66,7 +66,7 @@ enum AIContext {
             }
         }
         lines.append(contentsOf: p.dataWarnings)
-        return lines.joined(separator: "\n")
+        return AIGuardrails.untrusted(lines.joined(separator: "\n"), tag: "product_data")
     }
 
     private static func fmt(_ v: Double) -> String { v.rounded() == v ? String(Int(v)) : String(format: "%.1f", v) }
@@ -76,20 +76,14 @@ enum AskAI {
     /// `compact` trims the product facts for Apple's small on-device context window.
     static func systemPrompt(family: [Member], product: Product?, compact: Bool = false) -> String {
         var s = """
-        You are the food helper inside NutriKin, a family nutrition app. Answer the person's questions about food \
-        for THEIR family, using the facts below. Be practical, warm and brief (under 150 words unless asked for more), \
-        in plain language, with short lists when useful.
+        \(AIGuardrails.chatRules)
+
+        Answer the person's questions about food for THEIR family, using the facts below. Be practical, warm and brief \
+        (under 150 words unless asked for more), in plain language, with short lists when useful.
 
         When they ask for suggestions (meals, snacks, swaps, ideas), always answer with 3 to 5 concrete, specific ideas \
         tailored to this family: respect every condition and allergy listed, and say briefly why each one fits. \
         Don't refuse or ask for a product first; general food questions need no scanned product.
-
-        Rules:
-        - You are not a doctor. Don't diagnose, and don't give medication or insulin advice; for those, point to their doctor or dietitian.
-        - Never say a food is safe for an allergy. Say to read the label, because ingredients and factories change.
-        - Use only the numbers given. If something isn't in the facts, say so or label your figure "roughly".
-        - If a product's data is missing, say the answer is uncertain. If no product was scanned, answer generally for the family.
-        - Keep to food, nutrition and cooking. Politely decline other topics.
 
         Family:
         \(AIContext.family(family))
@@ -97,6 +91,8 @@ enum AskAI {
         if let product {
             let facts = AIContext.product(product, members: family)
             s += "\n\nThe product they just scanned:\n\(compact ? String(facts.prefix(1400)) : facts)"
+        } else {
+            s += "\n\nNo product was scanned. Answer generally for the family."
         }
         return s
     }
