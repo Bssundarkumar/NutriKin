@@ -6,6 +6,7 @@ struct ResultView: View {
     @Environment(HistoryStore.self) private var history
     private let engine = ScoringEngine()
     private let analyzer = IngredientAnalyzer()
+    @State private var alternatives: AlternativesSection.Phase = .unavailable
 
     private var scores: [MemberScore] {
         engine.scoreFamily(product, members: family.members)
@@ -39,6 +40,17 @@ struct ResultView: View {
                         Task { await history.retryFailedSave() }
                     }
                     .disabled(history.isRetrying)
+                }
+            }
+
+            if product.nutriScore != nil || product.novaGroup != nil {
+                Section {
+                    QualityBadges(nutriScore: product.nutriScore, novaGroup: product.novaGroup)
+                        .padding(.vertical, 4)
+                } header: {
+                    Text("Quality grades")
+                } footer: {
+                    Text("General grades from Open Food Facts, not personalised. The family scores below take each person's needs into account.")
                 }
             }
 
@@ -76,6 +88,8 @@ struct ResultView: View {
                 }
             }
 
+            AlternativesSection(phase: alternatives)
+
             let ingredientRows = IngredientRows.make(product: product, alerts: ingredientAlerts, members: family.members)
             if !ingredientRows.isEmpty {
                 Section("Ingredients") { IngredientListView(rows: ingredientRows) }
@@ -94,6 +108,7 @@ struct ResultView: View {
         }
         .navigationTitle("Scan result")
         .navigationBarTitleDisplayMode(.inline)
+        .task(id: product.barcode) { await loadAlternatives(for: results) }
         .onAppear {
             // The scanner already gave a success tap; only add one when there's something to heed.
             if allergyHits.isEmpty == false {
@@ -101,6 +116,23 @@ struct ResultView: View {
             } else if results.contains(where: { $0.verdict == .avoid }) {
                 UINotificationFeedbackGenerator().notificationOccurred(.warning)
             }
+        }
+    }
+
+    /// Only looks for alternatives when someone in the family isn't fully "okay" with this product.
+    private func loadAlternatives(for results: [MemberScore]) async {
+        guard !product.barcode.hasPrefix("photo-"), product.normalizedTo100g != nil,
+              !product.categoryTags.isEmpty, results.contains(where: { $0.verdict != .okay }) else {
+            alternatives = .unavailable
+            return
+        }
+        alternatives = .loading
+        do {
+            let candidates = try await ProductService().similarProducts(to: product)
+            let ranked = AlternativeRanker().rank(current: product, candidates: candidates, members: family.members)
+            alternatives = .loaded(ranked)
+        } catch {
+            alternatives = .unavailable
         }
     }
 

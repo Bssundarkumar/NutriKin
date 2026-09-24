@@ -84,12 +84,56 @@ struct ProductService {
         }
     }
 
+    private static let productFields = "code,product_name,brands,image_front_small_url,ingredients_text,ingredients_tags,ingredients,additives_tags,allergens_tags,serving_size,nutriments,nutriscore_grade,nova_group,categories_tags"
+
+    /// Popular products from the same category as `product`, for ranking as
+    /// alternatives. Tries the most specific category first and widens only
+    /// if that gives too few.
+    func similarProducts(to product: Product, minimum: Int = 12) async throws -> [Product] {
+        let tags = Self.searchableCategories(product.categoryTags)
+        var found: [Product] = []
+        for tag in tags.reversed().prefix(2) {
+            var comps = URLComponents(string: "https://world.openfoodfacts.org/api/v2/search")!
+            comps.queryItems = [
+                URLQueryItem(name: "categories_tags", value: tag),
+                URLQueryItem(name: "fields", value: Self.productFields),
+                URLQueryItem(name: "sort_by", value: "unique_scans_n"),
+                URLQueryItem(name: "page_size", value: "40"),
+            ]
+            var request = URLRequest(url: comps.url!)
+            request.setValue(userAgent, forHTTPHeaderField: "User-Agent")
+            request.timeoutInterval = 20
+            let (data, response) = try await URLSession.shared.data(for: request)
+            let status = (response as? HTTPURLResponse)?.statusCode ?? 0
+            if status == 503 || status == 429 { throw ProductError.busy }
+            guard status == 200 else { throw ProductError.badResponse }
+            found = Self.decodeProducts(data)
+            if found.count >= minimum { break }
+        }
+        return found
+    }
+
+    /// Only clean English ids ("en:sweet-spreads"); the list also holds translated names.
+    static func searchableCategories(_ tags: [String]) -> [String] {
+        tags.filter { $0.range(of: #"^en:[a-z0-9-]+$"#, options: .regularExpression) != nil }
+    }
+
+    /// Pure, so it can be tested without the network.
+    static func decodeProducts(_ data: Data) -> [Product] {
+        struct Response: Decodable { let products: [OFFProduct]? }
+        guard let response = try? JSONDecoder().decode(Response.self, from: data) else { return [] }
+        return (response.products ?? []).compactMap { row in
+            guard let code = row.code, code.allSatisfy(\.isNumber), code.count >= 8 else { return nil }
+            return row.toProduct(barcode: code)
+        }
+    }
+
     func fetch(barcode: String) async throws -> Product {
         let code = barcode.filter(\.isNumber)
         var comps = URLComponents(string: "https://world.openfoodfacts.org/api/v2/product/\(code).json")!
         comps.queryItems = [URLQueryItem(
             name: "fields",
-            value: "product_name,brands,image_front_small_url,ingredients_text,ingredients_tags,ingredients,additives_tags,allergens_tags,serving_size,nutriments"
+            value: Self.productFields
         )]
         var request = URLRequest(url: comps.url!)
         request.setValue(userAgent, forHTTPHeaderField: "User-Agent")
@@ -113,6 +157,10 @@ private struct OFFResponse: Decodable {
 }
 
 private struct OFFProduct: Decodable {
+    let code: String?
+    let nutriscore_grade: String?
+    let nova_group: FlexibleInt?
+    let categories_tags: [String]?
     let product_name: String?
     let brands: String?
     let image_front_small_url: String?
@@ -129,11 +177,25 @@ private struct OFFProduct: Decodable {
         // Prefer per-serving values when the product has them.
         let useServing = nut["energy-kcal_serving"] != nil
         let suffix = useServing ? "_serving" : "_100g"
-        func v(_ key: String) -> Double? { nut[key + suffix] }
 
         let basis = useServing
             ? "per serving" + (serving_size.map { " (\($0))" } ?? "")
             : "per 100 g"
+
+        func nutrition(suffix: String, basis: String) -> Nutrition {
+            func w(_ key: String) -> Double? { nut[key + suffix] }
+            return Nutrition(
+                calories: w("energy-kcal"),
+                sugarG: w("sugars"),
+                carbsG: w("carbohydrates"),
+                sodiumMg: w("sodium").map { $0 * 1000 },
+                satFatG: w("saturated-fat"),
+                transFatG: w("trans-fat"),
+                proteinG: w("proteins"),
+                basis: basis
+            )
+        }
+        let grade = nutriscore_grade?.lowercased()
 
         let name = (product_name?.isEmpty == false) ? product_name! : "Unnamed product"
 
@@ -144,20 +206,27 @@ private struct OFFProduct: Decodable {
             imageURL: image_front_small_url.flatMap(URL.init(string:)),
             ingredientsText: ingredients_text,
             allergenTags: allergens_tags ?? [],
-            nutrition: Nutrition(
-                calories: v("energy-kcal"),
-                sugarG: v("sugars"),
-                carbsG: v("carbohydrates"),
-                sodiumMg: v("sodium").map { $0 * 1000 }, // OFF stores sodium in grams
-                satFatG: v("saturated-fat"),
-                transFatG: v("trans-fat"),
-                proteinG: v("proteins"),
-                basis: basis
-            ),
+            nutrition: nutrition(suffix: suffix, basis: basis),
             ingredientTags: ingredients_tags ?? [],
             additivesTags: additives_tags ?? [],
-            ingredientAmounts: (ingredients ?? []).compactMap(\.asAmount)
+            ingredientAmounts: (ingredients ?? []).compactMap(\.asAmount),
+            nutriScore: ["a", "b", "c", "d", "e"].contains(grade ?? "") ? grade : nil,
+            novaGroup: nova_group?.value.flatMap { (1...4).contains($0) ? $0 : nil },
+            categoryTags: categories_tags ?? [],
+            per100g: nut["energy-kcal_100g"] != nil ? nutrition(suffix: "_100g", basis: "per 100 g") : nil
         )
+    }
+}
+
+/// An integer that Open Food Facts sometimes sends as a string.
+struct FlexibleInt: Decodable {
+    let value: Int?
+    init(from decoder: Decoder) throws {
+        let c = try decoder.singleValueContainer()
+        if let i = try? c.decode(Int.self) { value = i }
+        else if let d = try? c.decode(Double.self) { value = Int(d) }
+        else if let s = try? c.decode(String.self) { value = Int(s) }
+        else { value = nil }
     }
 }
 

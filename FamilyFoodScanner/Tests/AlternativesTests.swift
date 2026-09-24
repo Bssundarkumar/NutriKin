@@ -1,0 +1,111 @@
+import XCTest
+@testable import NutriKin
+
+final class AlternativesTests: XCTestCase {
+    private func product(_ code: String, name: String = "P", sugar: Double, sodium: Double = 100,
+                         satFat: Double = 1, ingredients: String? = "oats, water",
+                         allergens: [String] = [], servingBasis: Bool = false) -> Product {
+        let per100 = Nutrition(calories: 200, sugarG: sugar, carbsG: 30, sodiumMg: sodium,
+                               satFatG: satFat, transFatG: 0, proteinG: 4, basis: "per 100 g")
+        var p = Product(barcode: code, name: name, brand: "B", imageURL: nil, ingredientsText: ingredients,
+                        allergenTags: allergens,
+                        nutrition: servingBasis
+                            ? Nutrition(calories: 40, sugarG: 1, carbsG: 6, sodiumMg: 20, satFatG: 0.2,
+                                        transFatG: 0, proteinG: 1, basis: "per serving (20 g)")
+                            : per100)
+        p.per100g = per100
+        p.categoryTags = ["en:snacks", "en:sweet-snacks", "en:biscuits"]
+        return p
+    }
+
+    private let diabetic = Member(name: "Amma", conditions: [.diabetes], goals: Goals(dailySugarGrams: 25))
+
+    func testSuggestsSaferProductsBestFirst() {
+        let current = product("11111111", sugar: 55)
+        let better = product("22222222", name: "Better", sugar: 2)
+        let alright = product("33333333", name: "Alright", sugar: 12)
+        let result = AlternativeRanker().rank(current: current, candidates: [alright, better], members: [diabetic])
+        XCTAssertEqual(result.map(\.product.barcode), ["22222222", "33333333"])
+    }
+
+    func testNeverSuggestsTheSameProductOrAnAllergen() {
+        let nutAllergy = Member(name: "Kid", conditions: [.allergy(.peanuts), .diabetes], goals: Goals(dailySugarGrams: 25))
+        let current = product("11111111", sugar: 50)
+        let same = product("11111111", sugar: 1)
+        let peanut = product("22222222", name: "Nutty", sugar: 1, ingredients: "peanuts, sugar", allergens: ["en:peanuts"])
+        let fine = product("33333333", name: "Fine", sugar: 1)
+        let result = AlternativeRanker().rank(current: current, candidates: [same, peanut, fine], members: [nutAllergy])
+        XCTAssertEqual(result.map(\.product.barcode), ["33333333"])
+    }
+
+    func testMissingDataIsNeverRecommended() {
+        let current = product("11111111", sugar: 55)
+        let noIngredients = product("22222222", name: "Blank", sugar: 0, ingredients: nil)
+        var noNutrition = product("33333333", name: "Empty", sugar: 0)
+        noNutrition.per100g = Nutrition(calories: 100, sugarG: nil, carbsG: nil, sodiumMg: nil,
+                                        satFatG: nil, transFatG: nil, proteinG: nil, basis: "per 100 g")
+        XCTAssertTrue(AlternativeRanker().rank(current: current, candidates: [noIngredients, noNutrition],
+                                               members: [diabetic]).isEmpty)
+    }
+
+    func testComparesOnPer100gEvenWhenServingFiguresExist() {
+        // Tiny serving looks harmless, but per 100 g it is very sugary.
+        let current = product("11111111", sugar: 60, servingBasis: true)
+        let similar = product("22222222", name: "Same", sugar: 58)
+        XCTAssertTrue(AlternativeRanker().rank(current: current, candidates: [similar], members: [diabetic]).isEmpty)
+    }
+
+    func testRequiresAMeaningfulImprovementAndDeduplicates() {
+        let current = product("11111111", sugar: 12)
+        let barely = product("22222222", name: "Barely", sugar: 11.9)
+        let good1 = product("33333333", name: "Good", sugar: 0.5)
+        let good2 = product("44444444", name: "Good", sugar: 0.5)   // same brand+name
+        let result = AlternativeRanker().rank(current: current, candidates: [barely, good1, good2], members: [diabetic])
+        XCTAssertEqual(result.map(\.product.barcode), ["33333333"])
+    }
+
+    func testProductsFromUnrelatedCategoriesAreIgnored() {
+        let current = product("11111111", sugar: 55)
+        var sauce = product("22222222", name: "Chilli sauce", sugar: 0)
+        sauce.categoryTags = ["en:sauces", "en:spreads"]
+        XCTAssertTrue(AlternativeRanker().rank(current: current, candidates: [sauce], members: [diabetic]).isEmpty)
+    }
+
+    func testNoFamilyOrNoPer100gGivesNothing() {
+        let current = product("11111111", sugar: 50)
+        let good = product("22222222", sugar: 1)
+        XCTAssertTrue(AlternativeRanker().rank(current: current, candidates: [good], members: []).isEmpty)
+        var photo = current; photo.per100g = nil
+        XCTAssertTrue(AlternativeRanker().rank(current: photo, candidates: [good], members: [diabetic]).isEmpty)
+    }
+}
+
+final class ProductGradesTests: XCTestCase {
+    func testDecodesGradesCategoriesAndPer100g() {
+        let json = """
+        {"products":[{"code":"3017620422003","product_name":"Nutella","brands":"Ferrero",
+          "nutriscore_grade":"e","nova_group":4,
+          "categories_tags":["en:spreads","en:sweet-spreads","en:Produits à tartiner","fr:Nutella"],
+          "ingredients_text":"Sugar, palm oil","nutriments":{"energy-kcal_100g":539,"sugars_100g":56.3,
+          "sodium_100g":0.04,"saturated-fat_100g":10.6,"energy-kcal_serving":81,"sugars_serving":8.4}},
+          {"code":"abc","product_name":"Bad code"},
+          {"code":"12345678","product_name":"Stringy","nova_group":"3","nutriscore_grade":"unknown"}]}
+        """
+        let products = ProductService.decodeProducts(Data(json.utf8))
+        XCTAssertEqual(products.map(\.barcode), ["3017620422003", "12345678"])
+        let nutella = products[0]
+        XCTAssertEqual(nutella.nutriScore, "e")
+        XCTAssertEqual(nutella.novaGroup, 4)
+        XCTAssertEqual(nutella.nutrition.basis, "per serving")
+        XCTAssertEqual(nutella.per100g?.sugarG, 56.3)
+        XCTAssertEqual(nutella.per100g?.sodiumMg ?? 0, 40, accuracy: 0.001)
+        XCTAssertEqual(products[1].novaGroup, 3)
+        XCTAssertNil(products[1].nutriScore)
+        XCTAssertNil(products[1].per100g)
+    }
+
+    func testOnlyCleanEnglishCategoriesAreSearchable() {
+        let tags = ["en:spreads", "en:Produits à tartiner", "fr:Nutella", "en:sweet-spreads"]
+        XCTAssertEqual(ProductService.searchableCategories(tags), ["en:spreads", "en:sweet-spreads"])
+    }
+}

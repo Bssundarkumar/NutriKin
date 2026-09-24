@@ -183,6 +183,21 @@ struct Product: Identifiable, Hashable {
     /// Each ingredient with how much of the product it makes up, in label order.
     /// Empty when Open Food Facts has no breakdown for the product.
     var ingredientAmounts: [IngredientAmount] = []
+    /// Open Food Facts' Nutri-Score letter ("a" to "e") and NOVA processing group (1 to 4).
+    var nutriScore: String?
+    var novaGroup: Int?
+    /// English category ids, general to specific (e.g. "en:spreads").
+    var categoryTags: [String] = []
+    /// The same nutrition on a fixed per-100 g basis, so different products can be compared fairly.
+    var per100g: Nutrition?
+
+    /// A copy scored on the per-100 g figures, or nil when the product has none.
+    var normalizedTo100g: Product? {
+        guard let per100g else { return nil }
+        var copy = self
+        copy.nutrition = per100g
+        return copy
+    }
 
     func contains(_ allergen: Allergen) -> Bool {
         if allergenTags.contains(allergen.offTag) { return true }
