@@ -19,6 +19,9 @@ SwiftUI, iOS 17+, backed by Supabase for shared family data.
   their own account; access is enforced in the database.
 - **Family** shared across phones with a short invite code: add members with
   conditions, custom conditions/allergies, age, height, weight, sex and goals.
+- **Invite** relatives from the Family tab: a share button sends the code (and a
+  `nutrikin://join?code=...` link that opens the app) by Messages, Mail or any
+  share target.
 - **History** of past scans with each member's verdict at the time.
 - **Apple Health** read access for the device owner (weight, glucose, blood
   pressure, calories).
@@ -107,6 +110,10 @@ cd NutriKin && xcodebuild test -project NutriKin.xcodeproj -scheme NutriKin \
   skipped, not guessed.
 - Any signed-in member of a family can edit its members and delete scans;
   there are no separate parent and child permissions yet.
+- The invite link is a custom-scheme link, so it only opens the app on phones
+  that already have NutriKin; a web link that also works for people without the
+  app needs a paid Apple developer account. The message always includes the plain
+  code too.
 - An invite code never expires. Anyone who has it and an account can join, so
   share it only with family. There's no code rotation or removing another
   member yet.

@@ -78,6 +78,13 @@ struct HouseholdSetupView: View {
                 Spacer()
             }
             .padding()
+            // An invite link was opened: jump straight to joining with its code.
+            .task(id: family.pendingInviteCode) {
+                if let invite = family.pendingInviteCode {
+                    code = invite
+                    mode = .join
+                }
+            }
         }
     }
 }

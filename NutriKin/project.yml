@@ -30,6 +30,9 @@ targets:
       properties:
         CFBundleDisplayName: NutriKin
         UILaunchScreen: {}
+        CFBundleURLTypes:
+          - CFBundleURLName: com.nutrikin.NutriKin
+            CFBundleURLSchemes: [nutrikin]
         NSCameraUsageDescription: Scan product barcodes to check them for your family.
         NSHealthShareUsageDescription: Read your health data to personalise food recommendations.
     entitlements:

@@ -25,6 +25,9 @@ final class FamilyStore {
     private(set) var inviteCode: String = ""
     var isLoading = false
     var errorMessage: String?
+    /// A code that arrived through an invite link, waiting for the person to
+    /// reach the "Join with a code" screen (they may need to sign in first).
+    var pendingInviteCode: String?
 
     private var client: SupabaseClient { Backend.client }
 
@@ -130,6 +133,7 @@ final class FamilyStore {
     }
 
     private func adopt(_ row: HouseholdRow) {
+        pendingInviteCode = nil
         householdId = row.id
         householdName = row.name
         inviteCode = row.inviteCode

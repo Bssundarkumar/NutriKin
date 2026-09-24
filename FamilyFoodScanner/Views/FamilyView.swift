@@ -117,6 +117,12 @@ struct FamilyView: View {
                         Image(systemName: didCopyCode ? "checkmark" : "doc.on.doc")
                     }
                 }
+                ShareLink(
+                    item: InviteLink.message(familyName: family.householdName, code: family.inviteCode),
+                    subject: Text("Join our family on NutriKin")
+                ) {
+                    Label("Invite by message or email", systemImage: "square.and.arrow.up")
+                }
                 Text("Share this code so another family member can sign in on their own iPhone and join.")
                     .font(.caption)
                     .foregroundStyle(.secondary)

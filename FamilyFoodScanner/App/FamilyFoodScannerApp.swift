@@ -14,6 +14,11 @@ struct FamilyFoodScannerApp: App {
                 .environment(family)
                 .environment(history)
                 .environment(health)
+                .onOpenURL { url in
+                    // Only invite links matter here; the Google sign-in
+                    // callback is handled by the browser sheet itself.
+                    if let code = InviteLink.code(from: url) { family.pendingInviteCode = code }
+                }
         }
     }
 }
