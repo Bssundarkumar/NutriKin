@@ -184,7 +184,7 @@ struct PhotoScanView: View {
                 Section {
                     Button { showConnect = true } label: { Label("Read it with AI instead", systemImage: "sparkles") }
                 } footer: {
-                    Text("Link your own AI key (Claude or OpenAI) and the AI can read the name, ingredients and nutrition from your photos. You confirm before it's scored.")
+                    Text("Link your own AI key (Claude, OpenAI, Grok or Gemini) and the AI can read the name, ingredients and nutrition from your photos. You confirm before it's scored.")
                 }
             }
 

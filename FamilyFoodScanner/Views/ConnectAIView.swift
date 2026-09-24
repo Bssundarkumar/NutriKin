@@ -11,7 +11,28 @@ struct ConnectAIView: View {
 
     private var vendorName: String { vendor.vendorName }
     private var keyURL: URL {
-        URL(string: vendor == .claude ? "https://console.anthropic.com/settings/keys" : "https://platform.openai.com/api-keys")!
+        switch vendor {
+        case .openai: URL(string: "https://platform.openai.com/api-keys")!
+        case .grok: URL(string: "https://console.x.ai")!
+        case .gemini: URL(string: "https://aistudio.google.com/apikey")!
+        default: URL(string: "https://console.anthropic.com/settings/keys")!
+        }
+    }
+    private var keyHost: String {
+        switch vendor {
+        case .openai: "platform.openai.com"
+        case .grok: "console.x.ai"
+        case .gemini: "aistudio.google.com"
+        default: "console.anthropic.com"
+        }
+    }
+    private var placeholder: String {
+        switch vendor {
+        case .openai: "Paste your key (sk-\u{2026})"
+        case .grok: "Paste your key (xai-\u{2026})"
+        case .gemini: "Paste your key (AIza\u{2026})"
+        default: "Paste your key (sk-ant-\u{2026})"
+        }
     }
 
     var body: some View {
@@ -27,16 +48,15 @@ struct ConnectAIView: View {
 
                 Section {
                     Picker("AI", selection: $vendor) {
-                        Text("Claude").tag(AIProvider.claude)
-                        Text("OpenAI").tag(AIProvider.openai)
+                        ForEach(AIProvider.keyVendors) { Text($0.shortName).tag($0) }
                     }
                     .pickerStyle(.segmented)
                     if ai.isLinked(vendor) {
-                        Label("\(vendorName) key is linked", systemImage: "checkmark.seal.fill").foregroundStyle(Theme.brand)
+                        Label("\(vendor.shortName) key is linked", systemImage: "checkmark.seal.fill").foregroundStyle(Theme.brand)
                     }
-                    Link("Get a key at \(vendor == .claude ? "console.anthropic.com" : "platform.openai.com")", destination: keyURL)
+                    Link("Get a key at \(keyHost)", destination: keyURL)
                         .font(.subheadline.weight(.semibold))
-                    SecureField(vendor == .claude ? "Paste your key (sk-ant-\u{2026})" : "Paste your key (sk-\u{2026})", text: $key)
+                    SecureField(placeholder, text: $key)
                         .textContentType(.password)
                         .textInputAutocapitalization(.never)
                         .autocorrectionDisabled()
@@ -46,7 +66,7 @@ struct ConnectAIView: View {
                         }
                     } label: {
                         HStack {
-                            Text(ai.isWorking ? "Checking\u{2026}" : "Connect \(vendorName)")
+                            Text(ai.isWorking ? "Checking\u{2026}" : "Connect \(vendor.shortName)")
                             if ai.isWorking { ProgressView() }
                         }
                     }

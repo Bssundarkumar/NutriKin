@@ -64,6 +64,13 @@ final class AlternativesTests: XCTestCase {
         XCTAssertEqual(result.map(\.product.barcode), ["33333333"])
     }
 
+    func testSlightlyLessBadIsNotGoodEnough() {
+        // Both are poor for a diabetic; 40 beats 28, but neither is a decent choice.
+        let current = product("11111111", sugar: 60)
+        let meh = product("22222222", name: "Meh", sugar: 40)
+        XCTAssertTrue(AlternativeRanker().rank(current: current, candidates: [meh], members: [diabetic]).isEmpty)
+    }
+
     func testProductsFromUnrelatedCategoriesAreIgnored() {
         let current = product("11111111", sugar: 55)
         var sauce = product("22222222", name: "Chilli sauce", sugar: 0)
@@ -129,5 +136,57 @@ final class SupplementTests: XCTestCase {
         XCTAssertFalse(product(tags: ["en:spreads", "en:sweet-spreads"]).isSupplement)
         XCTAssertFalse(product(tags: ["en:beverages", "en:vitamin-waters"]).isSupplement)
         XCTAssertFalse(product(tags: []).isSupplement)
+    }
+}
+
+final class AlternativeIdeasTests: XCTestCase {
+    private let diabetic = Member(name: "Amma", conditions: [.diabetes], goals: Goals(dailySugarGrams: 25))
+    private let nutAllergic = Member(name: "Arjun", conditions: [.allergy(.nuts), .allergy(.peanuts)])
+
+    private func product(_ code: String, kcal: Double, sugar: Double) -> Product {
+        let n = Nutrition(calories: kcal, sugarG: sugar, carbsG: 30, sodiumMg: 100, satFatG: 1, transFatG: 0, proteinG: 4, basis: "per 100 g")
+        var p = Product(barcode: code, name: "P\(code)", brand: "B", imageURL: nil, ingredientsText: "oats", allergenTags: [], nutrition: n)
+        p.per100g = n
+        p.categoryTags = ["en:spreads", "en:sweet-spreads"]
+        return p
+    }
+
+    func testARichFoodIsNotImprovedByAWateryProduct() {
+        let current = product("11111111", kcal: 540, sugar: 56)
+        let sauce = product("22222222", kcal: 40, sugar: 1)          // sugar-free but a different kind of food
+        let butter = product("33333333", kcal: 600, sugar: 4)        // a similar spread, far less sugar
+        let result = AlternativeRanker().rank(current: current, candidates: [sauce, butter], members: [diabetic])
+        XCTAssertEqual(result.map(\.product.barcode), ["33333333"])
+    }
+
+    func testLightFoodsCompareFreely() {
+        let cola = product("11111111", kcal: 42, sugar: 10.6)
+        let zero = product("22222222", kcal: 0.3, sugar: 0)
+        XCTAssertEqual(AlternativeRanker().rank(current: cola, candidates: [zero], members: [diabetic]).count, 1)
+    }
+
+    func testAIIdeasCanComeFromOtherCategories() {
+        let current = product("11111111", kcal: 540, sugar: 56)
+        var other = product("22222222", kcal: 600, sugar: 3)
+        other.categoryTags = ["en:nut-butters"]
+        XCTAssertTrue(AlternativeRanker().rank(current: current, candidates: [other], members: [diabetic]).isEmpty)
+        XCTAssertEqual(AlternativeRanker().rank(current: current, candidates: [other], members: [diabetic],
+                                                requireSimilarCategory: false).count, 1)
+    }
+
+    func testIdeaParserCapsAtThreeAndDropsAllergenSearches() throws {
+        let reply = """
+        {"ideas":[{"search":"almond butter","why":"Nuts"},{"search":"sunflower seed butter","why":"Nut-free and low sugar."},
+                  {"search":"tahini","why":"x"},{"search":"oat spread","why":"y"},{"search":"","why":"z"}]}
+        """
+        let ideas = try AlternativeIdeasParser.parse(reply, members: [nutAllergic])
+        XCTAssertEqual(ideas.map(\.search), ["sunflower seed butter", "tahini", "oat spread"])
+        XCTAssertThrowsError(try AlternativeIdeasParser.parse("nope", members: []))
+    }
+
+    func testPromptCarriesFamilyProductAndAllergyRule() {
+        let text = AlternativeIdeasService.systemPrompt(product: product("11111111", kcal: 540, sugar: 56), members: [nutAllergic])
+        XCTAssertTrue(text.contains("Arjun"))
+        XCTAssertTrue(text.contains("NEVER suggest anything containing an ingredient a family member is allergic to"))
     }
 }

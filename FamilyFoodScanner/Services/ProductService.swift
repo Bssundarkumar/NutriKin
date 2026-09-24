@@ -89,25 +89,26 @@ struct ProductService {
     /// Popular products from the same category as `product`, for ranking as
     /// alternatives. Tries the most specific category first and widens only
     /// if that gives too few.
-    func similarProducts(to product: Product, minimum: Int = 12) async throws -> [Product] {
+    func similarProducts(to product: Product, minimum: Int = 60) async throws -> [Product] {
         let tags = Self.searchableCategories(product.categoryTags)
         var found: [Product] = []
-        for tag in tags.reversed().prefix(2) {
+        var seen = Set<String>()
+        for tag in tags.reversed().prefix(3) {
             var comps = URLComponents(string: "https://world.openfoodfacts.org/api/v2/search")!
             comps.queryItems = [
                 URLQueryItem(name: "categories_tags", value: tag),
                 URLQueryItem(name: "fields", value: Self.productFields),
                 URLQueryItem(name: "sort_by", value: "unique_scans_n"),
-                URLQueryItem(name: "page_size", value: "40"),
+                URLQueryItem(name: "page_size", value: "60"),
             ]
             var request = URLRequest(url: comps.url!)
             request.setValue(userAgent, forHTTPHeaderField: "User-Agent")
             request.timeoutInterval = 20
             let (data, response) = try await URLSession.shared.data(for: request)
             let status = (response as? HTTPURLResponse)?.statusCode ?? 0
-            if status == 503 || status == 429 { throw ProductError.busy }
-            guard status == 200 else { throw ProductError.badResponse }
-            found = Self.decodeProducts(data)
+            if status == 503 || status == 429 { if found.isEmpty { throw ProductError.busy } else { break } }
+            guard status == 200 else { if found.isEmpty { throw ProductError.badResponse } else { break } }
+            for p in Self.decodeProducts(data) where seen.insert(p.barcode).inserted { found.append(p) }
             if found.count >= minimum { break }
         }
         return found

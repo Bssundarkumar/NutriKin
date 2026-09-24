@@ -52,7 +52,7 @@ struct AskAIView: View {
             Spacer()
             Image(systemName: "sparkles").font(.system(size: 48)).foregroundStyle(Theme.brandGradient)
             Text("Ask questions about your food").font(.headline)
-            Text("The AI already knows your family's conditions and allergies. Your iPhone can't run Apple's on-device AI, so link your own AI key (Claude or OpenAI) to use this.")
+            Text("The AI already knows your family's conditions and allergies. Your iPhone can't run Apple's on-device AI, so link your own AI key (Claude, OpenAI, Grok or Gemini) to use this.")
                 .font(.subheadline).foregroundStyle(.secondary).multilineTextAlignment(.center)
             if case .unavailable(let reason) = ai.appleStatus {
                 Text(reason).font(.caption).foregroundStyle(.secondary).multilineTextAlignment(.center)
@@ -187,7 +187,7 @@ struct AskAIView: View {
                             system: AskAI.systemPrompt(family: family.members, product: product),
                             messages: turns.map { ["role": $0.role, "content": $0.text] }, maxTokens: 700)
                     }
-                case .claude, .openai:
+                case .claude, .openai, .grok, .gemini:
                     guard let llm else { throw AnthropicClient.ClientError.invalidKey }
                     reply = try await llm.chat(
                         system: system, messages: turns.map { ["role": $0.role, "content": $0.text] }, maxTokens: 700)

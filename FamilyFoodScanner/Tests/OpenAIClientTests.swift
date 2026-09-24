@@ -2,6 +2,30 @@ import XCTest
 @testable import NutriKin
 
 final class OpenAIClientTests: XCTestCase {
+    func testEachVendorUsesItsOwnEndpointAndTokenParameter() {
+        XCTAssertEqual(OpenAIClient.baseURL(for: .openai), "https://api.openai.com/v1")
+        XCTAssertEqual(OpenAIClient.baseURL(for: .grok), "https://api.x.ai/v1")
+        XCTAssertEqual(OpenAIClient.baseURL(for: .gemini), "https://generativelanguage.googleapis.com/v1beta/openai")
+    }
+
+    func testGrokPicksTheNewestPlainFlagship() {
+        let ids = ["grok-2-vision-latest", "grok-4", "grok-4.7", "grok-4.5", "grok-4.7-fast", "grok-4-mini", "grok-imagine-image"]
+        XCTAssertEqual(OpenAIClient.pickModel(for: .grok, from: ids), "grok-4.7")
+        XCTAssertEqual(OpenAIClient.pickModel(for: .grok, from: ["grok-3-mini"]), "grok-4")     // fallback
+    }
+
+    func testGeminiPicksTheNewestFlashAndSkipsLiteImageAndPreviewBuilds() {
+        let ids = ["gemini-2.5-pro", "gemini-2.5-flash", "gemini-3.6-flash", "gemini-3.8-flash", "gemini-3.5-flash-lite",
+                   "gemini-3.9-flash-image", "gemini-4.0-flash-preview", "gemini-3.10-flash", "text-embedding-004"]
+        XCTAssertEqual(OpenAIClient.pickModel(for: .gemini, from: ids), "gemini-3.10-flash")   // 3.10 is newer than 3.9
+        XCTAssertEqual(OpenAIClient.pickModel(for: .gemini, from: []), "gemini-2.5-flash")
+    }
+
+    func testOnlyTheOpenAIEndpointGetsMaxCompletionTokensAndModelIdsLoseTheirPrefix() {
+        XCTAssertEqual(OpenAIClient.newest(in: ["gemini-2.5-flash", "gemini-3.1-flash"], pattern: #"^gemini-(\d+)(?:\.(\d+))?-flash$"#),
+                       "gemini-3.1-flash")
+    }
+
     func testAnthropicStyleBlocksBecomeOpenAIParts() throws {
         let blocks: [[String: Any]] = [
             ["type": "image", "source": ["type": "base64", "media_type": "image/jpeg", "data": "QUJD"]],

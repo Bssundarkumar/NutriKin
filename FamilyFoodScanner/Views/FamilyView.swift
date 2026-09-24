@@ -92,10 +92,10 @@ struct FamilyView: View {
                         Label("Apple's on-device AI needs iOS 26 or later.", systemImage: "apple.intelligence")
                             .font(.footnote).foregroundStyle(.secondary)
                     }
-                    ForEach([AIProvider.claude, .openai]) { vendor in
+                    ForEach(AIProvider.keyVendors) { vendor in
                         if ai.isLinked(vendor) {
                             HStack {
-                                Label("\(vendor.vendorName) key linked", systemImage: "key.fill").foregroundStyle(Theme.brand)
+                                Label("\(vendor.shortName) key linked", systemImage: "key.fill").foregroundStyle(Theme.brand)
                                 Spacer()
                                 Button("Remove", role: .destructive) { ai.disconnect(vendor) }.font(.footnote)
                             }
@@ -104,10 +104,10 @@ struct FamilyView: View {
                     if ai.isConnected && (ai.linked.count > 1 || ai.appleStatus.isAvailable) {
                         Picker("Chat and meals use", selection: Bindable(ai).preference) {
                             if ai.appleStatus.isAvailable { Text(AIProvider.apple.title).tag(AIProvider.apple) }
-                            ForEach([AIProvider.claude, .openai].filter(ai.isLinked)) { Text($0.title).tag($0) }
+                            ForEach(AIProvider.keyVendors.filter(ai.isLinked)) { Text($0.title).tag($0) }
                         }
                     }
-                    if ai.linked.count < 2 {
+                    if ai.linked.count < AIProvider.keyVendors.count {
                         Button { showConnectAI = true } label: {
                             Label(ai.isConnected ? "Add another AI key" : "Add your own AI key (optional)", systemImage: "key")
                         }
@@ -118,7 +118,7 @@ struct FamilyView: View {
                 } header: {
                     Text("AI assistant")
                 } footer: {
-                    Text("Chat and meal ideas run on Apple's on-device AI when your iPhone supports it: free, private and nothing leaves the phone. Plate-photo scanning and reading labels from photos need your own Claude or OpenAI key (Apple's on-device AI reads text, not photos). Keys stay on this iPhone.")
+                    Text("Chat and meal ideas run on Apple's on-device AI when your iPhone supports it: free, private and nothing leaves the phone. Plate-photo scanning and reading labels from photos need your own AI key: Claude, OpenAI, Grok or Gemini (Apple's on-device AI reads text, not photos). Keys stay on this iPhone.")
                 }
 
                 Section {

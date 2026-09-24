@@ -47,8 +47,9 @@ SwiftUI, iOS 17+, backed by Supabase for shared family data.
   shortcut that saves it as the calorie goal.
 - **Optional AI features.** Chat about a scanned product and a day of meal ideas per
   member run on Apple's on-device model where available (iOS 26, Apple Intelligence;
-  free, nothing leaves the phone), or on the person's own Anthropic key (stored only
-  in the iPhone Keychain, sent only to Anthropic). Plate-photo calorie estimates and
+  free, nothing leaves the phone), or on the person's own key for Claude, OpenAI, Grok or Gemini (stored only
+  in the iPhone Keychain, sent only to that provider; OpenAI, Grok and Gemini use
+  their OpenAI-compatible endpoints and the app picks the newest suitable model). Plate-photo calorie estimates and
   reading a product label from photos need the key, because the on-device model reads
   text, not images. The app re-checks every AI meal against the person's allergies, and
   the person confirms every AI-read label before it's scored.

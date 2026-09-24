@@ -84,7 +84,7 @@ enum MealIdeasService {
                     system: systemPrompt(member: member, plan: plan, targetKcal: target, preferences: preferences),
                     content: [["type": "text", "text": request]], maxTokens: 2000)
             }
-        case .claude, .openai:
+        case .claude, .openai, .grok, .gemini:
             guard let client else { throw AnthropicClient.ClientError.invalidKey }
             text = try await client.send(
                 system: systemPrompt(member: member, plan: plan, targetKcal: target, preferences: preferences),

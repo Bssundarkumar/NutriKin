@@ -108,6 +108,10 @@ final class AIConnectionTests: XCTestCase {
         XCTAssertFalse(AIConnection.looksLikeKey("sk-ant-api03-abc defghijklmnop", for: .claude))
         XCTAssertTrue(AIConnection.looksLikeKey("sk-proj-abcdefghijklmnopqrstuvwxyz", for: .openai))
         XCTAssertFalse(AIConnection.looksLikeKey("sk-ant-api03-abcdefghijklmnop", for: .openai))   // a Claude key isn't an OpenAI key
+        XCTAssertTrue(AIConnection.looksLikeKey("xai-abcdefghijklmnopqrstuvwxyz", for: .grok))
+        XCTAssertFalse(AIConnection.looksLikeKey("sk-abcdefghijklmnopqrstuvwxyz", for: .grok))
+        XCTAssertTrue(AIConnection.looksLikeKey("AIzaSyabcdefghijklmnopqrstuvwxyz", for: .gemini))
+        XCTAssertFalse(AIConnection.looksLikeKey("xai-abcdefghijklmnopqrstuvwxyz", for: .gemini))
         XCTAssertEqual(AIConnection.cleaned("  sk-ant-x \n"), "sk-ant-x")
     }
 

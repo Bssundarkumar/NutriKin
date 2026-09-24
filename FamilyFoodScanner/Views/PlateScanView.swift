@@ -94,7 +94,7 @@ struct PlateScanView: View {
                 } else {
                     VStack(spacing: 10) {
                         Label("Plate photos need an AI key", systemImage: "key.fill").font(.headline).foregroundStyle(Theme.brand)
-                        Text("Apple's on-device AI reads text, not photos, so this one feature uses your own Claude or OpenAI account. It takes a minute to set up.")
+                        Text("Apple's on-device AI reads text, not photos, so this one feature uses your own AI account (Claude, OpenAI, Grok or Gemini). It takes a minute to set up.")
                             .font(.footnote).foregroundStyle(.secondary).multilineTextAlignment(.center)
                         Button { showConnect = true } label: { bigButton("Link your key", "key", filled: true) }
                             .buttonStyle(PressableStyle())

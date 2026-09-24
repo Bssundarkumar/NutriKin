@@ -4,10 +4,12 @@ struct ResultView: View {
     let product: Product
     @Environment(FamilyStore.self) private var family
     @Environment(HistoryStore.self) private var history
+    @Environment(AIConnection.self) private var ai
     private let engine = ScoringEngine()
     private let analyzer = IngredientAnalyzer()
     @State private var alternatives: AlternativesSection.Phase = .unavailable
     @State private var showGradesInfo = false
+    @State private var ideas: AlternativesSection.IdeasPhase = .idle
     @State private var showAsk = Demo.opensAsk
 
     private var scores: [MemberScore] {
@@ -125,7 +127,8 @@ struct ResultView: View {
                 }
             }
 
-            AlternativesSection(phase: alternatives)
+            AlternativesSection(phase: alternatives, ideas: ideas, canAskAI: ai.textProvider != nil && !product.isSupplement,
+                                onRetry: { askForIdeas() })
 
             Section {
                 Button { showAsk = true } label: {
@@ -168,20 +171,53 @@ struct ResultView: View {
         }
     }
 
-    /// Only looks for alternatives when someone in the family isn't fully "okay" with this product.
+    /// Finds better options without being asked: popular products from the same category, plus the person's
+    /// AI's ideas (looked up and scored by the app). Only for products someone could do better than.
     private func loadAlternatives(for results: [MemberScore]) async {
+        let couldBeBetter = results.contains(where: { $0.verdict != .okay })
+            || ["c", "d", "e"].contains(product.nutriScore ?? "") || product.novaGroup == 4
         guard !product.barcode.hasPrefix("photo-"), !product.isSupplement, product.normalizedTo100g != nil,
-              !product.categoryTags.isEmpty, results.contains(where: { $0.verdict != .okay }) else {
+              couldBeBetter, !family.members.isEmpty else {
             alternatives = .unavailable
+            ideas = .idle
             return
         }
-        alternatives = .loading
-        do {
-            let candidates = try await ProductService().similarProducts(to: product)
-            let ranked = AlternativeRanker().rank(current: product, candidates: candidates, members: family.members)
-            alternatives = .loaded(ranked)
-        } catch {
+        ideas = .idle
+        var categoryCount = 0
+        if product.categoryTags.isEmpty {
             alternatives = .unavailable
+        } else {
+            alternatives = .loading
+            do {
+                let candidates = try await ProductService().similarProducts(to: product)
+                let ranked = AlternativeRanker().rank(current: product, candidates: candidates, members: family.members)
+                categoryCount = ranked.count
+                alternatives = .loaded(ranked)
+            } catch {
+                alternatives = .unavailable
+            }
+        }
+        // Apple's on-device AI is free, so it always helps. A key costs the person a little per request,
+        // so it only steps in when the category search found fewer than three.
+        if let provider = ai.textProvider, provider == .apple || categoryCount < 3 {
+            askForIdeas()
+        }
+    }
+
+    /// Asks the person's AI for kinds of better products, then finds and scores real ones.
+    private func askForIdeas() {
+        guard let provider = ai.textProvider else { return }
+        ideas = .loading
+        let llm = provider == .apple ? ai.keyClient : ai.client(for: provider)
+        let members = family.members
+        Task {
+            do {
+                let suggestions = try await AlternativeIdeasService.ideas(for: product, members: members, provider: provider, client: llm)
+                let found = await AlternativeIdeasService.resolve(ideas: suggestions, current: product, members: members)
+                ideas = .loaded(found)
+            } catch {
+                ideas = .failed(error.localizedDescription)
+            }
         }
     }
 

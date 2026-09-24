@@ -7,28 +7,39 @@ import FoundationModels
 enum AIProvider: String, CaseIterable, Identifiable {
     /// Apple's model running on this iPhone (iOS 26+, Apple Intelligence). Free, private, no key.
     case apple
-    /// The person's own Anthropic key.
-    case claude
-    /// The person's own OpenAI key.
-    case openai
+    /// The person's own key for one of these services.
+    case claude, openai, grok, gemini
 
     var id: String { rawValue }
+
+    /// The services that use a key the person supplies, in the order used as a fallback.
+    static let keyVendors: [AIProvider] = [.claude, .openai, .grok, .gemini]
+
     var title: String {
         switch self {
         case .apple: "Apple (on this iPhone)"
         case .claude: "Claude (your key)"
         case .openai: "OpenAI (your key)"
+        case .grok: "Grok (your key)"
+        case .gemini: "Gemini (your key)"
         }
     }
-    var vendorName: String {
-        switch self { case .apple: "Apple"; case .claude: "Anthropic"; case .openai: "OpenAI" }
+    var shortName: String {
+        switch self {
+        case .apple: "Apple"; case .claude: "Claude"; case .openai: "OpenAI"; case .grok: "Grok"; case .gemini: "Gemini"
+        }
     }
-    /// The two that use a key the person supplies.
+    /// The company that receives the request when this provider is used.
+    var vendorName: String {
+        switch self {
+        case .apple: "Apple"; case .claude: "Anthropic"; case .openai: "OpenAI"; case .grok: "xAI"; case .gemini: "Google"
+        }
+    }
     var usesKey: Bool { self != .apple }
 
     /// The provider for chat and meals, given what the person prefers and what's set up. Pure, so it's tested.
     static func choose(preference: AIProvider, appleAvailable: Bool, linked: Set<AIProvider>) -> AIProvider? {
-        let firstKey = [AIProvider.claude, .openai].first(where: linked.contains)
+        let firstKey = keyVendors.first(where: linked.contains)
         if preference == .apple { return appleAvailable ? .apple : firstKey }
         if linked.contains(preference) { return preference }
         return appleAvailable ? .apple : firstKey
@@ -37,7 +48,7 @@ enum AIProvider: String, CaseIterable, Identifiable {
     /// The key-based provider for anything Apple's model can't do (photos) or as a fallback.
     static func chooseKey(preference: AIProvider, linked: Set<AIProvider>) -> AIProvider? {
         if preference.usesKey, linked.contains(preference) { return preference }
-        return [AIProvider.claude, .openai].first(where: linked.contains)
+        return keyVendors.first(where: linked.contains)
     }
 }
 
@@ -124,6 +135,23 @@ enum AppleAI {
         throw AIFailure(message: "Apple's on-device AI isn't available on this iPhone.")
     }
 
+    /// Three alternative ideas as JSON text (same shape the key-based path returns), via guided generation.
+    static func alternativeIdeasJSON(system: String, prompt: String) async throws -> String {
+        #if canImport(FoundationModels)
+        if #available(iOS 26.0, *) {
+            do {
+                let ideas = try await LanguageModelSession(instructions: system)
+                    .respond(to: prompt, generating: GeneratedAlternativeIdeas.self).content
+                let object: [String: Any] = ["ideas": ideas.ideas.map { ["search": $0.search, "why": $0.why] }]
+                return String(decoding: try JSONSerialization.data(withJSONObject: object), as: UTF8.self)
+            } catch {
+                throw failure(error)
+            }
+        }
+        #endif
+        throw AIFailure(message: "Apple's on-device AI isn't available on this iPhone.")
+    }
+
     #if canImport(FoundationModels)
     @available(iOS 26.0, *)
     private static func failure(_ error: Error) -> AIFailure {
@@ -160,6 +188,22 @@ struct GeneratedSlot {
     var name: String
     @Guide(description: "One to three dishes", .count(1...3))
     var dishes: [GeneratedDish]
+}
+
+@available(iOS 26.0, *)
+@Generable
+struct GeneratedAlternativeIdea {
+    @Guide(description: "Short generic product name to search a food database, no brand, e.g. unsweetened almond butter")
+    var search: String
+    @Guide(description: "One short reason it suits this family better")
+    var why: String
+}
+
+@available(iOS 26.0, *)
+@Generable
+struct GeneratedAlternativeIdeas {
+    @Guide(description: "Exactly three different better alternatives", .count(3))
+    var ideas: [GeneratedAlternativeIdea]
 }
 
 @available(iOS 26.0, *)

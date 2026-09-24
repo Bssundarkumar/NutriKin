@@ -19,6 +19,14 @@ final class AIProviderTests: XCTestCase {
         XCTAssertEqual(AIProvider.choose(preference: .openai, appleAvailable: false, linked: [.claude]), .claude)
     }
 
+    func testGrokAndGeminiWorkAsKeyProviders() {
+        XCTAssertEqual(AIProvider.choose(preference: .gemini, appleAvailable: true, linked: [.gemini, .grok]), .gemini)
+        XCTAssertEqual(AIProvider.choose(preference: .apple, appleAvailable: false, linked: [.gemini, .grok]), .grok)
+        XCTAssertEqual(AIProvider.chooseKey(preference: .grok, linked: [.claude, .grok]), .grok)
+        XCTAssertTrue(AIProvider.keyVendors.allSatisfy(\.usesKey))
+        XCTAssertEqual(Set(AIProvider.keyVendors.map { AIConnection.account(for: $0) }).count, 4)   // separate Keychain slots
+    }
+
     func testNothingSetUpMeansNoProvider() {
         XCTAssertNil(AIProvider.choose(preference: .apple, appleAvailable: false, linked: []))
         XCTAssertNil(AIProvider.choose(preference: .claude, appleAvailable: false, linked: []))

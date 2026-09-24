@@ -26,7 +26,7 @@ Add your family members with their allergies and health needs. Then scan a produ
 - No barcode? Take a photo of the ingredients or the front of the pack and confirm the product.
 - Scan a plate (optional): link your own AI account to estimate a meal's calories from a photo, with each family member's share of their daily limits.
 - Ask AI about any scanned product, and get a day of meal ideas for each person, sized to their plan and free of their allergens. On supported iPhones this runs privately on the device with Apple Intelligence.
-- Can't scan a barcode? Photograph the pack and, with your own AI key, the AI reads the name, ingredients and nutrition for you to confirm.
+- Can't scan a barcode? Photograph the pack and, with your own AI key (Claude, OpenAI, Grok or Gemini), the AI reads the name, ingredients and nutrition for you to confirm.
 - BMI-based target weight and suggested daily intake for adults.
 - Nutri-Score and NOVA grades, and better-scoring alternatives.
 - Scan history shared across your family's phones.
@@ -44,4 +44,4 @@ Sign-in: email code by default. For review, use the password option on the sign-
 - Email: DEMO_EMAIL
 - Password: DEMO_PASSWORD
 
-Notes: Tap "Sign in with a password" under the email field. The demo account already has a family and members. Scanning needs a real camera; on the Scan tab you can also type a barcode, e.g. 3017620422003 (Nutella). Health access is optional and read-only. The AI features (plate scanner, Ask AI, meal ideas) are optional and need the user's own Anthropic API key, so they can be skipped; they are not needed to review the app. Account deletion is under Family > Account > Delete account.
+Notes: Tap "Sign in with a password" under the email field. The demo account already has a family and members. Scanning needs a real camera; on the Scan tab you can also type a barcode, e.g. 3017620422003 (Nutella). Health access is optional and read-only. The AI features (plate scanner, Ask AI, meal ideas) are optional and need the user's own AI key (Claude, OpenAI, Grok or Gemini), so they can be skipped; they are not needed to review the app. Account deletion is under Family > Account > Delete account.
