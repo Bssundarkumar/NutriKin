@@ -2,6 +2,19 @@ import XCTest
 @testable import NutriKin
 
 final class AIProviderTests: XCTestCase {
+    func testSampleDataNeverLeaksIntoARealChat() {
+        // Debug builds once started every chat with a fake Amma and Nutella conversation.
+        XCTAssertTrue(Demo.askMessages.isEmpty)
+        XCTAssertNil(Demo.product)
+        XCTAssertFalse(Demo.isOn)
+    }
+
+    func testChatPromptTellsTheAIToGiveConcreteSuggestions() {
+        let prompt = AskAI.systemPrompt(family: [], product: nil)
+        XCTAssertTrue(prompt.contains("3 to 5 concrete"))
+        XCTAssertTrue(prompt.contains("Don't refuse"))
+    }
+
     func testAppleIsUsedWhenAvailableAndPreferred() {
         XCTAssertEqual(AIProvider.choose(preference: .apple, appleAvailable: true, linked: []), .apple)
         XCTAssertEqual(AIProvider.choose(preference: .apple, appleAvailable: true, linked: [.claude, .openai]), .apple)

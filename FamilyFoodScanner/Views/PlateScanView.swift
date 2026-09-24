@@ -8,7 +8,7 @@ struct PlateScanView: View {
     @Environment(AIConnection.self) private var ai
     @Environment(\.dismiss) private var dismiss
 
-    private enum Phase: Equatable { case setup, analyzing, results, failed(String) }
+    private enum Phase: Equatable { case setup, analyzing, describe, results, failed(String) }
 
     @AppStorage("plateDiameterCm") private var plateCm = 26
     @State private var phase: Phase = .setup
@@ -22,6 +22,9 @@ struct PlateScanView: View {
 
     private let sizes = [0, 20, 23, 26, 28, 30]      // 0 = let the AI estimate it
     @State private var showMeasure = false
+    @State private var foodsText = ""
+    @State private var lastFoods: String?
+    @FocusState private var foodsFocused: Bool
     @State private var usedCm = 26
     @State private var usedWasEstimated = false
     @State private var editedCm = 26
@@ -35,6 +38,7 @@ struct PlateScanView: View {
                 switch phase {
                 case .setup: setup
                 case .analyzing: analyzing
+                case .describe: describe
                 case .results: results
                 case .failed(let message): failed(message)
                 }
@@ -96,7 +100,11 @@ struct PlateScanView: View {
                 }
                 .card()
 
-                if ai.isConnected {
+                if ai.keyClient != nil || ai.appleStatus.isAvailable {
+                    if ai.keyClient == nil {
+                        Label("Uses Apple Intelligence on your iPhone. Nothing is uploaded.", systemImage: "apple.intelligence")
+                            .font(.footnote).foregroundStyle(Theme.brand).multilineTextAlignment(.center)
+                    }
                     if CameraPicker.isAvailable {
                         Button { showCamera = true } label: { bigButton("Take a photo", "camera.fill", filled: true) }
                             .buttonStyle(PressableStyle())
@@ -105,11 +113,21 @@ struct PlateScanView: View {
                         bigButton("Choose a photo", "photo.on.rectangle", filled: !CameraPicker.isAvailable)
                     }
                     .buttonStyle(PressableStyle())
+                    if ai.keyClient == nil {
+                        Button { image = nil; lastFoods = nil; foodsText = ""; phase = .describe } label: {
+                            Label("Describe what you ate instead", systemImage: "text.cursor").font(.subheadline.weight(.semibold))
+                        }
+                        Text("Apple's on-device AI can't see photos. It recognises what's on the plate on your phone, you confirm the foods, then it estimates the portions. A linked AI key can read the photo directly for better accuracy.")
+                            .font(.caption).foregroundStyle(.secondary).multilineTextAlignment(.center)
+                    }
                 } else {
                     VStack(spacing: 10) {
-                        Label("Plate photos need an AI key", systemImage: "key.fill").font(.headline).foregroundStyle(Theme.brand)
-                        Text("Apple's on-device AI reads text, not photos, so this one feature uses your own AI account (Claude, OpenAI, Grok or Gemini). It takes a minute to set up.")
+                        Label("Link an AI to scan plates", systemImage: "key.fill").font(.headline).foregroundStyle(Theme.brand)
+                        Text("Apple Intelligence isn't available on this iPhone, so plate scanning needs your own AI account (Claude, OpenAI, Grok or Gemini). It takes a minute to set up.")
                             .font(.footnote).foregroundStyle(.secondary).multilineTextAlignment(.center)
+                        if case .unavailable(let reason) = ai.appleStatus {
+                            Text(reason).font(.caption).foregroundStyle(.secondary).multilineTextAlignment(.center)
+                        }
                         Button { showConnect = true } label: { bigButton("Link your key", "key", filled: true) }
                             .buttonStyle(PressableStyle())
                     }
@@ -134,6 +152,78 @@ struct PlateScanView: View {
                 else { Capsule().fill(Color(.secondarySystemGroupedBackground)) }
             }
             .shadow(color: .black.opacity(0.08), radius: 8, y: 4)
+    }
+
+    // MARK: Describe (on-device path)
+
+    private var describe: some View {
+        ScrollView {
+            VStack(spacing: 16) {
+                if let image {
+                    Image(uiImage: image).resizable().scaledToFill()
+                        .frame(width: 150, height: 150)
+                        .clipShape(Circle())
+                        .overlay(Circle().strokeBorder(.white, lineWidth: 3))
+                        .shadow(color: Theme.brand.opacity(0.3), radius: 10, y: 5)
+                }
+                Text("What's on the plate?").font(.title3.bold())
+                Text(image == nil
+                     ? "List the foods, with amounts if you know them: \"2 rotis, a bowl of dal, mixed vegetable curry\"."
+                     : "Your iPhone recognised these from the photo. Fix anything wrong and add amounts, for example \"2 rotis\" or \"a small bowl of dal\".")
+                    .font(.subheadline).foregroundStyle(.secondary).multilineTextAlignment(.center)
+                TextField("e.g. rice, dal, chicken curry", text: $foodsText, axis: .vertical)
+                    .lineLimit(3...8)
+                    .focused($foodsFocused)
+                    .padding(14)
+                    .background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+                Button { foodsFocused = false; estimateOnDevice(foodsText) } label: {
+                    bigButton("Estimate calories", "sparkles", filled: true)
+                }
+                .buttonStyle(PressableStyle())
+                .disabled(foodsText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                Button("Back") { phase = .setup }.foregroundStyle(.secondary)
+            }
+            .padding()
+        }
+        .onAppear { if foodsText.isEmpty { foodsFocused = image == nil } }
+    }
+
+    /// Recognises the foods in a photo on the phone, then lets the person confirm them before estimating.
+    private func beginOnDevice(_ picture: UIImage) {
+        image = picture
+        lastFoods = nil
+        phase = .analyzing
+        task?.cancel()
+        task = Task {
+            let foods = (try? await FoodClassifier.classify(picture)) ?? []
+            guard !Task.isCancelled else { return }
+            foodsText = foods.joined(separator: ", ")
+            phase = .describe
+        }
+    }
+
+    private func estimateOnDevice(_ foods: String, sizeOverride: Int? = nil) {
+        let requested: Int? = sizeOverride ?? (plateCm == 0 ? nil : plateCm)
+        lastFoods = foods
+        phase = .analyzing
+        task?.cancel()
+        task = Task {
+            do {
+                let analysis = try await PlateService.estimateOnDevice(foods: foods, plateDiameterCm: requested)
+                guard !Task.isCancelled else { return }
+                items = analysis.items
+                note = analysis.note ?? "Estimated on your iPhone from the foods you confirmed."
+                usedWasEstimated = false
+                usedCm = requested ?? 26
+                editedCm = usedCm
+                phase = .results
+                UINotificationFeedbackGenerator().notificationOccurred(.success)
+            } catch is CancellationError {
+            } catch {
+                guard !Task.isCancelled else { return }
+                phase = .failed(error.localizedDescription)
+            }
+        }
     }
 
     // MARK: Analysing
@@ -201,8 +291,11 @@ struct PlateScanView: View {
                 Stepper(value: $editedCm, in: 10...45) {
                     Text("Plate size: \(editedCm) cm" + (usedWasEstimated && editedCm == usedCm ? " (AI estimate)" : ""))
                 }
-                if editedCm != usedCm, let image {
-                    Button { analyze(image, sizeOverride: editedCm) } label: {
+                if editedCm != usedCm, image != nil || lastFoods != nil {
+                    Button {
+                        if let foods = lastFoods { estimateOnDevice(foods, sizeOverride: editedCm) }
+                        else if let image { analyze(image, sizeOverride: editedCm) }
+                    } label: {
                         Label("Re-estimate with a \(editedCm) cm plate", systemImage: "arrow.clockwise")
                     }
                 }
@@ -240,7 +333,7 @@ struct PlateScanView: View {
             }
 
             Section {
-                Button { phase = .setup; image = nil } label: { Label("Scan another plate", systemImage: "camera.viewfinder") }
+                Button { phase = .setup; image = nil; lastFoods = nil } label: { Label("Scan another plate", systemImage: "camera.viewfinder") }
                 Text("Guidance only, not medical advice. Portions are estimated from a photo and can be significantly off.")
                     .font(.footnote).foregroundStyle(.secondary)
             }
@@ -270,7 +363,11 @@ struct PlateScanView: View {
 
     /// `sizeOverride` re-runs the same photo with a corrected plate size.
     private func analyze(_ picture: UIImage, sizeOverride: Int? = nil) {
-        guard let client = ai.keyClient else { showConnect = true; return }
+        guard let client = ai.keyClient else {
+            if ai.appleStatus.isAvailable { beginOnDevice(picture) } else { showConnect = true }
+            return
+        }
+        lastFoods = nil
         let requested: Int? = sizeOverride ?? (plateCm == 0 ? nil : plateCm)
         image = picture
         phase = .analyzing

@@ -118,7 +118,7 @@ struct FamilyView: View {
                 } header: {
                     Text("AI assistant")
                 } footer: {
-                    Text("Chat and meal ideas run on Apple's on-device AI when your iPhone supports it: free, private and nothing leaves the phone. Plate-photo scanning and reading labels from photos need your own AI key: Claude, OpenAI, Grok or Gemini (Apple's on-device AI reads text, not photos). Keys stay on this iPhone.")
+                    Text("Chat and meal ideas run on Apple's on-device AI when your iPhone supports it: free, private and nothing leaves the phone. Plate scanning and label reading also work on Apple's on-device AI: your iPhone recognises the photo and you confirm the result. A linked AI key (Claude, OpenAI, Grok or Gemini) lets the AI see the photo directly for better accuracy. Keys stay on this iPhone.")
                 }
 
                 Section {

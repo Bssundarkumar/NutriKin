@@ -167,3 +167,20 @@ final class PlateSizeTests: XCTestCase {
         XCTAssertFalse(PlateMeasure.isPlausible(120))
     }
 }
+
+final class FoodClassifierTests: XCTestCase {
+    func testKeepsLikelyFoodsAndDropsSceneLabelsDuplicatesAndLowConfidence() {
+        let raw: [(label: String, confidence: Float)] = [
+            ("plate", 0.9), ("fried_rice", 0.8), ("food", 0.85), ("tableware", 0.7),
+            ("curry", 0.55), ("Fried Rice", 0.5), ("naan", 0.1), ("chicken_curry", 0.4),
+        ]
+        XCTAssertEqual(FoodClassifier.foods(from: raw), ["fried rice", "curry", "chicken curry"])
+    }
+
+    func testLimitsTheListAndHandlesNothingRecognised() {
+        let many = (0..<20).map { (label: "food_\($0)x", confidence: Float(0.9) - Float($0) * 0.01) }
+        XCTAssertEqual(FoodClassifier.foods(from: many).count, 6)
+        XCTAssertTrue(FoodClassifier.foods(from: []).isEmpty)
+        XCTAssertTrue(FoodClassifier.foods(from: [("plate", 0.9), ("indoor", 0.8), ("outdoor", 0.7), ("night_sky", 0.6)]).isEmpty)
+    }
+}

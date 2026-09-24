@@ -32,6 +32,9 @@ final class AIConnection {
     /// Re-checks Apple's model (it can finish downloading, or Apple Intelligence can be switched on).
     func refreshApple() { appleStatus = Demo.isOn ? .available : AppleAI.status }
 
+    /// Photo features can run with a key (the AI sees the photo) or, more roughly, with Apple's on-device AI.
+    var canUseAIForPhotos: Bool { keyClient != nil || appleStatus.isAvailable }
+
     /// Who answers chat questions and meal plans right now, or nil if nothing is set up.
     var textProvider: AIProvider? {
         AIProvider.choose(preference: preference, appleAvailable: appleStatus.isAvailable, linked: linked)

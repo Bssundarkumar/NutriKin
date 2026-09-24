@@ -89,6 +89,14 @@ struct PhotoScanView: View {
 
     // MARK: - Steps
 
+    private var chooserPrivacyLine: String {
+        guard ai.canUseAIForPhotos, useAI else { return "Photos are read on your phone and are never uploaded." }
+        if let vendor = ai.keyProvider?.vendorName, ai.keyClient != nil {
+            return "Photos are read on your phone first. If it isn't a known barcode, they're also sent to \(vendor) under your own key so the AI can read the name, ingredients and nutrition. You confirm everything before it's scored."
+        }
+        return "Photos are read on your phone, and Apple Intelligence organises the text on the phone too. Nothing is uploaded. You confirm everything before it's scored."
+    }
+
     private var chooser: some View {
         VStack(spacing: 18) {
             Spacer()
@@ -124,14 +132,12 @@ struct PhotoScanView: View {
             .controlSize(.large)
             .padding(.horizontal, 32)
 
-            if ai.isConnected {
-                Toggle("Also read the label with my AI", isOn: $useAI)
+            if ai.canUseAIForPhotos {
+                Toggle("Also read the label with AI", isOn: $useAI)
                     .font(.subheadline)
                     .padding(.horizontal, 32)
             }
-            Text(ai.isConnected && useAI
-                 ? "Photos are read on your phone first. If it isn't a known barcode, they're also sent to \(ai.keyProvider?.vendorName ?? "your AI") under your own key so the AI can read the name, ingredients and nutrition. You confirm everything before it's scored."
-                 : "Photos are read on your phone and are never uploaded.")
+            Text(chooserPrivacyLine)
                 .font(.caption)
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
@@ -180,7 +186,7 @@ struct PhotoScanView: View {
                 TextField("Brand", text: $brand)
             }
 
-            if !ai.isConnected {
+            if !ai.canUseAIForPhotos {
                 Section {
                     Button { showConnect = true } label: { Label("Read it with AI instead", systemImage: "sparkles") }
                 } footer: {
@@ -342,15 +348,23 @@ struct PhotoScanView: View {
                 case .barcode(let code):
                     onBarcode(code)
                     dismiss()
-                case .label(let parsed, let guesses):
+                case .label(let parsed, let guesses, let rows):
                     fill(from: parsed)
                     nameGuesses = guesses
                     aiRead = false; aiNote = nil; spottedBarcode = nil
-                    if useAI, let client = ai.keyClient {
+                    if useAI, ai.canUseAIForPhotos {
                         aiReading = true
                         defer { aiReading = false }
                         do {
-                            let reading = ProductPhotoReader.merge(ai: try await ProductPhotoReader.read(images: images, client: client), ocr: parsed)
+                            // A linked key lets the AI see the photos; otherwise Apple's on-device AI organises the
+                            // text the phone already read. Either way the person confirms before it's scored.
+                            let read: ProductReading
+                            if let client = ai.keyClient {
+                                read = try await ProductPhotoReader.read(images: images, client: client)
+                            } else {
+                                read = try await ProductPhotoReader.readOnDevice(rows: rows)
+                            }
+                            let reading = ProductPhotoReader.merge(ai: read, ocr: parsed)
                             if reading.foundAnything {
                                 apply(reading)
                                 phase = .review(readNothing: false)

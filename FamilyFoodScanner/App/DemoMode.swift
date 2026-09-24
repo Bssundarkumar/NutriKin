@@ -10,7 +10,10 @@ enum Demo {
     static var opensAsk: Bool { CommandLine.arguments.contains("-demoAsk") }
     static var opensMeals: Bool { CommandLine.arguments.contains("-demoMeals") }
 
-    static let askMessages: [(String, String)] = [
+    /// Sample chat for screenshots only: empty unless launched with -demoAsk, so real chats never start with it.
+    static var askMessages: [(String, String)] { opensAsk ? sampleChat : [] }
+
+    private static let sampleChat: [(String, String)] = [
         ("user", "Is this OK for everyone?"),
         ("assistant", "**Not really.** Nutella is about 56% sugar, so it's a poor fit for **Amma** (diabetes, 25 g sugar goal): one tablespoon already uses roughly a third of her day.\n\nIt contains **hazelnuts and milk**. Arjun has a tree-nut allergy, so it's a firm no for him.\n\nPriya can have a thin spread now and then. Want a lower-sugar swap?"),
     ]

@@ -84,7 +84,7 @@ final class ProductSearchTests: XCTestCase {
             draw("NET WT 400 g", size: 44, y: 1300, weight: .regular)
         }
 
-        guard case .label(let parsed, let guesses) = try await LabelReader.read([image]) else {
+        guard case .label(let parsed, let guesses, _) = try await LabelReader.read([image]) else {
             return XCTFail("expected label text, not a barcode")
         }
         XCTAssertNil(parsed.ingredientsText, "a front-of-pack photo has no ingredient list")

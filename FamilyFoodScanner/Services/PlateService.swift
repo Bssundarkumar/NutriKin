@@ -43,6 +43,19 @@ struct PlateService {
         return try PlateParser.parse(text)
     }
 
+    /// Apple's on-device AI can't see photos, so it estimates from a description of the foods (recognised from
+    /// the photo on the phone, then confirmed or edited by the person). Nothing leaves the phone.
+    static func estimateOnDevice(foods: String, plateDiameterCm: Int?) async throws -> PlateAnalysis {
+        let scale = plateDiameterCm.map { "The plate is \($0) cm across." } ?? "The plate is a normal dinner plate, about 26 cm across."
+        let system = """
+        You estimate the nutrition of a plate of food for a family health app. \(scale) The person lists what is on it, \
+        sometimes with amounts ("2 rotis", "small bowl of dal"). Work out a realistic cooked weight in grams for each food as \
+        served on a plate of that size, and typical nutrition per 100 g. If no amount is given, assume a normal single serving. \
+        If you are unsure of a food or amount, mark confidence "low". Never invent foods that were not listed.
+        """
+        return try PlateParser.parse(try await AppleAI.plateJSON(system: system, foods: foods))
+    }
+
     /// Keeps uploads small: at most 1280 px on the long side.
     static func downscaledJPEG(_ image: UIImage, maxSide: CGFloat = 1280, quality: CGFloat = 0.75) -> Data? {
         let longest = max(image.size.width, image.size.height)

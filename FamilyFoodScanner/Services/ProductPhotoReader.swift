@@ -45,6 +45,13 @@ enum ProductPhotoReader {
         return try parse(reply)
     }
 
+    /// Reads a label with Apple's on-device AI from the text the phone already recognised. Nothing leaves the phone.
+    static func readOnDevice(rows: [String]) async throws -> ProductReading {
+        let text = rows.joined(separator: "\n").trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !text.isEmpty else { throw AIFailure(message: "No text was found in the photo.") }
+        return try parse(try await AppleAI.productLabelJSON(ocrText: text))
+    }
+
     private struct DTO: Decodable {
         struct Nut: Decodable {
             var calories: Double?, sugarG: Double?, carbsG: Double?, sodiumMg: Double?, satFatG: Double?, proteinG: Double?

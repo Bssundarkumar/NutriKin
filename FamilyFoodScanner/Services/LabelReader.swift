@@ -9,7 +9,7 @@ enum LabelReader {
         case barcode(String)
         /// No barcode: the label text was read and parsed, along with the
         /// most likely product names (from the biggest lettering).
-        case label(ParsedLabel, nameGuesses: [String])
+        case label(ParsedLabel, nameGuesses: [String], rows: [String])
     }
 
     /// Reads one or more photos. A barcode in any photo wins; otherwise the
@@ -27,7 +27,7 @@ enum LabelReader {
             pieces += found
             rows += groupRows(found)
         }
-        return .label(LabelParser.parse(rows), nameGuesses: ProductNameGuesser.guesses(from: pieces))
+        return .label(LabelParser.parse(rows), nameGuesses: ProductNameGuesser.guesses(from: pieces), rows: rows)
     }
 
     // MARK: - Barcode
