@@ -20,7 +20,14 @@ struct PlateScanView: View {
     @State private var note: String?
     @State private var task: Task<Void, Never>?
 
-    private let sizes = [20, 23, 26, 28, 30]
+    private let sizes = [0, 20, 23, 26, 28, 30]      // 0 = let the AI estimate it
+    @State private var showMeasure = false
+    @State private var usedCm = 26
+    @State private var usedWasEstimated = false
+    @State private var editedCm = 26
+
+    /// The presets, plus a measured size if it isn't one of them.
+    private var sizeOptions: [Int] { Array(Set(sizes + (plateCm > 0 ? [plateCm] : []))).sorted() }
 
     var body: some View {
         NavigationStack {
@@ -40,6 +47,7 @@ struct PlateScanView: View {
                 if Demo.plateResults, phase == .setup { items = Demo.plateItems; note = "The chutney amount is a guess."; phase = .results }
             }
             .sheet(isPresented: $showConnect) { ConnectAIView() }
+            .fullScreenCover(isPresented: $showMeasure) { PlateMeasureView { plateCm = $0 } }
             .fullScreenCover(isPresented: $showCamera) {
                 CameraPicker { analyze($0) }.ignoresSafeArea()
             }
@@ -72,13 +80,19 @@ struct PlateScanView: View {
                     .multilineTextAlignment(.center)
 
                 VStack(alignment: .leading, spacing: 8) {
-                    Text("How wide is your plate?").font(.subheadline.weight(.semibold))
+                    Text("How wide is your plate? (cm)").font(.subheadline.weight(.semibold))
                     Picker("Plate size", selection: $plateCm) {
-                        ForEach(sizes, id: \.self) { Text("\($0) cm").tag($0) }
+                        ForEach(sizeOptions, id: \.self) { Text($0 == 0 ? "AI" : "\($0)").tag($0) }
                     }
                     .pickerStyle(.segmented)
-                    Text("Measure across the flat plate, edge to edge. It gives the AI a scale to judge how much food there is.")
+                    Text(plateCm == 0
+                         ? "The AI will estimate the plate's size from the photo. Measuring is more accurate."
+                         : "Across the flat plate, edge to edge. It gives the AI a scale to judge how much food there is.")
                         .font(.caption).foregroundStyle(.secondary)
+                    if PlateMeasureView.isSupported {
+                        Button { showMeasure = true } label: { Label("Measure it with the camera", systemImage: "ruler") }
+                            .font(.subheadline.weight(.semibold))
+                    }
                 }
                 .card()
 
@@ -183,6 +197,19 @@ struct PlateScanView: View {
             }
             .listRowBackground(Color(.secondarySystemGroupedBackground))
 
+            Section {
+                Stepper(value: $editedCm, in: 10...45) {
+                    Text("Plate size: \(editedCm) cm" + (usedWasEstimated && editedCm == usedCm ? " (AI estimate)" : ""))
+                }
+                if editedCm != usedCm, let image {
+                    Button { analyze(image, sizeOverride: editedCm) } label: {
+                        Label("Re-estimate with a \(editedCm) cm plate", systemImage: "arrow.clockwise")
+                    }
+                }
+            } footer: {
+                Text("Portions are judged against the plate's size. If the size looks wrong, fix it and re-estimate.")
+            }
+
             if items.isEmpty {
                 Section { Text(note ?? "No food found in the photo. Try again from directly above, with good light.").font(.subheadline) }
             } else {
@@ -241,17 +268,22 @@ struct PlateScanView: View {
 
     // MARK: Analysis
 
-    private func analyze(_ picture: UIImage) {
+    /// `sizeOverride` re-runs the same photo with a corrected plate size.
+    private func analyze(_ picture: UIImage, sizeOverride: Int? = nil) {
         guard let client = ai.keyClient else { showConnect = true; return }
+        let requested: Int? = sizeOverride ?? (plateCm == 0 ? nil : plateCm)
         image = picture
         phase = .analyzing
         task?.cancel()
         task = Task {
             do {
-                let analysis = try await PlateService(client: client).analyze(image: picture, plateDiameterCm: plateCm)
+                let analysis = try await PlateService(client: client).analyze(image: picture, plateDiameterCm: requested)
                 guard !Task.isCancelled else { return }
                 items = analysis.items
                 note = analysis.note
+                usedWasEstimated = requested == nil
+                usedCm = requested ?? analysis.estimatedPlateCm ?? 26
+                editedCm = usedCm
                 phase = .results
                 UINotificationFeedbackGenerator().notificationOccurred(.success)
             } catch is CancellationError {

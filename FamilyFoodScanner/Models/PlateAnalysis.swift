@@ -43,6 +43,8 @@ struct MealTotals: Hashable {
 struct PlateAnalysis {
     var items: [PlateItem]
     var note: String?
+    /// The plate size the AI worked out from the photo, when the person didn't give one.
+    var estimatedPlateCm: Int? = nil
 }
 
 /// What this meal means for one family member, as a share of their daily targets.

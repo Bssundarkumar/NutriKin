@@ -6,23 +6,32 @@ import UIKit
 struct PlateService {
     var client: LLM
 
-    static func systemPrompt(plateDiameterCm: Int) -> String {
-        """
+    /// `plateDiameterCm` nil means the person doesn't know it, so the AI estimates the plate size first.
+    static func systemPrompt(plateDiameterCm: Int?) -> String {
+        let scale: String
+        let shape: String
+        if let cm = plateDiameterCm {
+            scale = "The plate is \(cm) cm across: use that as the scale reference, together with how large the plate looks in the frame, to judge distance and how much food is on it."
+            shape = #"{"items":[{"name":"Rice","grams":180,"per_100g":{"calories":130,"sugar_g":0.1,"carbs_g":28,"sodium_mg":1,"sat_fat_g":0.1,"protein_g":2.7},"confidence":"high","allergens":[]}],"note":"one short sentence about the biggest uncertainty"}"#
+        } else {
+            scale = "The plate's size is unknown. First estimate its diameter in cm from the photo, using cues such as cutlery, a glass, hands or the table edge and typical sizes (dinner plate 24 to 28 cm, side plate 18 to 20 cm, bowl 15 to 20 cm), then use that as the scale to judge how much food is on it. Report the diameter as plate_diameter_cm."
+            shape = #"{"plate_diameter_cm":26,"items":[{"name":"Rice","grams":180,"per_100g":{"calories":130,"sugar_g":0.1,"carbs_g":28,"sodium_mg":1,"sat_fat_g":0.1,"protein_g":2.7},"confidence":"high","allergens":[]}],"note":"one short sentence about the biggest uncertainty"}"#
+        }
+        return """
         You estimate the nutrition of a plate of food for a family health app. The photo shows one plate, \
-        ideally from above. The plate is \(plateDiameterCm) cm across: use that as the scale reference, together \
-        with how large the plate looks in the frame, to judge distance and how much food is on it.
+        ideally from above. \(scale)
 
         Identify each distinct food (at most 8). For each give: the cooked weight in grams as served, and typical \
         nutrition per 100 g. If you cannot tell what something is, give your best guess and mark confidence "low".
         List possible allergens only from: peanuts, nuts, milk, gluten, eggs, soybeans, fish, crustaceans, sesame.
 
         Reply with JSON only, no other text, in exactly this shape:
-        {"items":[{"name":"Rice","grams":180,"per_100g":{"calories":130,"sugar_g":0.1,"carbs_g":28,"sodium_mg":1,"sat_fat_g":0.1,"protein_g":2.7},"confidence":"high","allergens":[]}],"note":"one short sentence about the biggest uncertainty"}
+        \(shape)
         If the photo does not show food, reply {"items":[],"note":"No food found in the photo."}
         """
     }
 
-    func analyze(image: UIImage, plateDiameterCm: Int) async throws -> PlateAnalysis {
+    func analyze(image: UIImage, plateDiameterCm: Int?) async throws -> PlateAnalysis {
         guard let jpeg = Self.downscaledJPEG(image) else { throw AnthropicClient.ClientError.badResponse }
         let content: [[String: Any]] = [
             ["type": "image",
@@ -70,6 +79,8 @@ enum PlateParser {
         }
         var items: [Item]?
         var note: String?
+        var plateDiameterCm: Double?
+        enum CodingKeys: String, CodingKey { case items, note, plateDiameterCm = "plate_diameter_cm" }
     }
 
     static func parse(_ reply: String) throws -> PlateAnalysis {
@@ -92,6 +103,7 @@ enum PlateParser {
             )
         }
         let note = dto.note?.trimmingCharacters(in: .whitespacesAndNewlines)
-        return PlateAnalysis(items: items, note: (note?.isEmpty == false) ? note : nil)
+        let plate = dto.plateDiameterCm.flatMap { PlateMeasure.isPlausible($0) ? Int($0.rounded()) : nil }
+        return PlateAnalysis(items: items, note: (note?.isEmpty == false) ? note : nil, estimatedPlateCm: plate)
     }
 }

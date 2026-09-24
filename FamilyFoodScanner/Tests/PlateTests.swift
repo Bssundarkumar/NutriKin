@@ -141,3 +141,29 @@ final class AIConnectionTests: XCTestCase {
         XCTAssertThrowsError(try AnthropicClient.replyText(from: Data("{}".utf8)))
     }
 }
+
+final class PlateSizeTests: XCTestCase {
+    func testKnownSizeAndUnknownSizePromptsDiffer() {
+        let known = PlateService.systemPrompt(plateDiameterCm: 28)
+        XCTAssertTrue(known.contains("28 cm across"))
+        XCTAssertFalse(known.contains("plate_diameter_cm"))
+        let unknown = PlateService.systemPrompt(plateDiameterCm: nil)
+        XCTAssertTrue(unknown.contains("size is unknown"))
+        XCTAssertTrue(unknown.contains("plate_diameter_cm"))
+    }
+
+    func testAIPlateSizeIsReadAndSanityChecked() throws {
+        let item = #"{"name":"Rice","grams":100,"per_100g":{"calories":130}}"#
+        XCTAssertEqual(try PlateParser.parse(#"{"plate_diameter_cm":27.4,"items":[\#(item)]}"#).estimatedPlateCm, 27)
+        XCTAssertNil(try PlateParser.parse(#"{"plate_diameter_cm":80,"items":[\#(item)]}"#).estimatedPlateCm)   // not a plate
+        XCTAssertNil(try PlateParser.parse(#"{"items":[\#(item)]}"#).estimatedPlateCm)
+    }
+
+    func testDistanceBetweenTwoPointsIsInCentimetres() {
+        XCTAssertEqual(PlateMeasure.centimetres(from: SIMD3(0, 0, 0), to: SIMD3(0.26, 0, 0)), 26, accuracy: 0.001)
+        XCTAssertEqual(PlateMeasure.centimetres(from: SIMD3(0, 0.1, 0), to: SIMD3(0.3, 0.1, 0.4)), 50, accuracy: 0.001)
+        XCTAssertTrue(PlateMeasure.isPlausible(26))
+        XCTAssertFalse(PlateMeasure.isPlausible(4))
+        XCTAssertFalse(PlateMeasure.isPlausible(120))
+    }
+}

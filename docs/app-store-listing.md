@@ -24,7 +24,7 @@ Add your family members with their allergies and health needs. Then scan a produ
 - Allergy protection: a product containing someone's allergen is always flagged.
 - Ingredient alerts: additives and ingredients widely advised to limit, explained simply, with quantities where the label states them.
 - No barcode? Take a photo of the ingredients or the front of the pack and confirm the product.
-- Scan a plate (optional): link your own AI account to estimate a meal's calories from a photo, with each family member's share of their daily limits.
+- Scan a plate (optional; measure the plate with the camera or let the AI estimate its size): link your own AI account to estimate a meal's calories from a photo, with each family member's share of their daily limits.
 - Ask AI about any scanned product, and get a day of meal ideas for each person, sized to their plan and free of their allergens. On supported iPhones this runs privately on the device with Apple Intelligence.
 - Can't scan a barcode? Photograph the pack and, with your own AI key (Claude, OpenAI, Grok or Gemini), the AI reads the name, ingredients and nutrition for you to confirm.
 - BMI-based target weight and suggested daily intake for adults.
