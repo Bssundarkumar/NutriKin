@@ -40,7 +40,7 @@ final class LabelReaderTests: XCTestCase {
 
     func testReadsIngredientsAndNutritionFromAPhotoOfALabel() async throws {
         let outcome = try await LabelReader.read([labelImage()])
-        guard case .label(let parsed) = outcome else { return XCTFail("expected a label, got \(outcome)") }
+        guard case .label(let parsed, _) = outcome else { return XCTFail("expected a label, got \(outcome)") }
 
         let text = try XCTUnwrap(parsed.ingredientsText).lowercased()
         XCTAssertTrue(text.contains("sugar"), text)
@@ -69,7 +69,7 @@ final class LabelReaderTests: XCTestCase {
         let blank = UIGraphicsImageRenderer(size: CGSize(width: 800, height: 800)).image { ctx in
             UIColor.white.setFill(); ctx.fill(CGRect(x: 0, y: 0, width: 800, height: 800))
         }
-        guard case .label(let parsed) = try await LabelReader.read([blank]) else { return XCTFail("expected a label") }
+        guard case .label(let parsed, _) = try await LabelReader.read([blank]) else { return XCTFail("expected a label") }
         XCTAssertFalse(parsed.foundAnything)
     }
 

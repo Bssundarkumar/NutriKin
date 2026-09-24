@@ -7,8 +7,9 @@ enum LabelReader {
     enum Outcome: Equatable {
         /// A barcode was found, so the normal product lookup can be used.
         case barcode(String)
-        /// No barcode: the label text was read and parsed.
-        case label(ParsedLabel)
+        /// No barcode: the label text was read and parsed, along with the
+        /// most likely product names (from the biggest lettering).
+        case label(ParsedLabel, nameGuesses: [String])
     }
 
     /// Reads one or more photos. A barcode in any photo wins; otherwise the
@@ -20,8 +21,13 @@ enum LabelReader {
             if let code = try await barcode(in: image) { return .barcode(code) }
         }
         var rows: [String] = []
-        for image in prepared { rows += try await textRows(in: image) }
-        return .label(LabelParser.parse(rows))
+        var pieces: [Piece] = []
+        for image in prepared {
+            let found = try await textPieces(in: image)
+            pieces += found
+            rows += groupRows(found)
+        }
+        return .label(LabelParser.parse(rows), nameGuesses: ProductNameGuesser.guesses(from: pieces))
     }
 
     // MARK: - Barcode
@@ -47,9 +53,14 @@ enum LabelReader {
     /// Recognised text as rows, top to bottom. Pieces on the same line (the
     /// name and value cells of a nutrition table) are joined into one row.
     static func textRows(in image: UIImage) async throws -> [String] {
+        groupRows(try await textPieces(in: image))
+    }
+
+    /// Every recognised piece of text with where it sits and how tall its lettering is.
+    static func textPieces(in image: UIImage) async throws -> [Piece] {
         guard let cg = image.cgImage else { return [] }
         let orientation = cgOrientation(image.imageOrientation)
-        let pieces: [Piece] = try await Task.detached(priority: .userInitiated) {
+        return try await Task.detached(priority: .userInitiated) {
             let request = VNRecognizeTextRequest()
             request.recognitionLevel = .accurate
             request.usesLanguageCorrection = true
@@ -61,7 +72,6 @@ enum LabelReader {
                 return Piece(text: text, minX: obs.boundingBox.minX, midY: obs.boundingBox.midY, height: obs.boundingBox.height)
             }
         }.value
-        return groupRows(pieces)
     }
 
     struct Piece: Equatable {

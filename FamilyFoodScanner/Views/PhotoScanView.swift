@@ -1,9 +1,13 @@
 import PhotosUI
 import SwiftUI
 
-/// "No barcode?" flow: take photos of the package or pick them from the photo
-/// library, let the phone read them, then check and correct what it read
-/// before it's scored. Reading is on-device; the pictures are never uploaded.
+/// "No barcode?" flow. Photograph the package (or pick pictures), and the phone
+/// reads them on-device (nothing is uploaded):
+///  - the FRONT of the pack gives the product name, which is searched in the
+///    food database; the person confirms the match and the real ingredients load;
+///  - the INGREDIENT LIST or nutrition table is read directly, then checked and
+///    corrected before it's scored;
+///  - a barcode in the picture is used as-is.
 struct PhotoScanView: View {
     /// A barcode turned up in the photos: use the normal lookup.
     var onBarcode: (String) -> Void
@@ -25,10 +29,21 @@ struct PhotoScanView: View {
     @State private var satFat = ""
     @State private var protein = ""
 
+    // Name search
+    @State private var query = ""
+    @State private var nameGuesses: [String] = []
+    @State private var candidates: [ProductCandidate] = []
+    @State private var selected: ProductCandidate?
+    @State private var isSearching = false
+    @State private var didSearch = false
+    @State private var searchError: String?
+    @State private var searchTask: Task<Void, Never>?
+
     private enum Phase: Equatable {
         case choose
         case reading
         case review(readNothing: Bool)
+        case search
         case failed(String)
     }
 
@@ -39,6 +54,7 @@ struct PhotoScanView: View {
                 case .choose: chooser
                 case .reading: reading
                 case .review(let readNothing): review(readNothing: readNothing)
+                case .search: search
                 case .failed(let message): failed(message)
                 }
             }
@@ -71,10 +87,10 @@ struct PhotoScanView: View {
                 .font(.system(size: 54))
                 .foregroundStyle(Color.accentColor)
                 .popIn()
-            Text("No barcode? Photograph the label.")
+            Text("No barcode? Show us the product.")
                 .font(.title3.bold())
                 .multilineTextAlignment(.center)
-            Text("Take a clear photo of the **ingredients list**, and the **nutrition table** if you can. Use good light and keep the label flat. If a barcode is in the picture, we'll use it.")
+            Text("Photograph the **front of the pack** and we'll find it by name, so you can confirm it and get its real ingredients. Or photograph the **ingredients list** and nutrition table. Use good light and keep the label flat.")
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
@@ -89,6 +105,10 @@ struct PhotoScanView: View {
                 }
                 PhotosPicker(selection: $picked, maxSelectionCount: 4, matching: .images) {
                     Label("Choose from photos", systemImage: "photo.on.rectangle").frame(maxWidth: .infinity)
+                }
+                .buttonStyle(.bordered)
+                Button { startSearch(prefill: "", alternates: [], run: false) } label: {
+                    Label("Search by product name", systemImage: "magnifyingglass").frame(maxWidth: .infinity)
                 }
                 .buttonStyle(.bordered)
             }
@@ -152,6 +172,14 @@ struct PhotoScanView: View {
             }
 
             Section {
+                Button("Look it up by name instead") {
+                    startSearch(prefill: name.isEmpty ? (nameGuesses.first ?? "") : name,
+                                alternates: nameGuesses, run: !(name.isEmpty && nameGuesses.isEmpty))
+                }
+                .frame(maxWidth: .infinity)
+            }
+
+            Section {
                 Button("Score it") { finish() }
                     .frame(maxWidth: .infinity)
                     .fontWeight(.semibold)
@@ -159,6 +187,73 @@ struct PhotoScanView: View {
                 Button("Start over") { picked = []; phase = .choose }
                     .frame(maxWidth: .infinity)
                     .foregroundStyle(.secondary)
+            }
+        }
+    }
+
+    private var search: some View {
+        List {
+            Section {
+                HStack {
+                    TextField("e.g. Nutella Ferrero", text: $query)
+                        .textInputAutocapitalization(.never)
+                        .autocorrectionDisabled()
+                        .submitLabel(.search)
+                        .onSubmit { runSearch() }
+                    Button("Search") { runSearch() }
+                        .disabled(query.trimmingCharacters(in: .whitespaces).count < 2 || isSearching)
+                }
+            } header: {
+                Text("What's the product called?")
+            } footer: {
+                Text("Add the brand for better matches. Then pick the one that matches your pack (check the size) and confirm it.")
+            }
+
+            if nameGuesses.count > 1 {
+                Section("Other names we read on the pack") {
+                    FlowLayout(spacing: 6) {
+                        ForEach(nameGuesses, id: \.self) { guess in
+                            Button(guess) { query = guess; runSearch() }
+                                .font(.footnote)
+                                .padding(.horizontal, 10).padding(.vertical, 5)
+                                .background(Color.accentColor.opacity(0.12), in: Capsule())
+                                .buttonStyle(.plain)
+                        }
+                    }
+                }
+            }
+
+            Section("Matches") {
+                if isSearching {
+                    HStack(spacing: 10) { ProgressView(); Text("Searching\u{2026}").foregroundStyle(.secondary) }
+                } else if let searchError {
+                    Text(searchError).font(.footnote).foregroundStyle(.red)
+                } else if didSearch && candidates.isEmpty {
+                    Text("No match found. Try fewer words, or photograph the ingredients instead.")
+                        .font(.footnote).foregroundStyle(.secondary)
+                }
+                ForEach(candidates) { candidate in
+                    Button { withAnimation(.snappy) { selected = candidate } } label: {
+                        CandidateRow(candidate: candidate, isSelected: selected == candidate)
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+
+            Section {
+                Button("Use this product") { confirm() }
+                    .frame(maxWidth: .infinity)
+                    .fontWeight(.semibold)
+                    .disabled(selected == nil)
+                Button("None of these \u{2014} photograph the ingredients") {
+                    picked = []; phase = .choose
+                }
+                .frame(maxWidth: .infinity)
+                .foregroundStyle(.secondary)
+            } footer: {
+                if let selected {
+                    Text("We'll load the ingredients for \u{201C}\(selected.name)\u{201D}\(selected.quantity.map { ", \($0)" } ?? "").")
+                }
             }
         }
     }
@@ -211,14 +306,61 @@ struct PhotoScanView: View {
                 case .barcode(let code):
                     onBarcode(code)
                     dismiss()
-                case .label(let parsed):
+                case .label(let parsed, let guesses):
                     fill(from: parsed)
-                    phase = .review(readNothing: parsed.ingredientsText == nil)
+                    nameGuesses = guesses
+                    if parsed.ingredientsText != nil {
+                        phase = .review(readNothing: false)               // an ingredient list was read
+                    } else if let best = guesses.first {
+                        startSearch(prefill: best, alternates: guesses, run: true)   // front of pack: find it by name
+                    } else {
+                        phase = .review(readNothing: true)
+                    }
                 }
             } catch {
                 phase = .failed(error.localizedDescription)
             }
         }
+    }
+
+    private func startSearch(prefill: String, alternates: [String], run: Bool) {
+        query = prefill
+        nameGuesses = alternates
+        candidates = []; selected = nil; didSearch = false; searchError = nil
+        phase = .search
+        if run { runSearch() }
+    }
+
+    private func runSearch() {
+        searchTask?.cancel()
+        let text = query
+        searchTask = Task {
+            isSearching = true
+            searchError = nil
+            selected = nil
+            defer { isSearching = false }
+            do {
+                let found = try await ProductService().search(text)
+                guard !Task.isCancelled else { return }
+                withAnimation(.snappy) { candidates = found }
+                didSearch = true
+            } catch is CancellationError {
+                return
+            } catch {
+                guard !Task.isCancelled else { return }
+                candidates = []
+                searchError = error.localizedDescription
+                didSearch = true
+            }
+        }
+    }
+
+    /// The person confirmed the match: hand its barcode to the normal lookup,
+    /// which loads the real ingredients and nutrition.
+    private func confirm() {
+        guard let selected else { return }
+        onBarcode(selected.code)
+        dismiss()
     }
 
     private func fill(from parsed: ParsedLabel) {
@@ -252,5 +394,38 @@ struct PhotoScanView: View {
     private static func text(_ v: Double?) -> String {
         guard let v else { return "" }
         return v.rounded() == v ? String(Int(v)) : String(format: "%.1f", v)
+    }
+}
+
+
+private struct CandidateRow: View {
+    let candidate: ProductCandidate
+    let isSelected: Bool
+
+    var body: some View {
+        HStack(spacing: 12) {
+            AsyncImage(url: candidate.imageURL) { img in
+                img.resizable().scaledToFit()
+            } placeholder: {
+                Color.secondary.opacity(0.12)
+            }
+            .frame(width: 52, height: 52)
+            .clipShape(RoundedRectangle(cornerRadius: 10))
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text(candidate.name).font(.subheadline.weight(.semibold)).lineLimit(2)
+                Text([candidate.brand, candidate.quantity].compactMap { $0 }.joined(separator: " \u{00B7} "))
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            Spacer(minLength: 8)
+            Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
+                .font(.title3)
+                .foregroundStyle(isSelected ? Color.accentColor : Color.secondary.opacity(0.4))
+                .scaleEffect(isSelected ? 1.1 : 1)
+        }
+        .contentShape(Rectangle())
+        .accessibilityElement(children: .combine)
+        .accessibilityAddTraits(isSelected ? .isSelected : [])
     }
 }
