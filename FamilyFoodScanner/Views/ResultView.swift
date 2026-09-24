@@ -49,8 +49,11 @@ struct ResultView: View {
                 }
             }
 
-            if let ingredients = product.ingredientsText, !ingredients.isEmpty {
-                Section("Ingredients") { Text(ingredients).font(.footnote) }
+            let ingredientItems = ingredientItems(alerts: ingredientAlerts)
+            if !ingredientItems.isEmpty {
+                Section("Ingredients") { IngredientListView(items: ingredientItems) }
+            } else if let raw = product.ingredientsText, !raw.isEmpty {
+                Section("Ingredients") { Text(raw).font(.footnote) }
             }
 
             Section {
@@ -61,6 +64,23 @@ struct ResultView: View {
         }
         .navigationTitle("Scan result")
         .navigationBarTitleDisplayMode(.inline)
+    }
+
+    /// The label's ingredients as chips, each marked if it's worth limiting or
+    /// is an allergen for someone in the family.
+    private func ingredientItems(alerts: [IngredientAlert]) -> [IngredientListView.Item] {
+        guard let raw = product.ingredientsText else { return [] }
+        let familyAllergens = Set(family.members.flatMap(\.allergies))
+        let customAllergies = family.members.flatMap(\.customAllergyNames)
+
+        return IngredientParser.items(from: raw).enumerated().map { index, text in
+            let lower = text.lowercased()
+            let isAllergen = familyAllergens.contains { $0.keywords.contains { lower.contains($0) } }
+                || customAllergies.contains { lower.contains($0.lowercased()) }
+            if isAllergen { return .init(id: index, text: text, kind: .allergen) }
+            if analyzer.flag(for: text, among: alerts) != nil { return .init(id: index, text: text, kind: .limit) }
+            return .init(id: index, text: text, kind: .plain)
+        }
     }
 
     private var header: some View {

@@ -26,18 +26,30 @@ enum Allergen: String, CaseIterable, Codable, Identifiable, Hashable {
 
     /// Fallback keywords checked against the ingredient text when the
     /// product's allergen tags are missing. Deliberately broad: a false
-    /// alarm is better than a missed allergen.
+    /// alarm is better than a missed allergen. Includes the common French,
+    /// Spanish, German and Italian words, since labels are often not in English.
     var keywords: [String] {
         switch self {
-        case .peanuts: ["peanut", "groundnut"]
-        case .nuts: ["almond", "hazelnut", "cashew", "walnut", "pecan", "pistachio", "macadamia"]
-        case .milk: ["milk", "whey", "casein", "butter", "cream", "lactose"]
-        case .gluten: ["wheat", "barley", "rye", "spelt", "gluten"]
-        case .eggs: ["egg"]
-        case .soybeans: ["soy", "soya"]
-        case .fish: ["fish", "anchov", "salmon", "tuna", "cod"]
-        case .crustaceans: ["shrimp", "prawn", "crab", "lobster"]
-        case .sesame: ["sesame", "tahini"]
+        case .peanuts: ["peanut", "groundnut", "cacahuète", "cacahuete", "arachide", "cacahuate", "erdnuss", "erdnüsse"]
+        case .nuts: ["almond", "hazelnut", "cashew", "walnut", "pecan", "pistachio", "macadamia",
+                     "noisette", "amande", "cajou", "pistache", "avellana", "almendra", "nuez", "nueces",
+                     "haselnuss", "haselnüsse", "mandel", "walnuss", "nocciol", "mandorl"]
+        case .milk: ["milk", "whey", "casein", "butter", "cream", "lactose",
+                     "lait", "lactosérum", "lactoserum", "beurre", "crème", "creme fraiche",
+                     "leche", "suero de leche", "mantequilla", "nata", "milch", "molke", "sahne",
+                     "latte", "siero di latte", "burro", "panna"]
+        case .gluten: ["wheat", "barley", "rye", "spelt", "gluten",
+                       "blé", "froment", "orge", "seigle", "épeautre", "trigo", "cebada", "centeno",
+                       "weizen", "gerste", "roggen", "dinkel", "frumento", "orzo", "segale"]
+        case .eggs: ["egg", "oeuf", "œuf", "huevo", "eier", "uovo", "uova"]
+        case .soybeans: ["soy", "soya", "soja", "soia"]
+        case .fish: ["fish", "anchov", "salmon", "tuna", "cod",
+                     "poisson", "saumon", "thon", "morue", "pescado", "salmón", "atún", "bacalao",
+                     "fisch", "lachs", "thunfisch", "pesce", "tonno", "merluzzo"]
+        case .crustaceans: ["shrimp", "prawn", "crab", "lobster",
+                            "crevette", "crabe", "homard", "gamba", "camarón", "camaron", "cangrejo",
+                            "garnele", "krabbe", "hummer", "gambero", "granchio", "aragosta"]
+        case .sesame: ["sesame", "tahini", "sésame", "sesamo", "sésamo", "sesam"]
         }
     }
 }

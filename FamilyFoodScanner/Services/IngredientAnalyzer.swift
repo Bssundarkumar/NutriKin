@@ -50,10 +50,11 @@ struct IngredientAlert: Identifiable {
 struct IngredientAnalyzer {
     static let watchlist: [IngredientFlag] = [
         IngredientFlag("trans-fat", "Partially hydrogenated oil", .warning, .everyone,
-            terms: ["partially hydrogenated", "partly hydrogenated"],
+            terms: ["partially hydrogenated", "partly hydrogenated", "partiellement hydrogéné", "parcialmente hidrogenado", "teilweise gehärtet"],
             reason: "A source of artificial trans fat, which raises LDL (\"bad\") cholesterol and lowers HDL. The FDA has removed it from the US food supply."),
         IngredientFlag("processed-meat-nitrite", "Nitrite / nitrate preservatives", .warning, .everyone,
-            terms: ["sodium nitrite", "sodium nitrate", "potassium nitrite", "potassium nitrate"],
+            terms: ["sodium nitrite", "sodium nitrate", "potassium nitrite", "potassium nitrate",
+                    "nitrite de sodium", "nitrate de potassium", "nitrito sódico", "nitrito de sodio", "natriumnitrit"],
             eCodes: ["e249", "e250", "e251", "e252"],
             reason: "Used to cure processed meat. The WHO's cancer agency classes processed meat as carcinogenic, so it's best kept occasional."),
         IngredientFlag("titanium-dioxide", "Titanium dioxide", .warning, .everyone,
@@ -77,7 +78,7 @@ struct IngredientAnalyzer {
 
         // Condition-specific: only shown when someone in the family has it.
         IngredientFlag("added-sugar", "Added sugars", .note, .condition(.diabetes),
-            terms: ["sugar", "glucose syrup", "glucose-fructose syrup", "high fructose corn syrup",
+            terms: ["sugar", "sucre", "azúcar", "azucar", "zucker", "zucchero", "sirop de glucose", "jarabe de glucosa", "glucose syrup", "glucose-fructose syrup", "high fructose corn syrup",
                     "corn syrup", "fructose", "dextrose", "invert sugar", "maltose", "cane juice",
                     "jaggery", "honey", "brown rice syrup"],
             reason: "Added sugars raise blood glucose quickly. Look for products where sugar isn't among the first ingredients."),
@@ -90,7 +91,7 @@ struct IngredientAnalyzer {
             eCodes: ["e621", "e211", "e631", "e627", "e339", "e250", "e500"],
             reason: "These add sodium on top of the salt, which counts against a blood-pressure limit."),
         IngredientFlag("saturated-fat-oils", "Palm / coconut oil", .note, .condition(.highCholesterol),
-            terms: ["palm oil", "palm kernel", "palmolein", "coconut oil", "lard", "tallow", "shortening"],
+            terms: ["palm oil", "huile de palme", "aceite de palma", "palmöl", "olio di palma", "palm kernel", "palmolein", "coconut oil", "lard", "tallow", "shortening"],
             reason: "High in saturated fat, which raises LDL cholesterol."),
     ]
 
@@ -119,6 +120,16 @@ struct IngredientAnalyzer {
         return out.sorted { $0.flag.severity > $1.flag.severity }
     }
 
+    /// The most serious of the given alerts that applies to one ingredient
+    /// (for colouring that ingredient in the list), or nil.
+    func flag(for item: String, among alerts: [IngredientAlert]) -> IngredientFlag? {
+        let haystack = item.lowercased()
+        let codes = eCodes(in: haystack)
+        return alerts.map(\.flag)
+            .filter { matches($0, haystack: haystack, codes: codes) }
+            .max { $0.severity < $1.severity }
+    }
+
     static func isChild(_ member: Member) -> Bool {
         if let age = member.age { return age <= 12 }
         return member.isManagedByParent   // no age set: a parent-managed member is likely a child
@@ -136,9 +147,13 @@ struct IngredientAnalyzer {
     }
 
     private func eCodes(in haystack: String, product: Product) -> Set<String> {
-        var found = Set(product.additivesTags.map {
+        eCodes(in: haystack, extra: product.additivesTags.map {
             $0.replacingOccurrences(of: "en:", with: "").lowercased()
         })
+    }
+
+    private func eCodes(in haystack: String, extra: [String] = []) -> Set<String> {
+        var found = Set(extra)
         // "E250", "E 250", "e-250", "E150d" in the label text.
         let pattern = #"\be[ -]?(\d{3}[a-i]?)\b"#
         if let regex = try? NSRegularExpression(pattern: pattern) {
