@@ -8,8 +8,11 @@ SwiftUI, iOS 17+, backed by Supabase for shared family data.
 
 ## What it does
 
-- **Scan** a barcode with the camera (or type one in the Simulator). QR codes
-  work too when they carry a product number (GS1 Digital Link).
+- **Scan** a barcode with the camera (or type one in the Simulator). Barcodes are
+  read at any angle. Tap the barcode to focus on that spot, pinch or use the
+  1x/2x/3x buttons to zoom, or leave **Auto** on to let it step the zoom when it
+  can't find a code. QR codes work too when they carry a product number (GS1
+  Digital Link).
 - **Score** the product 0-100 for every family member, with a readable reason
   for each deduction. Allergies are a hard block.
 - **Ingredient alerts** for things like trans fat, nitrite preservatives and

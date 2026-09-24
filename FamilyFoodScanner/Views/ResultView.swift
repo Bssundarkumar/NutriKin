@@ -3,6 +3,7 @@ import SwiftUI
 struct ResultView: View {
     let product: Product
     @Environment(FamilyStore.self) private var family
+    @Environment(HistoryStore.self) private var history
     private let engine = ScoringEngine()
     private let analyzer = IngredientAnalyzer()
 
@@ -17,6 +18,19 @@ struct ResultView: View {
 
         List {
             Section { header }
+
+            if let failed = history.failedSave, failed.barcode == product.barcode {
+                Section {
+                    Label("Not saved to History", systemImage: "exclamationmark.icloud.fill")
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(.orange)
+                    Text(failed.message).font(.footnote).foregroundStyle(.secondary)
+                    Button(history.isRetrying ? "Trying\u{2026}" : "Try again") {
+                        Task { await history.retryFailedSave() }
+                    }
+                    .disabled(history.isRetrying)
+                }
+            }
 
             Section("Nutrition \(product.nutrition.basis)") { nutritionGrid }
 

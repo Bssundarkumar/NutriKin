@@ -12,8 +12,6 @@ final class HistoryStore {
     var isLoading = false
     var errorMessage: String?
 
-    private let engine = ScoringEngine()
-    private let analyzer = IngredientAnalyzer()
     private var client: SupabaseClient { Backend.client }
 
     /// Loads the latest scans (or clears them when there's no household).
@@ -37,22 +35,31 @@ final class HistoryStore {
         }
     }
 
-    /// Snapshots the scan (each member's verdict and the alerts that applied) and saves it.
-    func record(_ product: Product, family: FamilyStore) async {
-        guard let householdId = family.householdId else { return }
-        let scores = engine.scoreFamily(product, members: family.members)
-        let alerts = analyzer.alerts(for: product, members: family.members)
+    /// What gets stored for one scan.
+    struct NewScan: Encodable {
+        var householdId: UUID
+        var barcode: String
+        var productName: String
+        var brand: String?
+        var imageUrl: String?
+        var results: [ScanRecord.Result]
+        var alerts: [String]
+    }
 
-        struct NewScan: Encodable {
-            var householdId: UUID
-            var barcode: String
-            var productName: String
-            var brand: String?
-            var imageUrl: String?
-            var results: [ScanRecord.Result]
-            var alerts: [String]
-        }
-        let payload = NewScan(
+    /// A save that didn't go through, so the result screen can say so and retry.
+    struct FailedSave {
+        var barcode: String
+        var message: String
+        fileprivate var payload: NewScan
+    }
+    private(set) var failedSave: FailedSave?
+    private(set) var isRetrying = false
+
+    /// Builds the snapshot (each member's verdict and the alerts that applied).
+    nonisolated static func makePayload(product: Product, householdId: UUID, members: [Member]) -> NewScan {
+        let scores = ScoringEngine().scoreFamily(product, members: members)
+        let alerts = IngredientAnalyzer().alerts(for: product, members: members)
+        return NewScan(
             householdId: householdId,
             barcode: product.barcode,
             productName: product.name,
@@ -64,6 +71,23 @@ final class HistoryStore {
             },
             alerts: alerts.map(\.flag.title)
         )
+    }
+
+    /// Saves the scan to history. Never blocks the scan itself; on failure
+    /// `failedSave` is set so the result screen can show why and offer a retry.
+    func record(_ product: Product, family: FamilyStore) async {
+        guard let householdId = family.householdId else { return }
+        await save(Self.makePayload(product: product, householdId: householdId, members: family.members))
+    }
+
+    func retryFailedSave() async {
+        guard let failed = failedSave, !isRetrying else { return }
+        isRetrying = true
+        defer { isRetrying = false }
+        await save(failed.payload)
+    }
+
+    private func save(_ payload: NewScan) async {
         do {
             let saved: ScanRecord = try await Backend.withRetry {
                 try await client.from("scans")
@@ -73,9 +97,10 @@ final class HistoryStore {
                     .execute()
                     .value
             }
+            failedSave = nil
             records.insert(saved, at: 0)
         } catch {
-            errorMessage = "Couldn't save this scan to your history. \(error.localizedDescription)"
+            failedSave = FailedSave(barcode: payload.barcode, message: error.localizedDescription, payload: payload)
         }
     }
 
