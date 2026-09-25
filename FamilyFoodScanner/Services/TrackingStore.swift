@@ -11,6 +11,7 @@ final class TrackingStore {
     private(set) var workouts: [Workout] = []
     /// Workouts since Monday, for the weekly workout goal (whatever day is being viewed).
     private(set) var weekWorkouts: [Workout] = []
+    private(set) var templates: [WorkoutTemplate] = []
     /// The day being shown (start of that day, local time).
     private(set) var day = Calendar.current.startOfDay(for: Date())
     var isLoading = false
@@ -57,6 +58,7 @@ final class TrackingStore {
             guard day == start else { return }              // the person moved to another day meanwhile
             entries = f; workouts = w
             await loadWeek(householdId)
+            await loadTemplates(householdId)
         } catch {
             errorMessage = "Couldn't load this day. \(error.localizedDescription)"
         }
@@ -71,6 +73,45 @@ final class TrackingStore {
                     .gte("done_at", value: Self.iso(start)).execute().value
             }
         } catch { /* the goal bar just shows what it has */ }
+    }
+
+    private func loadTemplates(_ householdId: UUID) async {
+        do {
+            templates = try await Backend.withRetry {
+                try await client.from("workout_templates").select().eq("household_id", value: householdId).order("created_at").execute().value
+            }
+        } catch { /* older database without templates: the list stays empty */ }
+    }
+
+    func templates(for member: Member) -> [WorkoutTemplate] { templates.filter { $0.memberId == member.id } }
+
+    @discardableResult
+    func saveTemplate(name: String, exercises: [StrengthExercise], for member: Member) async -> Bool {
+        guard let householdId else { return false }
+        let clean = StrengthMath.cleaned(exercises)
+        let title = AIGuardrails.sanitize(name, max: 60)
+        guard !clean.isEmpty, !title.isEmpty else { return false }
+        errorMessage = nil
+        if Demo.isOn { templates.append(WorkoutTemplate(householdId: householdId, memberId: member.id, name: title, exercises: clean)); return true }
+        struct New: Encodable { var householdId: UUID, memberId: UUID, name: String, exercises: [StrengthExercise] }
+        do {
+            let row: WorkoutTemplate = try await Backend.withRetry {
+                try await client.from("workout_templates").insert(New(householdId: householdId, memberId: member.id, name: title, exercises: clean))
+                    .select().single().execute().value
+            }
+            templates.append(row)
+            return true
+        } catch {
+            errorMessage = "Couldn't save that template. \(error.localizedDescription)"
+            return false
+        }
+    }
+
+    func deleteTemplate(_ t: WorkoutTemplate) async {
+        templates.removeAll { $0.id == t.id }
+        if Demo.isOn { return }
+        do { try await Backend.withRetry { try await client.from("workout_templates").delete().eq("id", value: t.id).execute() } }
+        catch { templates.append(t); errorMessage = "Couldn't delete that template. \(error.localizedDescription)" }
     }
 
     func weeklyMinutes(for member: Member) -> Int {

@@ -2,7 +2,11 @@ import SwiftUI
 
 /// Exercises, sets, reps and weight for a strength workout.
 struct StrengthEditor: View {
+    let member: Member
     @Binding var exercises: [StrengthExercise]
+    @Environment(TrackingStore.self) private var tracking
+    @State private var savingTemplate = false
+    @State private var templateName = ""
     @AppStorage("strengthUsesPounds") private var pounds = false
     @State private var newName = ""
 
@@ -14,6 +18,31 @@ struct StrengthEditor: View {
             }
             .pickerStyle(.segmented)
         } header: { Text("Strength") }
+
+        Section {
+            let mine = tracking.templates(for: member)
+            Menu {
+                if mine.isEmpty { Text("No templates yet") }
+                ForEach(mine) { t in
+                    Button("\(t.name) (\(t.exercises.count) exercises)") { exercises = t.exercises.map { StrengthExercise(name: $0.name, sets: $0.sets) } }
+                }
+            } label: { Label("Start from a template", systemImage: "square.on.square") }
+            if !exercises.isEmpty {
+                Button { templateName = ""; savingTemplate = true } label: { Label("Save these exercises as a template", systemImage: "square.and.arrow.down") }
+            }
+            if !mine.isEmpty {
+                Menu {
+                    ForEach(mine) { t in Button(t.name, role: .destructive) { Task { await tracking.deleteTemplate(t) } } }
+                } label: { Label("Delete a template", systemImage: "trash") }
+            }
+        } footer: {
+            Text("A template keeps the exercises, sets, reps and weights. Apply it on any day, then change, add or remove exercises for that day.")
+        }
+        .alert("Name this template", isPresented: $savingTemplate) {
+            TextField("e.g. Push day", text: $templateName)
+            Button("Save") { Task { await tracking.saveTemplate(name: templateName, exercises: exercises, for: member) } }
+            Button("Cancel", role: .cancel) {}
+        }
 
         ForEach($exercises) { $exercise in
             Section {

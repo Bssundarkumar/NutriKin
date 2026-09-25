@@ -240,7 +240,7 @@ struct LogWorkoutSheet: View {
                     }
                 }
                 if kind == .strength {
-                    StrengthEditor(exercises: $exercises)
+                    StrengthEditor(member: member, exercises: $exercises)
                 }
                 if setsDriveTime {
                     Section {

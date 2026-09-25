@@ -208,3 +208,12 @@ enum ActivityGoals {
         return min(Double(max(done, 0)) / Double(goal), 1)
     }
 }
+
+/// A saved set of exercises (with the sets, reps and weights used last time) to start a strength workout from.
+struct WorkoutTemplate: Identifiable, Codable, Hashable {
+    var id = UUID()
+    var householdId: UUID?
+    var memberId: UUID
+    var name: String
+    var exercises: [StrengthExercise]
+}

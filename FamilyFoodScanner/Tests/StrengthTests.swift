@@ -48,3 +48,15 @@ final class StrengthTimeTests: XCTestCase {
         XCTAssertEqual(StrengthMath.estimatedMinutes(sets: 0), 5)
     }
 }
+
+final class WorkoutTemplateTests: XCTestCase {
+    func testTemplateRoundTripsThroughSnakeCaseJSON() throws {
+        let t = WorkoutTemplate(householdId: UUID(), memberId: UUID(), name: "Push day",
+                                exercises: [StrengthExercise(name: "Bench press", sets: [StrengthSet(reps: 8, weightKg: 60)])])
+        let enc = JSONEncoder(); enc.keyEncodingStrategy = .convertToSnakeCase
+        let dec = JSONDecoder(); dec.keyDecodingStrategy = .convertFromSnakeCase
+        let back = try dec.decode(WorkoutTemplate.self, from: try enc.encode(t))
+        XCTAssertEqual(back.name, "Push day")
+        XCTAssertEqual(back.exercises.first?.sets.first?.weightKg, 60)
+    }
+}
