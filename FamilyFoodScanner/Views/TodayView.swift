@@ -221,7 +221,7 @@ struct TodayView: View {
                 VStack(spacing: 0) {
                     ForEach(list) { w in
                         row(symbol: w.workoutKind.symbol, title: w.workoutKind.title,
-                            subtitle: "\(w.minutes) min \u{00B7} \(w.intensity.title)" + (w.source == "health" ? " \u{00B7} Health" : "") + (w.note.map { " \u{00B7} \($0)" } ?? ""),
+                            subtitle: "\(w.minutes) min \u{00B7} \(w.intensity.title)" + (w.source == "health" ? " \u{00B7} Health" : "") + StrengthSummary.text(w.exercises) + (w.note.map { " \u{00B7} \($0)" } ?? ""),
                             trailing: "\(w.caloriesBurned) kcal", tint: .orange) {
                             Task { await tracking.delete(w) }
                         }

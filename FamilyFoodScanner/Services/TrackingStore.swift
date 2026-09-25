@@ -122,6 +122,8 @@ final class TrackingStore {
         var intensity: String, caloriesBurned: Int, note: String?
         /// Only sent for imported workouts, so typing one in never depends on the Health columns existing.
         var source: String?, externalId: String?
+        /// Only sent for strength workouts, for the same reason.
+        var exercises: [StrengthExercise]?
     }
 
     @discardableResult
@@ -133,7 +135,8 @@ final class TrackingStore {
         let payload = NewWorkout(householdId: householdId, memberId: workout.memberId, doneAt: workout.doneAt, kind: workout.kind,
                                  minutes: min(max(workout.minutes, 1), 600), intensity: workout.intensity.rawValue,
                                  caloriesBurned: min(max(workout.caloriesBurned, 0), 5000), note: (note?.isEmpty == false) ? note : nil,
-                                 source: workout.externalId == nil ? nil : workout.source, externalId: workout.externalId)
+                                 source: workout.externalId == nil ? nil : workout.source, externalId: workout.externalId,
+                                 exercises: workout.exercises.map(StrengthMath.cleaned).flatMap { $0.isEmpty ? nil : $0 })
         do {
             let saved: Workout = try await Backend.withRetry {
                 try await client.from("workouts").insert(payload).select().single().execute().value

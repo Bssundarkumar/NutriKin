@@ -169,6 +169,7 @@ struct LogWorkoutSheet: View {
     @State private var intensity: WorkoutIntensity = .moderate
     @State private var override: Int?
     @State private var note = ""
+    @State private var exercises: [StrengthExercise] = []
     @State private var isSaving = false
     @State private var message: String?
 
@@ -194,6 +195,9 @@ struct LogWorkoutSheet: View {
                             .accessibilityAddTraits(kind == k ? .isSelected : [])
                         }
                     }
+                }
+                if kind == .strength {
+                    StrengthEditor(exercises: $exercises)
                 }
                 Section("How long and how hard") {
                     Stepper("\(minutes) minutes", value: $minutes, in: 5...300, step: 5).onChange(of: minutes) { _, _ in override = nil }
@@ -227,7 +231,8 @@ struct LogWorkoutSheet: View {
         isSaving = true
         let workout = Workout(householdId: family.householdId, memberId: member.id, doneAt: tracking.timestampForNewItem,
                               kind: kind.rawValue, minutes: minutes, intensity: intensity, caloriesBurned: burned,
-                              note: note.trimmingCharacters(in: .whitespaces).isEmpty ? nil : note)
+                              note: note.trimmingCharacters(in: .whitespaces).isEmpty ? nil : note,
+                              exercises: kind == .strength ? StrengthMath.cleaned(exercises) : nil)
         Task {
             if await tracking.add(workout) { UINotificationFeedbackGenerator().notificationOccurred(.success); dismiss() }
             else { message = tracking.errorMessage; isSaving = false }
