@@ -43,9 +43,18 @@ struct FamilyView: View {
                             if let goal = goalText(m.goals) {
                                 Text("Goal: \(goal)").font(.subheadline)
                             }
-                            Text(m.isManagedByParent ? "Managed by a parent" : "Syncs from their iPhone")
+                            Text(linkText(m))
                                 .font(.caption)
                                 .foregroundStyle(.green)
+                            if m.userId == nil && family.myMember == nil {
+                                Button { Task { await family.claimMember(m) } } label: {
+                                    Label("This is me", systemImage: "person.crop.circle.badge.checkmark")
+                                        .font(.caption.weight(.semibold))
+                                        .padding(.horizontal, 10).padding(.vertical, 5)
+                                        .background(Theme.brand.opacity(0.12), in: Capsule())
+                                }
+                                .buttonStyle(.borderless)
+                            }
                             Button { planMember = m } label: {
                                 Label("Weight & daily intake plan", systemImage: "chart.bar.doc.horizontal")
                                     .font(.caption.weight(.semibold))
@@ -179,6 +188,12 @@ struct FamilyView: View {
             .task { if family.members.isEmpty { await family.refresh() } }
             .onAppear { ai.refreshApple() }
         }
+    }
+
+    private func linkText(_ m: Member) -> String {
+        if let me = family.myUserId, m.userId == me { return "This is you" }
+        if m.userId != nil { return "Has NutriKin on their own phone" }
+        return m.isManagedByParent ? "Managed by a parent" : "No phone linked yet"
     }
 
     private var inviteSection: some View {

@@ -14,6 +14,7 @@ struct MemberEditView: View {
 
     @State private var name: String
     @State private var isManagedByParent: Bool
+    @State private var thisIsMe = false
     @State private var age: String
     @State private var heightCm: String
     @State private var weightKg: String
@@ -67,6 +68,10 @@ struct MemberEditView: View {
                 Section("Name") {
                     TextField("Name", text: $name)
                     Toggle("Managed by a parent", isOn: $isManagedByParent)
+                    if !isEditing && family.myMember == nil {
+                        Toggle("This is me", isOn: $thisIsMe)
+                            .onChange(of: thisIsMe) { _, on in if on { isManagedByParent = false } }
+                    }
                 }
 
                 Section {
@@ -233,7 +238,7 @@ struct MemberEditView: View {
 
         switch mode {
         case .add:
-            await family.addMember(
+            let added = await family.addMember(
                 name: name.trimmingCharacters(in: .whitespaces),
                 conditions: conditions,
                 goals: goals,
@@ -243,6 +248,7 @@ struct MemberEditView: View {
                 weightKg: weightValue,
                 sex: sex
             )
+            if thisIsMe, let added { await family.claimMember(added) }
         case .edit(var existing):
             existing.name = name.trimmingCharacters(in: .whitespaces)
             existing.conditions = conditions

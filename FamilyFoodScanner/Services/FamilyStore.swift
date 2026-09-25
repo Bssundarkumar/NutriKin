@@ -25,6 +25,13 @@ final class FamilyStore {
     /// True right after this person creates a family, so the app can go straight to adding members.
     var promptToAddMembers = false
     private(set) var inviteCode: String = ""
+    /// This account, and whether it created the family. Used to decide who may change whose medicines.
+    private(set) var myUserId: UUID?
+    private(set) var isOwner = false
+    var myMember: Member? { myUserId.flatMap { id in members.first { $0.userId == id } } }
+    func canManage(_ member: Member) -> Bool {
+        MemberAccess.canManage(member, myUserId: myUserId, myMember: myMember, isOwner: isOwner)
+    }
     var isLoading = false
     var errorMessage: String?
     /// A code that arrived through an invite link, waiting for the person to
@@ -52,7 +59,7 @@ final class FamilyStore {
     /// the query only ever returns families you're a member of).
     func loadHousehold() async {
         if Demo.isOn {
-            householdId = UUID(); householdName = "Bandi family"; inviteCode = "K7QM2X"
+            householdId = UUID(); householdName = "Bandi family"; inviteCode = "K7QM2X"; isOwner = true
             members = Demo.members; phase = .loaded
             return
         }
@@ -68,9 +75,47 @@ final class FamilyStore {
             }
             if let row = rows.first { adopt(row) } else { clearHousehold() }
             phase = .loaded
-            if hasHousehold { await refresh() }
+            if hasHousehold { await loadMyRole(); await refresh() }
         } catch {
             phase = .failed(error.localizedDescription)
+        }
+    }
+
+    /// Who this account is and whether it created the family. Failing to read it just means fewer edit buttons.
+    private func loadMyRole() async {
+        guard let householdId else { return }
+        struct Role: Decodable { var role: String }
+        do {
+            let me = try await client.auth.session.user.id
+            let rows: [Role] = try await withRetry {
+                try await client.from("household_users").select("role")
+                    .eq("household_id", value: householdId).eq("user_id", value: me).execute().value
+            }
+            myUserId = me
+            isOwner = rows.first?.role == "owner"
+        } catch {
+            myUserId = nil; isOwner = false
+        }
+    }
+
+    /// "This is me": links this account to a person. The database refuses if they're already linked to someone else.
+    @discardableResult
+    func claimMember(_ member: Member) async -> Bool { await link(member, rpc: "claim_member") }
+
+    @discardableResult
+    func releaseMember(_ member: Member) async -> Bool { await link(member, rpc: "release_member") }
+
+    private func link(_ member: Member, rpc: String) async -> Bool {
+        errorMessage = nil
+        do {
+            let row: Member = try await withRetry {
+                try await client.rpc(rpc, params: ["p_member": member.id.uuidString]).execute().value
+            }
+            if let i = members.firstIndex(where: { $0.id == member.id }) { members[i].userId = row.userId }
+            return true
+        } catch {
+            errorMessage = "Couldn't link that person. \(error.localizedDescription)"
+            return false
         }
     }
 
@@ -152,6 +197,8 @@ final class FamilyStore {
         householdName = ""
         inviteCode = ""
         members = []
+        myUserId = nil
+        isOwner = false
     }
 
     // MARK: - Members
@@ -175,6 +222,7 @@ final class FamilyStore {
         }
     }
 
+    @discardableResult
     func addMember(
         name: String,
         conditions: [Condition],
@@ -184,8 +232,8 @@ final class FamilyStore {
         heightCm: Double?,
         weightKg: Double?,
         sex: Sex?
-    ) async {
-        guard let householdId else { return }
+    ) async -> Member? {
+        guard let householdId else { return nil }
         errorMessage = nil
         do {
             struct NewMember: Encodable {
@@ -218,8 +266,10 @@ final class FamilyStore {
                     .value
             }
             members.append(row)
+            return row
         } catch {
             errorMessage = "Couldn't add \(name). \(error.localizedDescription)"
+            return nil
         }
     }
 

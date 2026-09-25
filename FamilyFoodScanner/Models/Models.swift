@@ -137,6 +137,8 @@ struct Member: Identifiable, Codable, Hashable {
     var heightCm: Double?
     var weightKg: Double?
     var sex: Sex?
+    /// The account this person is linked to ("this is me"), set only by the database.
+    var userId: UUID? = nil
 
     var allergies: [Allergen] {
         conditions.compactMap { if case .allergy(let a) = $0 { a } else { nil } }
@@ -292,4 +294,15 @@ struct MemberScore: Identifiable {
     var verdict: Verdict
     var reasons: [String]
     var blockedByAllergy: Bool
+}
+
+/// Who may change a person's medicines. The database enforces the same rule (`can_manage_member`);
+/// this copy only decides what the screens offer.
+enum MemberAccess {
+    static func canManage(_ member: Member, myUserId: UUID?, myMember: Member?, isOwner: Bool) -> Bool {
+        if let myUserId, member.userId == myUserId { return true }
+        if member.userId == nil && isOwner { return true }
+        if member.isManagedByParent { return isOwner || (myMember?.age ?? 0) >= 18 }
+        return false
+    }
 }

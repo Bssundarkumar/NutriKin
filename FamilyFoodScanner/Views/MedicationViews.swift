@@ -14,16 +14,23 @@ private func scheduleText(_ med: Medication) -> String {
 }
 
 /// Today's doses for one person, with Taken and Skip buttons.
+/// Shown wherever someone can see a person's medicines but not change them.
+func readOnlyNote(_ member: Member) -> String {
+    "Only \(member.name) or a parent can update this. You can see what's been taken."
+}
+
 struct MedicationsCard: View {
     let member: Member
     let onManage: () -> Void
     @Environment(MedicationStore.self) private var meds
+    @Environment(FamilyStore.self) private var family
+    private var canEdit: Bool { family.canManage(member) }
 
     var body: some View {
         let doses = meds.doses(for: member)
         let hasAny = !meds.medications(for: member).isEmpty
         VStack(alignment: .leading, spacing: 10) {
-            SectionTitle(title: "Medications", actionTitle: hasAny ? "Manage" : "Add", action: onManage)
+            SectionTitle(title: "Medications", actionTitle: canEdit ? (hasAny ? "Manage" : "Add") : "View", action: onManage)
             if doses.isEmpty {
                 EmptyState(symbol: "pills", title: hasAny ? "Nothing scheduled today" : "No medications yet",
                            message: hasAny ? "\(member.name) has no doses due on this day."
@@ -39,6 +46,7 @@ struct MedicationsCard: View {
                     }
                 }
             }
+            if !canEdit { Text(readOnlyNote(member)).font(.caption).foregroundStyle(.secondary) }
             if let message = meds.errorMessage { Text(message).font(.footnote).foregroundStyle(.red) }
         }
         .card()
@@ -65,6 +73,10 @@ struct MedicationsCard: View {
 
     @ViewBuilder
     private func actions(_ dose: ScheduledDose) -> some View {
+        if !canEdit {
+            let label = dose.state == .taken ? "Taken" : dose.state == .skipped ? "Skipped" : dose.state == .missed ? "Not taken yet" : "Waiting"
+            Text(label).font(.caption.weight(.semibold)).foregroundStyle(dose.state == .taken ? .green : .secondary)
+        } else {
         switch dose.state {
         case .taken, .skipped:
             HStack(spacing: 6) {
@@ -90,6 +102,7 @@ struct MedicationsCard: View {
                     Button("Skip this dose", systemImage: "forward.end") { Task { await meds.mark(dose, as: .skipped) } }
                 } label: { Image(systemName: "ellipsis").foregroundStyle(.secondary).frame(width: 28, height: 34) }
             }
+        }
         }
     }
 
@@ -118,6 +131,8 @@ struct MedicationsCard: View {
 struct MedicationsManageView: View {
     let member: Member
     @Environment(MedicationStore.self) private var meds
+    @Environment(FamilyStore.self) private var family
+    private var canEdit: Bool { family.canManage(member) }
     @Environment(\.dismiss) private var dismiss
     @State private var editing: Medication?
     @State private var adding = Demo.opensMedEdit
@@ -135,7 +150,7 @@ struct MedicationsManageView: View {
                         Text("No medications yet.").foregroundStyle(.secondary)
                     }
                     ForEach(list) { med in
-                        Button { editing = med } label: {
+                        Button { if canEdit { editing = med } } label: {
                             HStack(spacing: 12) {
                                 VStack(alignment: .leading, spacing: 2) {
                                     HStack(spacing: 6) {
@@ -150,13 +165,19 @@ struct MedicationsManageView: View {
                             }
                         }
                         .buttonStyle(.plain)
+                        .deleteDisabled(!canEdit)
                     }
                     .onDelete { offsets in
+                        guard canEdit else { return }
                         let removing = offsets.map { list[$0] }
                         Task { for m in removing { await meds.delete(m) } }
                     }
-                    Button { adding = true } label: { Label("Add a medication", systemImage: "plus.circle.fill") }
-                } header: { Text("Medications") }
+                    if canEdit {
+                        Button { adding = true } label: { Label("Add a medication", systemImage: "plus.circle.fill") }
+                    }
+                } header: { Text("Medications") } footer: {
+                    if !canEdit { Text(readOnlyNote(member)) }
+                }
 
                 Section {
                     switch meds.notificationStatus {
