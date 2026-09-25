@@ -7,6 +7,7 @@ struct StrengthEditor: View {
     @Environment(TrackingStore.self) private var tracking
     @State private var savingTemplate = false
     @State private var templateName = ""
+    @State private var picked: Set<String> = []
     @State private var group: ExerciseLibrary.Group? = Demo.strengthSample == nil ? nil : ExerciseLibrary.groups.first { $0.name == "Legs" }
     @AppStorage("strengthUsesPounds") private var pounds = false
     @State private var newName = ""
@@ -81,7 +82,7 @@ struct StrengthEditor: View {
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack {
                     ForEach(ExerciseLibrary.groups) { g in
-                        Button { withAnimation(.snappy) { group = (group == g) ? nil : g } } label: {
+                        Button { withAnimation(.snappy) { group = (group == g) ? nil : g; picked = [] } } label: {
                             Label(g.name, systemImage: g.symbol).font(.footnote.weight(.semibold))
                         }
                         .buttonStyle(.bordered).buttonBorderShape(.capsule).controlSize(.small)
@@ -90,13 +91,29 @@ struct StrengthEditor: View {
                 }
             }
             if let group {
+                let available = group.exercises.filter { name in !exercises.contains { $0.name == name } }
                 LazyVGrid(columns: [GridItem(.adaptive(minimum: 130), spacing: 8)], alignment: .leading, spacing: 8) {
-                    ForEach(group.exercises.filter { name in !exercises.contains { $0.name == name } }, id: \.self) { name in
-                        Button(name) { add(name) }
-                            .font(.footnote).lineLimit(1).minimumScaleFactor(0.8)
-                            .buttonStyle(.bordered).buttonBorderShape(.capsule).controlSize(.small).frame(maxWidth: .infinity)
+                    ForEach(available, id: \.self) { name in
+                        let on = picked.contains(name)
+                        Button { if on { picked.remove(name) } else { picked.insert(name) } } label: {
+                            Label(name, systemImage: on ? "checkmark.circle.fill" : "circle").font(.footnote).lineLimit(1).minimumScaleFactor(0.8)
+                                .frame(maxWidth: .infinity)
+                        }
+                        .buttonStyle(.bordered).buttonBorderShape(.capsule).controlSize(.small).tint(on ? .orange : .gray)
                     }
                 }
+                HStack {
+                    Button(picked.count == available.count && !available.isEmpty ? "Clear" : "Select all") {
+                        picked = picked.count == available.count ? [] : Set(available)
+                    }.disabled(available.isEmpty)
+                    Spacer()
+                    Button("Add \(picked.count) to workout") {
+                        for name in group.exercises where picked.contains(name) { add(name) }
+                        picked = []
+                    }
+                    .buttonStyle(.borderedProminent).tint(.orange).disabled(picked.isEmpty)
+                }
+                .font(.subheadline.weight(.semibold))
             } else {
                 Text("Pick a muscle group to see its exercises.").font(.caption).foregroundStyle(.secondary)
             }
