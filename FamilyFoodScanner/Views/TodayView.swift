@@ -8,6 +8,8 @@ struct TodayView: View {
     @Environment(TrackingStore.self) private var tracking
     @Environment(AIConnection.self) private var ai
     @Environment(MedicationStore.self) private var medications
+    @Environment(HealthKitManager.self) private var health
+    @AppStorage("healthMemberID") private var healthMemberID = ""
     @AppStorage("todayMemberID") private var selectedID = ""
     @State private var showFood = Demo.opensLogFood
     @State private var showWorkout = Demo.opensLogWorkout
@@ -28,12 +30,14 @@ struct TodayView: View {
                             .card()
                     } else if let member {
                         MemberStrip(members: family.members, selectedID: member.id) { selectedID = $0.id.uuidString }
-                        let budget = tracking.budget(for: member)
+                        let usesHealth = Demo.isOn ? member.id == Demo.members.first?.id : healthMemberID == member.id.uuidString
+                        let budget = tracking.budget(for: member, healthActiveKcal: usesHealth ? health.activity.activeKcal : nil)
                         hero(member, budget)
                         quickActions
                         MedicationsCard(member: member) { showMeds = true }.id("meds")
                         nutrients(budget)
                         foodSection(member)
+                        HealthActivityCard(member: member).id("health")
                         workoutSection(member)
                         if let message = tracking.errorMessage {
                             Text(message).font(.footnote).foregroundStyle(.red).frame(maxWidth: .infinity, alignment: .leading)
@@ -42,7 +46,7 @@ struct TodayView: View {
                 }
                 .padding(.horizontal, 16).padding(.bottom, 32)
             }
-            .onAppear { if Demo.scrollsToMeds { proxy.scrollTo("meds", anchor: .top) } }
+            .onAppear { if let target = Demo.scrollTarget { proxy.scrollTo(target, anchor: .top) } }
             }
             .background(AppBackground())
             .navigationTitle("Today")
@@ -124,7 +128,8 @@ struct TodayView: View {
     private func statusDetail(_ member: Member, _ b: DayBudget) -> String {
         if b.eaten.calories == 0 && b.burned == 0 { return "Nothing logged yet for \(member.name). Scan or log a meal to start." }
         if b.burned > 0 {
-            return "\(Int(b.exerciseBonus.rounded())) kcal from exercise is added to \(member.name)'s allowance (half of the \(b.burned) burned)."
+            let source = b.healthBurned > b.loggedBurned ? " (from Apple Health)" : ""
+            return "\(Int(b.exerciseBonus.rounded())) kcal from exercise is added to \(member.name)'s allowance (half of the \(b.burned) burned\(source))."
         }
         return "Calories and limits for \(member.name)'s day."
     }

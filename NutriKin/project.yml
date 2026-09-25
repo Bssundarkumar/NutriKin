@@ -40,7 +40,7 @@ targets:
           - CFBundleURLName: com.sundarBandiguptapu.NutriKin
             CFBundleURLSchemes: [nutrikin]
         NSCameraUsageDescription: Scan product barcodes, photograph labels, and photograph your meals to check them for your family.
-        NSHealthShareUsageDescription: Read your health data to personalise food recommendations.
+        NSHealthShareUsageDescription: Read your weight, blood sugar, blood pressure, steps, calories burned and workouts to personalise food and activity tracking.
         NSHealthUpdateUsageDescription: NutriKin only reads your health data. It never writes to Apple Health.
     entitlements:
       path: Generated/NutriKin.entitlements
@@ -66,8 +66,8 @@ targets:
         # iPhone only for now (avoids iPad screenshots and layout requirements).
         TARGETED_DEVICE_FAMILY: "1"
         # Bump CURRENT_PROJECT_VERSION for every build you upload to TestFlight.
-        MARKETING_VERSION: "1.1.0"
-        CURRENT_PROJECT_VERSION: "14"
+        MARKETING_VERSION: "1.2.0"
+        CURRENT_PROJECT_VERSION: "15"
   NutriKinTests:
     type: bundle.unit-test
     platform: iOS

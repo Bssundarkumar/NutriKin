@@ -107,6 +107,10 @@ struct Workout: Identifiable, Codable, Hashable {
     var intensity: WorkoutIntensity = .moderate
     var caloriesBurned: Int
     var note: String?
+    /// "health" for workouts imported from Apple Health; nil for ones typed in.
+    var source: String? = nil
+    /// The Health app's id for an imported workout, so it's never added twice.
+    var externalId: String? = nil
 
     var workoutKind: WorkoutKind { WorkoutKind(rawValue: kind) ?? .other }
 }

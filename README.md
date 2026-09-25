@@ -111,7 +111,7 @@ Xcode project are called NutriKin.)
       (`https://<project>.supabase.co/auth/v1/callback`) as the authorized redirect, enable
       Google in Supabase with that client ID and secret, and add `nutrikin://login-callback`
       under URL Configuration, Redirect URLs. Keep the client secret out of the repo.
-   4b. Run `migration_007_tracking_workouts_groceries.sql` then `migration_008_fiber_and_fat.sql` (Today, Workouts and Groceries in 1.1), then `migration_009_medications.sql` (1.2).
+   4b. Run `migration_007_tracking_workouts_groceries.sql` then `migration_008_fiber_and_fat.sql` (Today, Workouts and Groceries in 1.1), then `migration_009_medications.sql` and `migration_010_health_workouts.sql` (1.2).
    5. Install a build that has sign-in, **then** run `migration_005_auth.sql`.
       It locks the data down, so an older build stops working once it runs.
    6. Optional: `claim_existing_household.sql` re-attaches a family created

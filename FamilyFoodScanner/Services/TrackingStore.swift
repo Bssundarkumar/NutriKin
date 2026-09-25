@@ -22,8 +22,8 @@ final class TrackingStore {
     func entries(for member: Member) -> [FoodEntry] { entries.filter { $0.memberId == member.id }.sorted { $0.eatenAt < $1.eatenAt } }
     func workouts(for member: Member) -> [Workout] { workouts.filter { $0.memberId == member.id }.sorted { $0.doneAt < $1.doneAt } }
 
-    func budget(for member: Member) -> DayBudget {
-        DayBudget(member: member, entries: entries(for: member), workouts: workouts(for: member))
+    func budget(for member: Member, healthActiveKcal: Double? = nil) -> DayBudget {
+        DayBudget(member: member, entries: entries(for: member), workouts: workouts(for: member), healthActiveKcal: healthActiveKcal)
     }
 
     // MARK: Loading
@@ -120,6 +120,8 @@ final class TrackingStore {
     private struct NewWorkout: Encodable {
         var householdId: UUID, memberId: UUID, doneAt: Date, kind: String, minutes: Int
         var intensity: String, caloriesBurned: Int, note: String?
+        /// Only sent for imported workouts, so typing one in never depends on the Health columns existing.
+        var source: String?, externalId: String?
     }
 
     @discardableResult
@@ -130,7 +132,8 @@ final class TrackingStore {
         let note = workout.note.map { AIGuardrails.sanitize($0, max: 200) }
         let payload = NewWorkout(householdId: householdId, memberId: workout.memberId, doneAt: workout.doneAt, kind: workout.kind,
                                  minutes: min(max(workout.minutes, 1), 600), intensity: workout.intensity.rawValue,
-                                 caloriesBurned: min(max(workout.caloriesBurned, 0), 5000), note: (note?.isEmpty == false) ? note : nil)
+                                 caloriesBurned: min(max(workout.caloriesBurned, 0), 5000), note: (note?.isEmpty == false) ? note : nil,
+                                 source: workout.externalId == nil ? nil : workout.source, externalId: workout.externalId)
         do {
             let saved: Workout = try await Backend.withRetry {
                 try await client.from("workouts").insert(payload).select().single().execute().value

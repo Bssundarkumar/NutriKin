@@ -20,6 +20,9 @@ final class HealthKitManager {
     var hasRequestedAccess = false
     var snapshot = HealthSnapshot()
     var errorMessage: String?
+    /// Steps, active calories, exercise minutes and workouts for the day being viewed.
+    var activity = HealthActivity()
+    var isAvailable: Bool { Demo.isOn || HKHealthStore.isHealthDataAvailable() }
 
     private var readTypes: Set<HKObjectType> {
         [
@@ -28,6 +31,10 @@ final class HealthKitManager {
             HKQuantityType(.bloodPressureSystolic),
             HKQuantityType(.bloodPressureDiastolic),
             HKQuantityType(.dietaryEnergyConsumed),
+            HKQuantityType(.stepCount),
+            HKQuantityType(.activeEnergyBurned),
+            HKQuantityType(.appleExerciseTime),
+            HKObjectType.workoutType(),
         ]
     }
 
@@ -53,6 +60,42 @@ final class HealthKitManager {
         snapshot.systolic = await latest(.bloodPressureSystolic, unit: .millimeterOfMercury())
         snapshot.diastolic = await latest(.bloodPressureDiastolic, unit: .millimeterOfMercury())
         snapshot.caloriesToday = await todaySum(.dietaryEnergyConsumed, unit: .kilocalorie())
+    }
+
+    /// Whether the person has already been asked, so a returning user isn't shown "Connect" again.
+    func checkAccessStatus() async {
+        if Demo.isOn { hasRequestedAccess = true; return }
+        guard HKHealthStore.isHealthDataAvailable() else { return }
+        let status = try? await store.statusForAuthorizationRequest(toShare: [], read: readTypes)
+        hasRequestedAccess = status == .unnecessary
+    }
+
+    /// The day's steps, active calories, exercise minutes and workouts (all sources Health knows about).
+    func loadActivity(day: Date) async {
+        if Demo.isOn { activity = Demo.healthActivity; return }
+        guard HKHealthStore.isHealthDataAvailable(), hasRequestedAccess else { return }
+        let cal = Calendar.current
+        let start = cal.startOfDay(for: day)
+        let end = min(cal.date(byAdding: .day, value: 1, to: start) ?? .now, .now)
+        guard end > start else { activity = HealthActivity(); return }
+        let range = HKQuery.predicateForSamples(withStart: start, end: end)
+
+        func sum(_ id: HKQuantityTypeIdentifier, _ unit: HKUnit) async -> Double? {
+            let d = HKStatisticsQueryDescriptor(predicate: .quantitySample(type: HKQuantityType(id), predicate: range), options: .cumulativeSum)
+            return try? await d.result(for: store)?.sumQuantity()?.doubleValue(for: unit)
+        }
+        let steps = await sum(.stepCount, .count())
+        let active = await sum(.activeEnergyBurned, .kilocalorie())
+        let exercise = await sum(.appleExerciseTime, .minute())
+
+        let query = HKSampleQueryDescriptor(predicates: [.workout(range)], sortDescriptors: [SortDescriptor(\.startDate)], limit: 30)
+        let workouts = ((try? await query.result(for: store)) ?? []).map { w -> HealthWorkout in
+            let kcal = w.statistics(for: HKQuantityType(.activeEnergyBurned))?.sumQuantity()?.doubleValue(for: .kilocalorie())
+            return HealthWorkout(id: w.uuid, kind: HealthImport.kind(for: w.workoutActivityType), start: w.startDate,
+                                 minutes: Int((w.duration / 60).rounded()), activeKcal: kcal.map { Int($0.rounded()) },
+                                 sourceName: w.sourceRevision.source.name)
+        }
+        activity = HealthActivity(steps: steps.map { Int($0.rounded()) }, activeKcal: active, exerciseMinutes: exercise.map { Int($0.rounded()) }, workouts: workouts)
     }
 
     private func latest(_ id: HKQuantityTypeIdentifier, unit: HKUnit) async -> Double? {

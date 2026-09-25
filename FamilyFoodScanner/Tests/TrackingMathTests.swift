@@ -180,3 +180,80 @@ final class TrackingModelDecodingTests: XCTestCase {
         XCTAssertEqual(g.name, "Milk"); XCTAssertEqual(g.quantity, "2 L"); XCTAssertNotNil(g.addedBy)
     }
 }
+
+import HealthKit
+
+final class HealthImportTests: XCTestCase {
+    private func hw(_ id: UUID = UUID(), kind: WorkoutKind = .running, minutes: Int = 30, kcal: Int? = 300, start: Date = Date()) -> HealthWorkout {
+        HealthWorkout(id: id, kind: kind, start: start, minutes: minutes, activeKcal: kcal, sourceName: "Apple Watch")
+    }
+
+    func testAppleWorkoutTypesMapToNutriKinActivities() {
+        XCTAssertEqual(HealthImport.kind(for: .walking), .walking)
+        XCTAssertEqual(HealthImport.kind(for: .hiking), .walking)
+        XCTAssertEqual(HealthImport.kind(for: .running), .running)
+        XCTAssertEqual(HealthImport.kind(for: .cycling), .cycling)
+        XCTAssertEqual(HealthImport.kind(for: .swimming), .swimming)
+        XCTAssertEqual(HealthImport.kind(for: .yoga), .yoga)
+        XCTAssertEqual(HealthImport.kind(for: .pilates), .yoga)
+        XCTAssertEqual(HealthImport.kind(for: .traditionalStrengthTraining), .strength)
+        XCTAssertEqual(HealthImport.kind(for: .highIntensityIntervalTraining), .hiit)
+        XCTAssertEqual(HealthImport.kind(for: .cricket), .sports)
+        XCTAssertEqual(HealthImport.kind(for: .elliptical), .other)
+    }
+
+    func testAWorkoutAlreadyAddedIsNeverOfferedAgain() {
+        let a = hw(), b = hw(start: Date().addingTimeInterval(3 * 3600))
+        let existing = [Workout(memberId: UUID(), kind: "running", minutes: 30, caloriesBurned: 300, source: "health", externalId: a.id.uuidString)]
+        XCTAssertEqual(HealthImport.newWorkouts(from: [a, b], existing: existing).map(\.id), [b.id])
+        XCTAssertEqual(HealthImport.newWorkouts(from: [a], existing: [Workout(memberId: UUID(), kind: "walking", minutes: 5, caloriesBurned: 10)]).count, 1)
+    }
+
+    func testAWorkoutTypedInByHandIsNotAddedAgainFromHealth() {
+        let start = Date()
+        let typed = Workout(memberId: UUID(), doneAt: start.addingTimeInterval(4 * 60), kind: "running", minutes: 30, caloriesBurned: 300)
+        let same = HealthWorkout(id: UUID(), kind: .running, start: start, minutes: 30, activeKcal: 310, sourceName: nil)
+        let laterRun = HealthWorkout(id: UUID(), kind: .running, start: start.addingTimeInterval(3 * 3600), minutes: 20, activeKcal: 200, sourceName: nil)
+        let walk = HealthWorkout(id: UUID(), kind: .walking, start: start, minutes: 30, activeKcal: 100, sourceName: nil)
+        XCTAssertEqual(HealthImport.newWorkouts(from: [same, laterRun, walk], existing: [typed]).map(\.id), [laterRun.id, walk.id])
+    }
+
+    func testImportedWorkoutsKeepHealthsCaloriesAndRememberTheirId() {
+        let member = UUID(), source = hw(kcal: 412)
+        let w = HealthImport.workout(from: source, memberId: member, householdId: nil, weightKg: 70)
+        XCTAssertEqual(w.caloriesBurned, 412)
+        XCTAssertEqual(w.externalId, source.id.uuidString)
+        XCTAssertEqual(w.source, "health")
+        XCTAssertEqual(w.workoutKind, .running)
+        XCTAssertEqual(w.note, "From Apple Watch")
+    }
+
+    func testAWorkoutWithoutCaloriesIsEstimatedFromWeight() {
+        let w = HealthImport.workout(from: hw(kind: .walking, minutes: 60, kcal: nil), memberId: UUID(), householdId: nil, weightKg: 70)
+        XCTAssertEqual(w.caloriesBurned, WorkoutEstimator.calories(kind: .walking, intensity: .moderate, minutes: 60, weightKg: 70))
+    }
+
+    func testHealthCaloriesAndLoggedWorkoutsAreNeverAddedTogether() {
+        let member = Member(name: "Amma", conditions: [], goals: Goals(dailyCalories: 2000))
+        let logged = [Workout(memberId: member.id, kind: "walking", minutes: 40, caloriesBurned: 165)]
+        // Health's total includes that walk, so it wins when larger: 312, not 312 + 165.
+        let more = DayBudget(member: member, entries: [], workouts: logged, healthActiveKcal: 312)
+        XCTAssertEqual(more.burned, 312); XCTAssertEqual(more.healthBurned, 312); XCTAssertEqual(more.loggedBurned, 165)
+        XCTAssertEqual(more.allowance, 2000 + 156)
+        // If the logged workouts are larger (or Health has nothing), they win.
+        XCTAssertEqual(DayBudget(member: member, entries: [], workouts: logged, healthActiveKcal: 90).burned, 165)
+        XCTAssertEqual(DayBudget(member: member, entries: [], workouts: logged, healthActiveKcal: nil).burned, 165)
+        XCTAssertEqual(DayBudget(member: member, entries: [], workouts: [], healthActiveKcal: -50).burned, 0)
+    }
+
+    func testWorkoutRowsWithAndWithoutTheHealthColumnsDecode() throws {
+        let decoder = JSONDecoder()
+        decoder.keyDecodingStrategy = .convertFromSnakeCase
+        decoder.dateDecodingStrategy = .iso8601
+        let base = #"{"id":"6F9619FF-8B86-D011-B42D-00C04FC964FF","member_id":"6F9619FF-8B86-D011-B42D-00C04FC964F1","done_at":"2026-09-27T07:00:00Z","kind":"running","minutes":30,"intensity":"vigorous","calories_burned":360"#
+        let old = try decoder.decode(Workout.self, from: Data((base + "}").utf8))
+        XCTAssertNil(old.externalId); XCTAssertNil(old.source)
+        let new = try decoder.decode(Workout.self, from: Data((base + #","source":"health","external_id":"ABC"}"#).utf8))
+        XCTAssertEqual(new.externalId, "ABC"); XCTAssertEqual(new.source, "health")
+    }
+}

@@ -28,7 +28,8 @@ enum Demo {
     static var opensLogFood: Bool { CommandLine.arguments.contains("-demoLogFood") }
     static var opensLogWorkout: Bool { CommandLine.arguments.contains("-demoLogWorkout") }
     static var opensLogProduct: Bool { CommandLine.arguments.contains("-demoLogProduct") }
-    static var scrollsToMeds: Bool { CommandLine.arguments.contains("-demoScrollMeds") }
+    /// Which card the debug screenshots should scroll to ("meds" or "health").
+    static var scrollTarget: String? { CommandLine.arguments.drop { $0 != "-demoScroll" }.dropFirst().first }
     static var opensMeds: Bool { CommandLine.arguments.contains("-demoMeds") }
     static var opensMedEdit: Bool { CommandLine.arguments.contains("-demoMedEdit") }
     static var opensPlan: Bool { CommandLine.arguments.contains("-demoPlan") }
@@ -66,6 +67,16 @@ enum Demo {
         let at8 = Calendar.current.date(bySettingHour: 8, minute: 0, second: 0, of: Date()) ?? Date()
         return [DoseRecord(medicationId: medications[0].id, memberId: members[0].id, dueAt: at8, status: .taken),
                 DoseRecord(medicationId: medications[1].id, memberId: members[0].id, dueAt: at8, status: .taken)]
+    }
+
+    static var healthActivity: HealthActivity {
+        let cal = Calendar.current
+        let morning = cal.date(bySettingHour: 6, minute: 45, second: 0, of: Date()) ?? Date()
+        let evening = cal.date(bySettingHour: 17, minute: 30, second: 0, of: Date()) ?? Date()
+        return HealthActivity(steps: 7842, activeKcal: 312, exerciseMinutes: 46, workouts: [
+            HealthWorkout(id: UUID(), kind: .walking, start: morning, minutes: 40, activeKcal: 165, sourceName: "Apple Watch"),
+            HealthWorkout(id: UUID(), kind: .yoga, start: evening, minutes: 30, activeKcal: 90, sourceName: "Fitness"),
+        ])
     }
 
     static let groceries: [GroceryItem] = [
@@ -132,7 +143,7 @@ enum Demo {
     static let opensPlate = false
     static let opensPlan = false
     static let opensMeds = false
-    static let scrollsToMeds = false
+    static let scrollTarget: String? = nil
     static let opensMedEdit = false
     static let medications: [Medication] = []
     static var doseRecords: [DoseRecord] { [] }
@@ -148,6 +159,7 @@ enum Demo {
     static let foodEntries: [FoodEntry] = []
     static let workouts: [Workout] = []
     static let groceries: [GroceryItem] = []
+    static var healthActivity: HealthActivity { HealthActivity() }
     static let members: [Member] = []
     static let product: Product? = nil
     static let records: [ScanRecord] = []

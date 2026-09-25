@@ -55,10 +55,18 @@ struct DayBudget {
     let eaten: DayTotals
     let burned: Int
 
-    init(member: Member, entries: [FoodEntry], workouts: [Workout]) {
+    /// Calories from logged workouts (typed in or imported).
+    let loggedBurned: Int
+    /// Active calories Apple Health reports for the day, if this phone belongs to the person.
+    let healthBurned: Int
+
+    /// Health's active calories include the workouts, so the larger of the two is used, never their sum.
+    init(member: Member, entries: [FoodEntry], workouts: [Workout], healthActiveKcal: Double? = nil) {
         limits = DailyLimits.for(member)
         eaten = DayTotals.of(entries)
-        burned = workouts.reduce(0) { $0 + $1.caloriesBurned }
+        loggedBurned = workouts.reduce(0) { $0 + $1.caloriesBurned }
+        healthBurned = max(Int((healthActiveKcal ?? 0).rounded()), 0)
+        burned = max(loggedBurned, healthBurned)
     }
 
     var exerciseBonus: Double { Double(burned) * Self.eatBackFraction }
