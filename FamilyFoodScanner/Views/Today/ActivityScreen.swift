@@ -47,6 +47,23 @@ struct ActivityScreen: View {
                         }
                     }
                     .card()
+                    if !TodayLayout.isChild(member) {
+                        Button { showBuddies = true } label: {
+                            HStack(spacing: 12) {
+                                Image(systemName: "person.2.fill").frame(width: 34, height: 34)
+                                    .background(Theme.brand.opacity(0.12), in: Circle()).foregroundStyle(Theme.brand)
+                                VStack(alignment: .leading, spacing: 1) {
+                                    Text("Gym buddies").font(.subheadline.weight(.semibold))
+                                    Text("Train with friends and copy their workouts").font(.caption).foregroundStyle(.secondary)
+                                }
+                                Spacer()
+                                Image(systemName: "chevron.right").font(.caption).foregroundStyle(.tertiary)
+                            }
+                            .contentShape(Rectangle())
+                        }
+                        .buttonStyle(.plain)
+                        .card()
+                    }
                     if let message = tracking.errorMessage { Text(message).font(.footnote).foregroundStyle(.red) }
                 }
                 .padding(.horizontal, 16).padding(.bottom, 32)
@@ -56,9 +73,6 @@ struct ActivityScreen: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .confirmationAction) { Button("Done") { dismiss() } }
-                if !TodayLayout.isChild(member) && member.id == family.myMember?.id {
-                    ToolbarItem(placement: .cancellationAction) { Button { showBuddies = true } label: { Label("Gym buddies", systemImage: "person.2.fill") } }
-                }
             }
             .sheet(isPresented: $showBuddies) { BuddiesView() }
             .sheet(isPresented: $showWorkout) { LogWorkoutSheet(member: member) }
