@@ -12,13 +12,10 @@ struct TodayView: View {
     @AppStorage("healthMemberID") private var healthMemberID = ""
     @AppStorage("todayMemberID") private var selectedID = ""
     @State private var showFood = Demo.opensLogFood
-    @State private var showWorkout = Demo.opensLogWorkout
-    @State private var editingWorkout: Workout?
-    @State private var viewingWorkout: Workout?
     @State private var showDatePicker = false
-    @State private var showSchedule = false
     @State private var pickedDay = Date()
     @State private var showAsk = false
+    @State private var showActivity = Demo.opensLogWorkout
     @State private var showMeds = Demo.opensMeds
 
     private var member: Member? {
@@ -62,7 +59,7 @@ struct TodayView: View {
             .refreshable { await tracking.load(householdId: family.householdId) }
             .task(id: family.householdId) { await tracking.load(householdId: family.householdId) }
             .sheet(isPresented: $showFood) { if let member { LogFoodSheet(member: member) } }
-            .sheet(isPresented: $showWorkout) { if let member { LogWorkoutSheet(member: member) } }
+            .sheet(isPresented: $showActivity) { if let member { ActivityScreen(member: member) } }
             .sheet(isPresented: $showDatePicker) {
                 NavigationStack {
                     DatePicker("Day", selection: $pickedDay, in: ...Date(), displayedComponents: .date)
@@ -77,11 +74,6 @@ struct TodayView: View {
                 }
                 .presentationDetents([.medium, .large])
             }
-            .sheet(isPresented: $showSchedule) { if let member { ScheduleView(member: member) } }
-            .sheet(item: $viewingWorkout) { w in WorkoutDetailView(workout: w) { editingWorkout = w } }
-            .sheet(item: $editingWorkout) { w in
-                if let member { if w.workoutKind == .strength { StrengthSessionView(member: member, editing: w) } else { LogWorkoutSheet(member: member, editing: w) } }
-            }
             .sheet(isPresented: $showAsk) { AskAIView(product: nil) }
             .sheet(isPresented: $showMeds) { if let member { MedicationsManageView(member: member) } }
             .task(id: tracking.day) {
@@ -90,7 +82,12 @@ struct TodayView: View {
             }
             .onReceive(NotificationCenter.default.publisher(for: .nutrikinActivityAction)) { _ in
                 let actions = NotificationRouter.pendingActivity; NotificationRouter.pendingActivity = []
-                Task { for a in actions { await logScheduled(memberID: a.memberID, kind: a.kind, minutes: a.minutes, at: a.at) } }
+                Task {
+                    for a in actions {
+                        guard let m = family.members.first(where: { $0.id == a.memberID }), family.canManage(m) else { continue }
+                        await tracking.logActivity(for: m, kind: a.kind, minutes: a.minutes, at: a.at, householdId: family.householdId)
+                    }
+                }
             }
             .onChange(of: tracking.schedules) { _, list in
                 let mine = list.filter { s in family.members.first { $0.id == s.memberId }.map(family.canManage) ?? false }
@@ -115,7 +112,16 @@ struct TodayView: View {
         case .medications: MedicationsCard(member: member) { showMeds = true }.id("meds")
         case .limits: nutrients(budget)
         case .eaten: foodSection(member)
-        case .workouts: workoutSection(member)
+        case .workouts:
+            if TodayLayout.isChild(member) {
+                VStack(alignment: .leading, spacing: 10) {
+                    SectionTitle(title: "Active play", actionTitle: "Open") { showActivity = true }
+                    KidActivityCard(member: member, healthMinutes: health.activity.exerciseMinutes)
+                }
+                .card().id("health")
+            } else {
+                ActivitySummaryCard(member: member) { showActivity = true }
+            }
         }
     }
 
@@ -199,8 +205,8 @@ struct TodayView: View {
         HStack(spacing: 8) {
             QuickAction(title: "Scan", symbol: "barcode.viewfinder", action: onScan)
             QuickAction(title: "Log food", symbol: "plus.circle.fill") { showFood = true }
-            QuickAction(title: "Workout", symbol: "figure.run", tint: .orange) { showWorkout = true }
             QuickAction(title: "Ask AI", symbol: "sparkles", tint: .purple) { showAsk = true }
+            QuickAction(title: "Activity", symbol: "figure.run", tint: .orange) { showActivity = true }
         }
     }
 
@@ -233,7 +239,7 @@ struct TodayView: View {
             } else {
                 VStack(spacing: 0) {
                     ForEach(list) { e in
-                        row(symbol: symbol(for: e.source), title: e.label, subtitle: e.eatenAt.formatted(date: .omitted, time: .shortened),
+                        LogRow(symbol: symbol(for: e.source), title: e.label, subtitle: e.eatenAt.formatted(date: .omitted, time: .shortened),
                             trailing: TodayLayout.showsCalorieSummary(for: member) ? "\(Int(e.calories.rounded())) kcal" : "", tint: Theme.brand) {
                             Task { await tracking.delete(e) }
                         }
@@ -245,99 +251,6 @@ struct TodayView: View {
         .card()
     }
 
-    /// One card for everything about activity: Health's steps and calories, workouts waiting to be added from
-    /// Health, and the workouts already logged.
-    private func workoutSection(_ member: Member) -> some View {
-        let list = tracking.workouts(for: member)
-        let showsHealth = HealthActivityCard.isVisible(for: member, linkedID: healthMemberID, health: health)
-        return VStack(alignment: .leading, spacing: 12) {
-            SectionTitle(title: TodayLayout.isChild(member) ? "Active play" : "Workouts", actionTitle: "Add") { showWorkout = true }
-            if TodayLayout.isChild(member) { KidActivityCard(member: member, healthMinutes: showsHealth ? health.activity.exerciseMinutes : nil) }
-            scheduledToday(member)
-            HealthActivityCard(member: member)
-            goalBars(member, showsSteps: showsHealth)
-            if list.isEmpty {
-                if !showsHealth {
-                    EmptyState(symbol: "figure.run", title: TodayLayout.isChild(member) ? "No play logged yet" : "No workout yet",
-                                   message: TodayLayout.isChild(member) ? "Log free play, sports, cycling or any activity to earn today's star." : "Log a walk, a run or any activity to add to today's allowance.")
-                } else {
-                    Text("No workouts logged for this day yet.").font(.footnote).foregroundStyle(.secondary)
-                }
-            } else {
-                if showsHealth { Divider() }
-                VStack(spacing: 0) {
-                    ForEach(list) { w in
-                        row(symbol: w.workoutKind.symbol, title: w.workoutKind.title,
-                            subtitle: "\(w.minutes) min \u{00B7} \(w.intensity.title)" + (w.source == "health" ? " \u{00B7} Health" : "") + StrengthSummary.text(w.exercises) + (w.note.map { " \u{00B7} \($0)" } ?? ""),
-                            trailing: "\(w.caloriesBurned) kcal", tint: .orange,
-                            onTap: (w.exercises?.isEmpty == false) ? { viewingWorkout = w } : nil,
-                            onEdit: w.source == "health" ? nil : { editingWorkout = w }) {
-                            Task { await tracking.delete(w) }
-                        }
-                        if w.id != list.last?.id { Divider().padding(.leading, 48) }
-                    }
-                }
-            }
-        }
-        .card()
-        .id("health")
-    }
-
-    @ViewBuilder
-    private func scheduledToday(_ member: Member) -> some View {
-        let todays = tracking.isToday ? ScheduleMath.items(tracking.schedules, for: member.id, on: Date()) : []
-        let pending = todays.filter { !ScheduleMath.isLogged($0, workouts: tracking.workouts(for: member), on: Date()) }
-        VStack(alignment: .leading, spacing: 6) {
-            ForEach(pending) { s in
-                HStack(spacing: 10) {
-                    Image(systemName: s.workoutKind.symbol).foregroundStyle(.orange)
-                    Text("\(s.title) at \(ScheduleMath.timeText(s.time))").font(.subheadline)
-                    Spacer()
-                    if family.canManage(member) {
-                        Button("Went") { Task { await logScheduled(memberID: member.id, kind: s.kind, minutes: s.minutes, at: Date()) } }
-                            .buttonStyle(.borderedProminent).buttonBorderShape(.capsule).controlSize(.small).tint(.orange)
-                    }
-                }
-            }
-            Button { showSchedule = true } label: {
-                Label(tracking.schedules(for: member).isEmpty ? "Set up a weekly schedule" : "Weekly schedule", systemImage: "calendar")
-                    .font(.footnote.weight(.semibold))
-            }
-        }
-    }
-
-    private func logScheduled(memberID: UUID, kind: String, minutes: Int, at: Date) async {
-        guard let m = family.members.first(where: { $0.id == memberID }), family.canManage(m) else { return }
-        let k = WorkoutKind(rawValue: kind) ?? .other
-        let w = Workout(householdId: family.householdId, memberId: memberID, doneAt: at, kind: kind, minutes: minutes, intensity: .moderate,
-                        caloriesBurned: WorkoutEstimator.calories(kind: k, intensity: .moderate, minutes: minutes, weightKg: m.weightKg))
-        if await tracking.add(w) { UINotificationFeedbackGenerator().notificationOccurred(.success) }
-    }
-
-    @ViewBuilder
-    private func goalBars(_ member: Member, showsSteps: Bool) -> some View {
-        let steps = showsSteps ? health.activity.steps : nil
-        let week = tracking.weeklyMinutes(for: member)
-        if (member.goals.dailySteps != nil && steps != nil) || member.goals.weeklyWorkoutMinutes != nil {
-            VStack(spacing: 10) {
-                if let goal = member.goals.dailySteps, let steps {
-                    goalBar(title: "Steps", detail: "\(steps.formatted()) of \(goal.formatted())", fraction: ActivityGoals.fraction(done: steps, goal: goal) ?? 0, tint: .blue)
-                }
-                if let goal = member.goals.weeklyWorkoutMinutes {
-                    goalBar(title: "Workouts this week", detail: "\(week) of \(goal) min", fraction: ActivityGoals.fraction(done: week, goal: goal) ?? 0, tint: .orange)
-                }
-            }
-        }
-    }
-
-    private func goalBar(title: String, detail: String, fraction: Double, tint: Color) -> some View {
-        VStack(alignment: .leading, spacing: 4) {
-            HStack { Text(title).font(.subheadline.weight(.semibold)); Spacer(); Text(detail).font(.caption.monospacedDigit()).foregroundStyle(.secondary) }
-            ProgressView(value: fraction).tint(fraction >= 1 ? .green : tint)
-        }
-        .accessibilityElement(children: .combine)
-    }
-
     private func symbol(for source: FoodSource) -> String {
         switch source {
         case .scan: "barcode.viewfinder"
@@ -345,27 +258,6 @@ struct TodayView: View {
         case .ai: "sparkles"
         case .manual: "pencil"
         }
-    }
-
-    private func row(symbol: String, title: String, subtitle: String, trailing: String, tint: Color, onTap: (() -> Void)? = nil, onEdit: (() -> Void)? = nil, onDelete: @escaping () -> Void) -> some View {
-        HStack(spacing: 12) {
-            Image(systemName: symbol).frame(width: 34, height: 34)
-                .background(tint.opacity(0.12), in: Circle()).foregroundStyle(tint)
-            VStack(alignment: .leading, spacing: 1) {
-                Text(title).font(.subheadline.weight(.semibold)).lineLimit(2)
-                Text(subtitle).font(.caption).foregroundStyle(.secondary).lineLimit(1)
-            }
-            Spacer(minLength: 8)
-            if onTap != nil { Image(systemName: "chevron.right").font(.caption2).foregroundStyle(.tertiary) }
-            Text(trailing).font(.subheadline.monospacedDigit()).foregroundStyle(.secondary)
-            Menu {
-                if let onEdit { Button("Edit", systemImage: "pencil", action: onEdit) }
-                Button("Remove", systemImage: "trash", role: .destructive, action: onDelete)
-            } label: { Image(systemName: "ellipsis").foregroundStyle(.secondary).frame(width: 30, height: 34) }
-        }
-        .contentShape(Rectangle())
-        .onTapGesture { onTap?() }
-        .padding(.vertical, 8)
     }
 }
 

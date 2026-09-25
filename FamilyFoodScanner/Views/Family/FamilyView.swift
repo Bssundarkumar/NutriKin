@@ -47,21 +47,15 @@ struct FamilyView: View {
                             Text(linkText(m))
                                 .font(.caption)
                                 .foregroundStyle(.green)
-                            Button { growthMember = m } label: {
-                                Label("Height & weight chart", systemImage: "chart.xyaxis.line")
+                            Menu {
+                                Button { growthMember = m } label: { Label("Height & weight chart", systemImage: "chart.xyaxis.line") }
+                                Button { planMember = m } label: { Label("Weight & daily intake plan", systemImage: "chart.bar.doc.horizontal") }
+                            } label: {
+                                Label("Growth and plan", systemImage: "ellipsis.circle")
                                     .font(.caption.weight(.semibold))
                                     .padding(.horizontal, 10).padding(.vertical, 5)
                                     .background(Theme.brand.opacity(0.12), in: Capsule())
                             }
-                            .buttonStyle(.borderless)
-                            .padding(.top, 2)
-                            Button { planMember = m } label: {
-                                Label("Weight & daily intake plan", systemImage: "chart.bar.doc.horizontal")
-                                    .font(.caption.weight(.semibold))
-                                    .padding(.horizontal, 10).padding(.vertical, 5)
-                                    .background(Theme.brand.opacity(0.12), in: Capsule())
-                            }
-                            .buttonStyle(.borderless)
                             .padding(.top, 2)
                         }
                         }
@@ -199,7 +193,23 @@ struct FamilyView: View {
 
     private var inviteSection: some View {
         Section {
-            if !family.inviteCode.isEmpty {
+            if !family.inviteCode.isEmpty && family.members.count > 1 {
+                // Once the family has grown, a slim row is enough: the big card is only useful when you're just starting.
+                HStack {
+                    Label("Invite code \(family.inviteCode)", systemImage: "person.badge.plus").font(.subheadline)
+                    Spacer()
+                    Button(didCopyCode ? "Copied" : "Copy") {
+                        UIPasteboard.general.string = family.inviteCode
+                        didCopyCode = true
+                        Task { try? await Task.sleep(for: .seconds(1.5)); didCopyCode = false }
+                    }
+                    .font(.subheadline.weight(.semibold)).buttonStyle(.borderless)
+                    ShareLink(item: InviteLink.message(familyName: family.householdName, code: family.inviteCode), subject: Text("Join our family on NutriKin")) {
+                        Image(systemName: "square.and.arrow.up")
+                    }
+                    .buttonStyle(.borderless)
+                }
+            } else if !family.inviteCode.isEmpty {
                 VStack(spacing: 12) {
                     Text("FAMILY INVITE CODE")
                         .font(.caption.weight(.semibold))

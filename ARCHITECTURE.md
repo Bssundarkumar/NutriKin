@@ -40,3 +40,16 @@ Run `backend/schema.sql`, then the numbered migrations in order (see `backend/RE
 ## Known gaps
 
 Sign in with Apple token revocation on account deletion; server-side alerts for missed medicines; dietitian review of scoring and pregnancy rules; growth percentile curves; offline product cache; invite-code expiry.
+
+## Product structure (what lives where)
+
+The core job is **track food and check whether it is safe**. Everything else is secondary and reached from one place.
+
+| Tier | Features | Where |
+|---|---|---|
+| Core | Scan and safety score, allergy block, Log food, calories and limits | Scan tab; top of Today |
+| Secondary | Medicines, Activity (workouts, steps, strength, schedule, goals), kids' play and stars | Cards on Today; Activity opens its own screen |
+| Supporting | Groceries, History, AI chat, meal ideas, tips | Tabs and on-request buttons |
+| Admin | Family, members, "This is me", conditions, goals, height and weight chart, plans, AI keys, privacy | Family tab; less-used items in menus |
+
+Patterns used: progressive disclosure (Today shows a summary, Activity opens the detail), bottom sheets for logging, contextual menus (Family "Growth and plan"), AI only on request, and a person-aware Today (children: play first, no calories; older adults: medicines first; pregnancy: rules shown).

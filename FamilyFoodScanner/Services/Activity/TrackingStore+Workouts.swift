@@ -3,6 +3,15 @@ import Supabase
 
 /// Workouts, the recent-weeks window, and strength templates.
 extension TrackingStore {
+    /// Logs one activity for a person with a calorie estimate from their weight (used by "Went" and schedule reminders).
+    @discardableResult
+    func logActivity(for member: Member, kind: String, minutes: Int, at: Date, householdId: UUID?) async -> Bool {
+        let k = WorkoutKind(rawValue: kind) ?? .other
+        let w = Workout(householdId: householdId, memberId: member.id, doneAt: at, kind: kind, minutes: minutes, intensity: .moderate,
+                        caloriesBurned: WorkoutEstimator.calories(kind: k, intensity: .moderate, minutes: minutes, weightKg: member.weightKg))
+        return await add(w)
+    }
+
     func loadWeek(_ householdId: UUID) async {
         let start = Self.recentCutoff
         do {
