@@ -7,15 +7,18 @@ struct TodayView: View {
     @Environment(FamilyStore.self) private var family
     @Environment(TrackingStore.self) private var tracking
     @Environment(AIConnection.self) private var ai
+    @Environment(MedicationStore.self) private var medications
     @AppStorage("todayMemberID") private var selectedID = ""
     @State private var showFood = Demo.opensLogFood
     @State private var showWorkout = Demo.opensLogWorkout
     @State private var showAsk = false
+    @State private var showMeds = Demo.opensMeds
 
     private var member: Member? { family.members.first { $0.id.uuidString == selectedID } ?? family.members.first }
 
     var body: some View {
         NavigationStack {
+            ScrollViewReader { proxy in
             ScrollView {
                 VStack(spacing: 22) {
                     dayNavigator
@@ -28,6 +31,7 @@ struct TodayView: View {
                         let budget = tracking.budget(for: member)
                         hero(member, budget)
                         quickActions
+                        MedicationsCard(member: member) { showMeds = true }.id("meds")
                         nutrients(budget)
                         foodSection(member)
                         workoutSection(member)
@@ -38,6 +42,8 @@ struct TodayView: View {
                 }
                 .padding(.horizontal, 16).padding(.bottom, 32)
             }
+            .onAppear { if Demo.scrollsToMeds { proxy.scrollTo("meds", anchor: .top) } }
+            }
             .background(AppBackground())
             .navigationTitle("Today")
             .refreshable { await tracking.load(householdId: family.householdId) }
@@ -45,6 +51,14 @@ struct TodayView: View {
             .sheet(isPresented: $showFood) { if let member { LogFoodSheet(member: member) } }
             .sheet(isPresented: $showWorkout) { if let member { LogWorkoutSheet(member: member) } }
             .sheet(isPresented: $showAsk) { AskAIView(product: nil) }
+            .sheet(isPresented: $showMeds) { if let member { MedicationsManageView(member: member) } }
+            .task(id: tracking.day) {
+                medications.updateMemberNames(family.members)
+                await medications.load(householdId: family.householdId, day: tracking.day)
+            }
+            .onReceive(NotificationCenter.default.publisher(for: .nutrikinDoseAction)) { _ in
+                Task { await medications.drainPendingActions() }
+            }
         }
     }
 

@@ -7,6 +7,7 @@ struct ContentView: View {
     @Environment(AIConnection.self) private var ai
     @Environment(TrackingStore.self) private var tracking
     @Environment(GroceryStore.self) private var groceries
+    @Environment(MedicationStore.self) private var medications
     @State private var tab: Tab = Tab(rawValue: Demo.startTab) ?? .today
 
     private enum Tab: String, Hashable { case today, scan, groceries, history, family }
@@ -53,10 +54,10 @@ struct ContentView: View {
         .tint(Theme.brand)
         .animation(.smooth(duration: 0.3), value: auth.state)
         .animation(.smooth(duration: 0.3), value: family.phase)
-        .task(id: family.householdId) { tracking.setHousehold(family.householdId); groceries.setHousehold(family.householdId) }
+        .task(id: family.householdId) { tracking.setHousehold(family.householdId); groceries.setHousehold(family.householdId); medications.setHousehold(family.householdId) }
         // Whatever the route (sign out, deleted account, revoked session), the linked AI key goes too.
         .onChange(of: auth.state) { old, new in
-            if case .signedIn = old, case .signedOut = new { ai.disconnect(); history.wipeLocal(); tracking.reset(); groceries.reset() }
+            if case .signedIn = old, case .signedOut = new { ai.disconnect(); history.wipeLocal(); tracking.reset(); groceries.reset(); medications.reset() }
         }
         // Runs on launch and again whenever the signed-in account changes.
         .task(id: auth.state) {

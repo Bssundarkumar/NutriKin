@@ -28,6 +28,9 @@ enum Demo {
     static var opensLogFood: Bool { CommandLine.arguments.contains("-demoLogFood") }
     static var opensLogWorkout: Bool { CommandLine.arguments.contains("-demoLogWorkout") }
     static var opensLogProduct: Bool { CommandLine.arguments.contains("-demoLogProduct") }
+    static var scrollsToMeds: Bool { CommandLine.arguments.contains("-demoScrollMeds") }
+    static var opensMeds: Bool { CommandLine.arguments.contains("-demoMeds") }
+    static var opensMedEdit: Bool { CommandLine.arguments.contains("-demoMedEdit") }
     static var opensPlan: Bool { CommandLine.arguments.contains("-demoPlan") }
     static var opensPlate: Bool { CommandLine.arguments.contains("-demoPlate") }
     static var plateResults: Bool { CommandLine.arguments.contains("-demoPlateResults") }
@@ -48,6 +51,21 @@ enum Demo {
         let cal = Calendar.current
         let morning = cal.date(bySettingHour: 6, minute: 45, second: 0, of: Date()) ?? Date()
         return [Workout(memberId: members[0].id, doneAt: morning, kind: "walking", minutes: 40, intensity: .moderate, caloriesBurned: 165, note: "Morning walk")]
+    }
+
+    static let medications: [Medication] = {
+        let a = members[0].id
+        return [
+            Medication(memberId: a, name: "Vitamin D3", dose: "1 tablet", times: ["08:00"]),
+            Medication(memberId: a, name: "Blood pressure tablet", dose: "5 mg", times: ["08:00", "20:00"]),
+            Medication(memberId: a, name: "Calcium", dose: "1 tablet", times: ["13:00"], daysOfWeek: [1, 3, 5]),
+        ]
+    }()
+
+    static var doseRecords: [DoseRecord] {
+        let at8 = Calendar.current.date(bySettingHour: 8, minute: 0, second: 0, of: Date()) ?? Date()
+        return [DoseRecord(medicationId: medications[0].id, memberId: members[0].id, dueAt: at8, status: .taken),
+                DoseRecord(medicationId: medications[1].id, memberId: members[0].id, dueAt: at8, status: .taken)]
     }
 
     static let groceries: [GroceryItem] = [
@@ -113,6 +131,11 @@ enum Demo {
     static let opensProduct = false
     static let opensPlate = false
     static let opensPlan = false
+    static let opensMeds = false
+    static let scrollsToMeds = false
+    static let opensMedEdit = false
+    static let medications: [Medication] = []
+    static var doseRecords: [DoseRecord] { [] }
     static let opensLogFood = false
     static let opensLogWorkout = false
     static let opensLogProduct = false
