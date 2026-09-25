@@ -45,6 +45,12 @@ struct ContentView: View {
                                 .tag(Tab.family)
                         }
                         .sensoryFeedback(.selection, trigger: tab)
+                        .sheet(isPresented: Binding(
+                            get: { family.promptToAddMembers },
+                            set: { family.promptToAddMembers = $0 }
+                        )) {
+                            MemberEditView(mode: .add)
+                        }
                     } else {
                         HouseholdSetupView()
                     }

@@ -22,6 +22,8 @@ final class FamilyStore {
     private(set) var members: [Member] = []
     private(set) var householdId: UUID?
     private(set) var householdName: String = ""
+    /// True right after this person creates a family, so the app can go straight to adding members.
+    var promptToAddMembers = false
     private(set) var inviteCode: String = ""
     var isLoading = false
     var errorMessage: String?
@@ -93,6 +95,7 @@ final class FamilyStore {
             }
             adopt(try Backend.decodeRow(data))
             await refresh()
+            promptToAddMembers = true
         } catch {
             errorMessage = "Couldn't create the family. \(error.localizedDescription)"
         }
