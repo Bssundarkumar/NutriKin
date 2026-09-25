@@ -63,7 +63,7 @@ struct ContentView: View {
         .task(id: family.householdId) { tracking.setHousehold(family.householdId); groceries.setHousehold(family.householdId); medications.setHousehold(family.householdId) }
         // Whatever the route (sign out, deleted account, revoked session), the linked AI key goes too.
         .onChange(of: auth.state) { old, new in
-            if case .signedIn = old, case .signedOut = new { ai.disconnect(); history.wipeLocal(); tracking.reset(); groceries.reset(); medications.reset() }
+            if case .signedIn = old, case .signedOut = new { ai.disconnect(); history.wipeLocal(); tracking.reset(); Task { await ActivityReminders.removeAll() }; groceries.reset(); medications.reset() }
         }
         // Runs on launch and again whenever the signed-in account changes.
         .task(id: auth.state) {

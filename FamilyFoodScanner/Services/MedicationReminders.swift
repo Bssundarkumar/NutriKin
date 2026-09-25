@@ -64,7 +64,7 @@ enum MedicationReminders {
         let taken = UNNotificationAction(identifier: takenAction, title: "Taken", options: [.foreground])
         let skip = UNNotificationAction(identifier: skipAction, title: "Skip", options: [.foreground])
         let category = UNNotificationCategory(identifier: categoryID, actions: [taken, skip], intentIdentifiers: [], options: [])
-        UNUserNotificationCenter.current().setNotificationCategories([category])
+        UNUserNotificationCenter.current().setNotificationCategories([category, ActivityReminders.category])
     }
 
     static func authorizationStatus() async -> UNAuthorizationStatus {
@@ -110,6 +110,14 @@ final class NotificationRouter: NSObject, UNUserNotificationCenterDelegate {
     static let shared = NotificationRouter()
     /// Taps that arrived before the app finished starting up.
     nonisolated(unsafe) static var pending: [DoseAction] = []
+    nonisolated(unsafe) static var pendingActivity: [ActivityAction] = []
+
+    static func activityAction(from response: UNNotificationResponse) -> ActivityAction? {
+        guard response.actionIdentifier == ActivityReminders.wentAction else { return nil }
+        let info = response.notification.request.content.userInfo
+        guard let member = (info["memberID"] as? String).flatMap(UUID.init(uuidString:)), let kind = info["kind"] as? String else { return nil }
+        return ActivityAction(memberID: member, kind: kind, minutes: (info["minutes"] as? Int) ?? 60, at: response.notification.date)
+    }
 
     static func action(from response: UNNotificationResponse) -> DoseAction? {
         let status: DoseStatus
@@ -131,6 +139,11 @@ final class NotificationRouter: NSObject, UNUserNotificationCenterDelegate {
     }
 
     func userNotificationCenter(_ center: UNUserNotificationCenter, didReceive response: UNNotificationResponse) async {
+        if let went = Self.activityAction(from: response) {
+            Self.pendingActivity.append(went)
+            NotificationCenter.default.post(name: .nutrikinActivityAction, object: nil)
+            return
+        }
         guard let action = Self.action(from: response) else { return }
         Self.pending.append(action)
         NotificationCenter.default.post(name: .nutrikinDoseAction, object: nil)

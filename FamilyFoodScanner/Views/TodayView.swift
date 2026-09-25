@@ -16,6 +16,7 @@ struct TodayView: View {
     @State private var editingWorkout: Workout?
     @State private var viewingWorkout: Workout?
     @State private var showDatePicker = false
+    @State private var showSchedule = false
     @State private var pickedDay = Date()
     @State private var showAsk = false
     @State private var showMeds = Demo.opensMeds
@@ -76,6 +77,7 @@ struct TodayView: View {
                 }
                 .presentationDetents([.medium, .large])
             }
+            .sheet(isPresented: $showSchedule) { if let member { ScheduleView(member: member) } }
             .sheet(item: $viewingWorkout) { w in WorkoutDetailView(workout: w) { editingWorkout = w } }
             .sheet(item: $editingWorkout) { w in if let member { LogWorkoutSheet(member: member, editing: w) } }
             .sheet(isPresented: $showAsk) { AskAIView(product: nil) }
@@ -83,6 +85,15 @@ struct TodayView: View {
             .task(id: tracking.day) {
                 medications.updateMemberNames(family.members)
                 await medications.load(householdId: family.householdId, day: tracking.day)
+            }
+            .onReceive(NotificationCenter.default.publisher(for: .nutrikinActivityAction)) { _ in
+                let actions = NotificationRouter.pendingActivity; NotificationRouter.pendingActivity = []
+                Task { for a in actions { await logScheduled(memberID: a.memberID, kind: a.kind, minutes: a.minutes, at: a.at) } }
+            }
+            .onChange(of: tracking.schedules) { _, list in
+                let mine = list.filter { s in family.members.first { $0.id == s.memberId }.map(family.canManage) ?? false }
+                let plans = ActivityReminders.plans(for: mine) { id in family.members.first { $0.id == id }?.name }
+                Task { await ActivityReminders.reschedule(plans) }
             }
             .onReceive(NotificationCenter.default.publisher(for: .nutrikinDoseAction)) { _ in
                 Task { await medications.drainPendingActions() }
@@ -240,6 +251,7 @@ struct TodayView: View {
         return VStack(alignment: .leading, spacing: 12) {
             SectionTitle(title: TodayLayout.isChild(member) ? "Active play" : "Workouts", actionTitle: "Add") { showWorkout = true }
             if TodayLayout.isChild(member) { KidActivityCard(member: member, healthMinutes: showsHealth ? health.activity.exerciseMinutes : nil) }
+            scheduledToday(member)
             HealthActivityCard(member: member)
             goalBars(member, showsSteps: showsHealth)
             if list.isEmpty {
@@ -267,6 +279,37 @@ struct TodayView: View {
         }
         .card()
         .id("health")
+    }
+
+    @ViewBuilder
+    private func scheduledToday(_ member: Member) -> some View {
+        let todays = tracking.isToday ? ScheduleMath.items(tracking.schedules, for: member.id, on: Date()) : []
+        let pending = todays.filter { !ScheduleMath.isLogged($0, workouts: tracking.workouts(for: member), on: Date()) }
+        VStack(alignment: .leading, spacing: 6) {
+            ForEach(pending) { s in
+                HStack(spacing: 10) {
+                    Image(systemName: s.workoutKind.symbol).foregroundStyle(.orange)
+                    Text("\(s.title) at \(ScheduleMath.timeText(s.time))").font(.subheadline)
+                    Spacer()
+                    if family.canManage(member) {
+                        Button("Went") { Task { await logScheduled(memberID: member.id, kind: s.kind, minutes: s.minutes, at: Date()) } }
+                            .buttonStyle(.borderedProminent).buttonBorderShape(.capsule).controlSize(.small).tint(.orange)
+                    }
+                }
+            }
+            Button { showSchedule = true } label: {
+                Label(tracking.schedules(for: member).isEmpty ? "Set up a weekly schedule" : "Weekly schedule", systemImage: "calendar")
+                    .font(.footnote.weight(.semibold))
+            }
+        }
+    }
+
+    private func logScheduled(memberID: UUID, kind: String, minutes: Int, at: Date) async {
+        guard let m = family.members.first(where: { $0.id == memberID }), family.canManage(m) else { return }
+        let k = WorkoutKind(rawValue: kind) ?? .other
+        let w = Workout(householdId: family.householdId, memberId: memberID, doneAt: at, kind: kind, minutes: minutes, intensity: .moderate,
+                        caloriesBurned: WorkoutEstimator.calories(kind: k, intensity: .moderate, minutes: minutes, weightKg: m.weightKg))
+        if await tracking.add(w) { UINotificationFeedbackGenerator().notificationOccurred(.success) }
     }
 
     @ViewBuilder
