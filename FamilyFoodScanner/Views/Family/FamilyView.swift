@@ -47,14 +47,23 @@ struct FamilyView: View {
                             Text(linkText(m))
                                 .font(.caption)
                                 .foregroundStyle(.green)
-                            Menu {
-                                Button { growthMember = m } label: { Label("Height & weight chart", systemImage: "chart.xyaxis.line") }
-                                Button { planMember = m } label: { Label("Weight & daily intake plan", systemImage: "chart.bar.doc.horizontal") }
-                            } label: {
-                                Label("Growth and plan", systemImage: "ellipsis.circle")
-                                    .font(.caption.weight(.semibold))
-                                    .padding(.horizontal, 10).padding(.vertical, 5)
-                                    .background(Theme.brand.opacity(0.12), in: Capsule())
+                            VStack(alignment: .leading, spacing: 6) {
+                                if !TodayLayout.isChild(m) {
+                                    Button { planMember = m } label: {
+                                        Label("Weight & daily intake plan", systemImage: "chart.bar.doc.horizontal")
+                                            .font(.caption.weight(.semibold))
+                                            .padding(.horizontal, 10).padding(.vertical, 5)
+                                            .background(Theme.brand.opacity(0.12), in: Capsule())
+                                    }
+                                    .buttonStyle(.borderless)
+                                }
+                                Button { growthMember = m } label: {
+                                    Label("Growth chart", systemImage: "chart.xyaxis.line")
+                                        .font(.caption.weight(.semibold))
+                                        .padding(.horizontal, 10).padding(.vertical, 5)
+                                        .background(Theme.brand.opacity(0.12), in: Capsule())
+                                }
+                                .buttonStyle(.borderless)
                             }
                             .padding(.top, 2)
                         }
