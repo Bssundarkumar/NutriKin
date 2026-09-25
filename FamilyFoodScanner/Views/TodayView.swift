@@ -210,6 +210,7 @@ struct TodayView: View {
         return VStack(alignment: .leading, spacing: 12) {
             SectionTitle(title: TodayLayout.isChild(member) ? "Active play" : "Workouts", actionTitle: "Add") { showWorkout = true }
             HealthActivityCard(member: member)
+            goalBars(member, showsSteps: showsHealth)
             if list.isEmpty {
                 if !showsHealth {
                     EmptyState(symbol: "figure.run", title: "No workout yet", message: "Log a walk, a run or any activity to add to today's allowance.")
@@ -232,6 +233,30 @@ struct TodayView: View {
         }
         .card()
         .id("health")
+    }
+
+    @ViewBuilder
+    private func goalBars(_ member: Member, showsSteps: Bool) -> some View {
+        let steps = showsSteps ? health.activity.steps : nil
+        let week = tracking.weeklyMinutes(for: member)
+        if (member.goals.dailySteps != nil && steps != nil) || member.goals.weeklyWorkoutMinutes != nil {
+            VStack(spacing: 10) {
+                if let goal = member.goals.dailySteps, let steps {
+                    goalBar(title: "Steps", detail: "\(steps.formatted()) of \(goal.formatted())", fraction: ActivityGoals.fraction(done: steps, goal: goal) ?? 0, tint: .blue)
+                }
+                if let goal = member.goals.weeklyWorkoutMinutes {
+                    goalBar(title: "Workouts this week", detail: "\(week) of \(goal) min", fraction: ActivityGoals.fraction(done: week, goal: goal) ?? 0, tint: .orange)
+                }
+            }
+        }
+    }
+
+    private func goalBar(title: String, detail: String, fraction: Double, tint: Color) -> some View {
+        VStack(alignment: .leading, spacing: 4) {
+            HStack { Text(title).font(.subheadline.weight(.semibold)); Spacer(); Text(detail).font(.caption.monospacedDigit()).foregroundStyle(.secondary) }
+            ProgressView(value: fraction).tint(fraction >= 1 ? .green : tint)
+        }
+        .accessibilityElement(children: .combine)
     }
 
     private func symbol(for source: FoodSource) -> String {

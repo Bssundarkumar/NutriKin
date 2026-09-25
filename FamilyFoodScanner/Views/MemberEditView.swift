@@ -35,6 +35,8 @@ struct MemberEditView: View {
     @State private var sugar: String
     @State private var sodium: String
     @State private var satFat: String
+    @State private var steps: String
+    @State private var weeklyMinutes: String
     @State private var isSaving = false
 
     init(mode: Mode) {
@@ -60,6 +62,8 @@ struct MemberEditView: View {
         _sugar = State(initialValue: existing?.goals.dailySugarGrams.map { String(Int($0)) } ?? "")
         _sodium = State(initialValue: existing?.goals.dailySodiumMg.map { String(Int($0)) } ?? "")
         _satFat = State(initialValue: existing?.goals.dailySatFatGrams.map { String(Int($0)) } ?? "")
+        _steps = State(initialValue: existing?.goals.dailySteps.map(String.init) ?? "")
+        _weeklyMinutes = State(initialValue: existing?.goals.weeklyWorkoutMinutes.map(String.init) ?? "")
     }
 
     var body: some View {
@@ -151,6 +155,19 @@ struct MemberEditView: View {
                     Text("Leave blank if this doesn't apply.")
                 }
 
+                Section {
+                    numericField("Steps", suffix: "per day", text: $steps)
+                    numericField("Workouts", suffix: "min/week", text: $weeklyMinutes)
+                    Button("Use suggested goals") {
+                        let s = ActivityGoals.suggested(for: draftMember)
+                        steps = String(s.steps); weeklyMinutes = String(s.weeklyMinutes)
+                    }
+                } header: {
+                    Text("Activity goals")
+                } footer: {
+                    Text("Progress shows on Today. Suggestions are general guidance for the age (for children about an hour of play a day); pregnant or unwell people should follow their doctor's advice.")
+                }
+
                 if case .edit(let existing) = mode {
                     Section {
                         Button("Remove from family", role: .destructive) {
@@ -180,6 +197,11 @@ struct MemberEditView: View {
                 }
             }
         }
+    }
+
+    /// Just enough of the form to ask for suggested goals by age.
+    private var draftMember: Member {
+        Member(name: name, conditions: [], isManagedByParent: isManagedByParent, age: Int(age))
     }
 
     private var isEditing: Bool {
@@ -229,7 +251,9 @@ struct MemberEditView: View {
             dailyCalories: Double(calories),
             dailySugarGrams: Double(sugar),
             dailySodiumMg: Double(sodium),
-            dailySatFatGrams: Double(satFat)
+            dailySatFatGrams: Double(satFat),
+            dailySteps: Int(steps).map { min(max($0, 0), 100_000) },
+            weeklyWorkoutMinutes: Int(weeklyMinutes).map { min(max($0, 0), 3_000) }
         )
 
         let ageValue = Int(age)

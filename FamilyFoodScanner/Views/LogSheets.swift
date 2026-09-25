@@ -252,7 +252,7 @@ struct LogWorkoutSheet: View {
         withAnimation(.spring(duration: 0.4)) { saved = workout }
         let minutesToday = tracking.workouts(for: member).reduce(0) { $0 + $1.minutes }
         Task {
-            if let text = await WorkoutCoach.aiCheer(workout: workout, member: member, minutesToday: minutesToday, ai: ai, family: family.members) {
+            if let text = await WorkoutCoach.aiCheer(workout: workout, member: member, minutesToday: minutesToday, weekMinutes: tracking.weeklyMinutes(for: member), ai: ai, family: family.members) {
                 withAnimation(.smooth) { cheer = text; cheerIsAI = true }
             }
         }

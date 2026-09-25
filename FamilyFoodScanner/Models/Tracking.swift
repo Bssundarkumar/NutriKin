@@ -178,3 +178,30 @@ enum StrengthMath {
         return v.truncatingRemainder(dividingBy: 1) == 0 ? String(Int(v)) : String(format: "%.1f", v)
     }
 }
+
+/// Step and workout goals: the person's own, or a general starting point they can accept.
+enum ActivityGoals {
+    /// General guidance only (roughly WHO / common public-health targets), not a prescription.
+    static func suggested(for member: Member) -> (steps: Int, weeklyMinutes: Int) {
+        let age = member.age ?? (member.isManagedByParent ? 10 : 35)
+        if age < 18 { return (10_000, 420) }          // about an hour of play a day
+        if age >= 65 { return (6_000, 150) }
+        return (8_000, 150)
+    }
+
+    /// Monday 00:00 of the week containing `date`.
+    static func weekStart(_ date: Date = Date(), calendar: Calendar = .current) -> Date {
+        var cal = calendar; cal.firstWeekday = 2
+        return cal.dateInterval(of: .weekOfYear, for: date)?.start ?? cal.startOfDay(for: date)
+    }
+
+    static func weeklyMinutes(_ workouts: [Workout], since start: Date) -> Int {
+        workouts.filter { $0.doneAt >= start }.reduce(0) { $0 + $1.minutes }
+    }
+
+    /// 0...1 for a progress bar; nil when there's no goal.
+    static func fraction(done: Int, goal: Int?) -> Double? {
+        guard let goal, goal > 0 else { return nil }
+        return min(Double(max(done, 0)) / Double(goal), 1)
+    }
+}

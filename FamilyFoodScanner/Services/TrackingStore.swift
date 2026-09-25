@@ -9,6 +9,8 @@ import Supabase
 final class TrackingStore {
     private(set) var entries: [FoodEntry] = []
     private(set) var workouts: [Workout] = []
+    /// Workouts since Monday, for the weekly workout goal (whatever day is being viewed).
+    private(set) var weekWorkouts: [Workout] = []
     /// The day being shown (start of that day, local time).
     private(set) var day = Calendar.current.startOfDay(for: Date())
     var isLoading = false
@@ -30,7 +32,7 @@ final class TrackingStore {
 
     func load(householdId: UUID?, day newDay: Date? = nil) async {
         if let newDay { day = Calendar.current.startOfDay(for: newDay) }
-        if Demo.isOn { entries = Demo.foodEntries; workouts = Demo.workouts; return }
+        if Demo.isOn { entries = Demo.foodEntries; workouts = Demo.workouts; weekWorkouts = Demo.workouts; return }
         self.householdId = householdId
         guard let householdId else { entries = []; workouts = []; return }
         let start = day
@@ -54,9 +56,25 @@ final class TrackingStore {
             let (f, w) = try await (food, training)
             guard day == start else { return }              // the person moved to another day meanwhile
             entries = f; workouts = w
+            await loadWeek(householdId)
         } catch {
             errorMessage = "Couldn't load this day. \(error.localizedDescription)"
         }
+    }
+
+    private func loadWeek(_ householdId: UUID) async {
+        let start = ActivityGoals.weekStart()
+        do {
+            weekWorkouts = try await Backend.withRetry {
+                try await client.from("workouts").select()
+                    .eq("household_id", value: householdId)
+                    .gte("done_at", value: Self.iso(start)).execute().value
+            }
+        } catch { /* the goal bar just shows what it has */ }
+    }
+
+    func weeklyMinutes(for member: Member) -> Int {
+        ActivityGoals.weeklyMinutes(weekWorkouts.filter { $0.memberId == member.id }, since: ActivityGoals.weekStart())
     }
 
     func moveDay(by days: Int) async {
@@ -142,6 +160,7 @@ final class TrackingStore {
                 try await client.from("workouts").insert(payload).select().single().execute().value
             }
             if Calendar.current.isDate(saved.doneAt, inSameDayAs: day) { workouts.append(saved) }
+            if saved.doneAt >= ActivityGoals.weekStart() { weekWorkouts.append(saved) }
             return true
         } catch {
             errorMessage = "Couldn't save that workout. \(error.localizedDescription)"
@@ -152,11 +171,13 @@ final class TrackingStore {
     func delete(_ workout: Workout) async {
         errorMessage = nil
         workouts.removeAll { $0.id == workout.id }
+        let weekBefore = weekWorkouts
+        weekWorkouts.removeAll { $0.id == workout.id }
         if Demo.isOn { return }
         do {
             try await Backend.withRetry { try await client.from("workouts").delete().eq("id", value: workout.id).execute() }
         } catch {
-            workouts.append(workout)
+            workouts.append(workout); weekWorkouts = weekBefore
             errorMessage = "Couldn't remove that workout. \(error.localizedDescription)"
         }
     }

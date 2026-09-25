@@ -13,16 +13,18 @@ enum WorkoutCoach {
     Be upbeat and a little playful. Never shame, never mention weight loss, punishment or "burning off" food, and never push harder \\
     than what they did. For a child keep it playful and simple. For a pregnant person keep it gentle and say to follow their midwife \\
     or doctor's advice on exercise. No medical advice, no medication or dosing, no supplements, no links, no emojis. \\
-    Only use the details given; never invent numbers.
+    If a weekly goal is given, mention progress towards it in a kind way; never make them feel behind. Only use the details given; never invent numbers.
     """
 
-    static func prompt(workout: Workout, member: Member, minutesToday: Int) -> String {
+    static func prompt(workout: Workout, member: Member, minutesToday: Int, weekMinutes: Int = 0) -> String {
         var lines = ["Workout: \(workout.workoutKind.title), \(workout.minutes) minutes, effort \(workout.intensity.title.lowercased()), about \(workout.caloriesBurned) kcal (an estimate)."]
         if let ex = workout.exercises, !ex.isEmpty {
             let names = ex.prefix(6).map(\.name).joined(separator: ", ")
             lines.append("Strength: \(ex.count) exercises (\(names)), \(StrengthMath.totalSets(ex)) sets, \(StrengthMath.totalReps(ex)) reps.")
         }
         if minutesToday > workout.minutes { lines.append("Total active time logged today: \(minutesToday) minutes.") }
+        if let goal = member.goals.weeklyWorkoutMinutes { lines.append("Weekly workout goal: \(min(weekMinutes, 99_999)) of \(goal) minutes done this week.") }
+        if let goal = member.goals.dailySteps { lines.append("Daily step goal: \(goal) steps.") }
         return AIGuardrails.untrusted(AIContext.describe(member), tag: "family_data") + "\n\n"
             + AIGuardrails.untrusted(lines.joined(separator: "\n"), tag: "workout_data")
     }
@@ -61,9 +63,9 @@ enum WorkoutCoach {
 
     /// The AI version, or nil if nothing is set up or it fails. Never throws: the cheer is a bonus, not a requirement.
     @MainActor
-    static func aiCheer(workout: Workout, member: Member, minutesToday: Int, ai: AIConnection, family: [Member]) async -> String? {
+    static func aiCheer(workout: Workout, member: Member, minutesToday: Int, weekMinutes: Int = 0, ai: AIConnection, family: [Member]) async -> String? {
         guard let provider = ai.textProvider else { return nil }
-        let user = prompt(workout: workout, member: member, minutesToday: minutesToday)
+        let user = prompt(workout: workout, member: member, minutesToday: minutesToday, weekMinutes: weekMinutes)
         let turns = [(role: "user", text: user)]
         let system = rules + "\n\n" + AIGuardrails.taskRules
         do {

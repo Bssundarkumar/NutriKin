@@ -107,6 +107,9 @@ struct Goals: Codable, Hashable {
     var dailySugarGrams: Double?
     var dailySodiumMg: Double?
     var dailySatFatGrams: Double?
+    /// Activity goals. Older versions of the app ignore these two.
+    var dailySteps: Int?
+    var weeklyWorkoutMinutes: Int?
 }
 
 /// Biological sex, used only to pick a more accurate default daily target
