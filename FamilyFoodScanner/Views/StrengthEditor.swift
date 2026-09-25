@@ -29,6 +29,14 @@ struct StrengthEditor: View {
                     Button("\(t.name) (\(t.exercises.count) exercises)") { exercises = t.exercises.map { StrengthExercise(name: $0.name, sets: $0.sets) } }
                 }
             } label: { Label("Start from a template", systemImage: "square.on.square") }
+            let past = tracking.recentStrength(for: member)
+            if !past.isEmpty {
+                Menu {
+                    ForEach(past.prefix(20)) { w in
+                        Button(pastLabel(w)) { exercises = (w.exercises ?? []).map { StrengthExercise(name: $0.name, sets: $0.sets) } }
+                    }
+                } label: { Label("Copy from a previous workout", systemImage: "clock.arrow.circlepath") }
+            }
             if !exercises.isEmpty {
                 Button { templateName = ""; savingTemplate = true } label: { Label("Save these exercises as a template", systemImage: "square.and.arrow.down") }
             }
@@ -124,6 +132,12 @@ struct StrengthEditor: View {
                 Text("\(sets) sets \u{00B7} \(reps) reps \u{00B7} \(volume) \(pounds ? "lb" : "kg") lifted in total")
             }
         }
+    }
+
+    private func pastLabel(_ w: Workout) -> String {
+        let names = (w.exercises ?? []).map(\.name)
+        let list = names.prefix(3).joined(separator: ", ") + (names.count > 3 ? " +\(names.count - 3)" : "")
+        return "\(w.doneAt.formatted(.dateTime.weekday(.abbreviated).day().month(.abbreviated))): \(list)"
     }
 
     private func add(_ name: String) {

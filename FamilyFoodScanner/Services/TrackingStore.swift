@@ -9,8 +9,8 @@ import Supabase
 final class TrackingStore {
     private(set) var entries: [FoodEntry] = []
     private(set) var workouts: [Workout] = []
-    /// Workouts since Monday, for the weekly workout goal (whatever day is being viewed).
-    private(set) var weekWorkouts: [Workout] = []
+    /// Workouts from the last four weeks: feeds the weekly goal and "copy from a previous workout".
+    private(set) var recentWorkouts: [Workout] = []
     private(set) var templates: [WorkoutTemplate] = []
     /// The day being shown (start of that day, local time).
     private(set) var day = Calendar.current.startOfDay(for: Date())
@@ -33,7 +33,7 @@ final class TrackingStore {
 
     func load(householdId: UUID?, day newDay: Date? = nil) async {
         if let newDay { day = Calendar.current.startOfDay(for: newDay) }
-        if Demo.isOn { entries = Demo.foodEntries; workouts = Demo.workouts; weekWorkouts = Demo.workouts; return }
+        if Demo.isOn { entries = Demo.foodEntries; workouts = Demo.workouts; recentWorkouts = Demo.workouts; return }
         self.householdId = householdId
         guard let householdId else { entries = []; workouts = []; return }
         let start = day
@@ -65,9 +65,9 @@ final class TrackingStore {
     }
 
     private func loadWeek(_ householdId: UUID) async {
-        let start = ActivityGoals.weekStart()
+        let start = Self.recentCutoff
         do {
-            weekWorkouts = try await Backend.withRetry {
+            recentWorkouts = try await Backend.withRetry {
                 try await client.from("workouts").select()
                     .eq("household_id", value: householdId)
                     .gte("done_at", value: Self.iso(start)).execute().value
@@ -114,8 +114,15 @@ final class TrackingStore {
         catch { templates.append(t); errorMessage = "Couldn't delete that template. \(error.localizedDescription)" }
     }
 
+    static var recentCutoff: Date { Calendar.current.date(byAdding: .day, value: -28, to: Calendar.current.startOfDay(for: Date())) ?? Date() }
+
+    /// This person's strength workouts from the last four weeks with exercises, newest first.
+    func recentStrength(for member: Member) -> [Workout] {
+        recentWorkouts.filter { $0.memberId == member.id && $0.exercises?.isEmpty == false }.sorted { $0.doneAt > $1.doneAt }
+    }
+
     func weeklyMinutes(for member: Member) -> Int {
-        ActivityGoals.weeklyMinutes(weekWorkouts.filter { $0.memberId == member.id }, since: ActivityGoals.weekStart())
+        ActivityGoals.weeklyMinutes(recentWorkouts.filter { $0.memberId == member.id }, since: ActivityGoals.weekStart())
     }
 
     func moveDay(by days: Int) async {
@@ -201,7 +208,7 @@ final class TrackingStore {
                 try await client.from("workouts").insert(payload).select().single().execute().value
             }
             if Calendar.current.isDate(saved.doneAt, inSameDayAs: day) { workouts.append(saved) }
-            if saved.doneAt >= ActivityGoals.weekStart() { weekWorkouts.append(saved) }
+            if saved.doneAt >= Self.recentCutoff { recentWorkouts.append(saved) }
             return true
         } catch {
             errorMessage = "Couldn't save that workout. \(error.localizedDescription)"
@@ -220,8 +227,8 @@ final class TrackingStore {
         fixed.note = workout.note.map { AIGuardrails.sanitize($0, max: 200) }.flatMap { $0.isEmpty ? nil : $0 }
         fixed.exercises = (cleaned?.isEmpty == false) ? cleaned : nil
         func apply(_ list: inout [Workout]) { if let i = list.firstIndex(where: { $0.id == fixed.id }) { list[i] = fixed } }
-        let before = (workouts, weekWorkouts)
-        apply(&workouts); apply(&weekWorkouts)
+        let before = (workouts, recentWorkouts)
+        apply(&workouts); apply(&recentWorkouts)
         if Demo.isOn { return true }
         struct Patch: Encodable {
             var minutes: Int, intensity: String, caloriesBurned: Int, note: String?
@@ -243,7 +250,7 @@ final class TrackingStore {
             }
             return true
         } catch {
-            (workouts, weekWorkouts) = before
+            (workouts, recentWorkouts) = before
             errorMessage = "Couldn't save that change. \(error.localizedDescription)"
             return false
         }
@@ -252,13 +259,13 @@ final class TrackingStore {
     func delete(_ workout: Workout) async {
         errorMessage = nil
         workouts.removeAll { $0.id == workout.id }
-        let weekBefore = weekWorkouts
-        weekWorkouts.removeAll { $0.id == workout.id }
+        let weekBefore = recentWorkouts
+        recentWorkouts.removeAll { $0.id == workout.id }
         if Demo.isOn { return }
         do {
             try await Backend.withRetry { try await client.from("workouts").delete().eq("id", value: workout.id).execute() }
         } catch {
-            workouts.append(workout); weekWorkouts = weekBefore
+            workouts.append(workout); recentWorkouts = weekBefore
             errorMessage = "Couldn't remove that workout. \(error.localizedDescription)"
         }
     }
