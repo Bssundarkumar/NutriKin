@@ -1,4 +1,4 @@
--- NutriKin 1.3: who may change whose medicines.
+-- NutriKin 1.2: who may change whose medicines.
 -- Run this in the Supabase SQL Editor after migration_011_strength_exercises.sql.
 --
 -- Everyone in a family can still SEE each person's medicines and whether a dose was taken.
