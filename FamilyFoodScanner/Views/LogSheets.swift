@@ -162,6 +162,7 @@ struct LogWorkoutSheet: View {
     let member: Member
     @Environment(TrackingStore.self) private var tracking
     @Environment(FamilyStore.self) private var family
+    @Environment(AIConnection.self) private var ai
     @Environment(\.dismiss) private var dismiss
 
     @State private var kind: WorkoutKind = .walking
@@ -172,11 +173,18 @@ struct LogWorkoutSheet: View {
     @State private var exercises: [StrengthExercise] = []
     @State private var isSaving = false
     @State private var message: String?
+    @State private var saved: Workout?
+    @State private var cheer = ""
+    @State private var cheerIsAI = false
 
     private var estimate: Int { WorkoutEstimator.calories(kind: kind, intensity: intensity, minutes: minutes, weightKg: member.weightKg) }
     private var burned: Int { override ?? estimate }
 
     var body: some View {
+        if let saved { cheerView(saved) } else { formView }
+    }
+
+    private var formView: some View {
         NavigationStack {
             Form {
                 Section("Activity") {
@@ -234,8 +242,40 @@ struct LogWorkoutSheet: View {
                               note: note.trimmingCharacters(in: .whitespaces).isEmpty ? nil : note,
                               exercises: kind == .strength ? StrengthMath.cleaned(exercises) : nil)
         Task {
-            if await tracking.add(workout) { UINotificationFeedbackGenerator().notificationOccurred(.success); dismiss() }
+            if await tracking.add(workout) { UINotificationFeedbackGenerator().notificationOccurred(.success); showCheer(for: workout) }
             else { message = tracking.errorMessage; isSaving = false }
+        }
+    }
+
+    private func showCheer(for workout: Workout) {
+        cheer = WorkoutCoach.fallback(workout: workout, member: member)
+        withAnimation(.spring(duration: 0.4)) { saved = workout }
+        let minutesToday = tracking.workouts(for: member).reduce(0) { $0 + $1.minutes }
+        Task {
+            if let text = await WorkoutCoach.aiCheer(workout: workout, member: member, minutesToday: minutesToday, ai: ai, family: family.members) {
+                withAnimation(.smooth) { cheer = text; cheerIsAI = true }
+            }
+        }
+    }
+
+    private func cheerView(_ workout: Workout) -> some View {
+        NavigationStack {
+            VStack(spacing: 18) {
+                Spacer()
+                Image(systemName: "party.popper.fill").font(.system(size: 54)).foregroundStyle(.orange).popIn()
+                Text("Workout saved").font(.title2.bold())
+                Text(cheer)
+                    .font(.body).multilineTextAlignment(.center).padding(.horizontal, 24)
+                    .contentTransition(.opacity)
+                if cheerIsAI {
+                    Label("Written by AI", systemImage: "sparkles").font(.caption).foregroundStyle(.secondary)
+                }
+                Spacer()
+                Button("Done") { dismiss() }.buttonStyle(.borderedProminent).controlSize(.large).padding(.bottom, 24)
+            }
+            .frame(maxWidth: .infinity)
+            .background(AppBackground())
+            .navigationBarTitleDisplayMode(.inline)
         }
     }
 }
