@@ -39,3 +39,12 @@ final class StrengthTests: XCTestCase {
         XCTAssertNil(try dec.decode(Workout.self, from: Data(json.utf8)).exercises)
     }
 }
+
+final class StrengthTimeTests: XCTestCase {
+    func testTimeFollowsSets() {
+        XCTAssertEqual(StrengthMath.estimatedMinutes(sets: 1), 5)
+        XCTAssertEqual(StrengthMath.estimatedMinutes(sets: 6), 15)
+        XCTAssertEqual(StrengthMath.estimatedMinutes(sets: 12), 30)
+        XCTAssertEqual(StrengthMath.estimatedMinutes(sets: 0), 5)
+    }
+}

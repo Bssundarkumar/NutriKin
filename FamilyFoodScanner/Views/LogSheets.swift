@@ -182,7 +182,12 @@ struct LogWorkoutSheet: View {
     @State private var prefilled = false
     @State private var ideaLoading = false
 
-    private var estimate: Int { WorkoutEstimator.calories(kind: kind, intensity: intensity, minutes: minutes, weightKg: member.weightKg) }
+    /// A strength session is timed by its sets, so the person only enters exercises, not how long each took.
+    private var setsDriveTime: Bool { kind == .strength && StrengthMath.totalSets(StrengthMath.cleaned(exercises)) > 0 }
+    private var effectiveMinutes: Int {
+        setsDriveTime ? StrengthMath.estimatedMinutes(sets: StrengthMath.totalSets(StrengthMath.cleaned(exercises))) : minutes
+    }
+    private var estimate: Int { WorkoutEstimator.calories(kind: kind, intensity: intensity, minutes: effectiveMinutes, weightKg: member.weightKg) }
     private var burned: Int { override ?? estimate }
 
     var body: some View {
@@ -237,6 +242,14 @@ struct LogWorkoutSheet: View {
                 if kind == .strength {
                     StrengthEditor(exercises: $exercises)
                 }
+                if setsDriveTime {
+                    Section {
+                        Picker("Effort", selection: $intensity) { ForEach(WorkoutIntensity.allCases) { Text($0.title).tag($0) } }
+                            .pickerStyle(.segmented).onChange(of: intensity) { _, _ in override = nil }
+                    } header: { Text("How hard") } footer: {
+                        Text("Saved as about \(effectiveMinutes) minutes in total, worked out from your sets and rest between them.")
+                    }
+                } else {
                 Section("How long and how hard") {
                     Stepper("\(minutes) minutes", value: $minutes, in: 5...300, step: 5).onChange(of: minutes) { _, _ in override = nil }
                     HStack { ForEach([15, 30, 45, 60], id: \.self) { m in
@@ -244,6 +257,7 @@ struct LogWorkoutSheet: View {
                     } }
                     Picker("Effort", selection: $intensity) { ForEach(WorkoutIntensity.allCases) { Text($0.title).tag($0) } }
                         .pickerStyle(.segmented).onChange(of: intensity) { _, _ in override = nil }
+                }
                 }
                 Section {
                     Stepper("\(burned) kcal burned", value: Binding(get: { burned }, set: { override = $0 }), in: 0...3000, step: 10)
@@ -268,7 +282,7 @@ struct LogWorkoutSheet: View {
     private func save() {
         isSaving = true
         if var changed = editing {
-            changed.kind = kind.rawValue; changed.minutes = minutes; changed.intensity = intensity; changed.caloriesBurned = burned
+            changed.kind = kind.rawValue; changed.minutes = effectiveMinutes; changed.intensity = intensity; changed.caloriesBurned = burned
             changed.note = note.trimmingCharacters(in: .whitespaces).isEmpty ? nil : note
             changed.exercises = kind == .strength ? StrengthMath.cleaned(exercises) : nil
             Task {
@@ -278,7 +292,7 @@ struct LogWorkoutSheet: View {
             return
         }
         let workout = Workout(householdId: family.householdId, memberId: member.id, doneAt: tracking.timestampForNewItem,
-                              kind: kind.rawValue, minutes: minutes, intensity: intensity, caloriesBurned: burned,
+                              kind: kind.rawValue, minutes: effectiveMinutes, intensity: intensity, caloriesBurned: burned,
                               note: note.trimmingCharacters(in: .whitespaces).isEmpty ? nil : note,
                               exercises: kind == .strength ? StrengthMath.cleaned(exercises) : nil)
         Task {

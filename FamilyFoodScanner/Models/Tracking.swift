@@ -158,6 +158,9 @@ enum StrengthMath {
                                   "Lat pulldown", "Bicep curl", "Tricep extension", "Lunge", "Leg press", "Plank"]
     static let kgPerLb = 0.45359237
 
+    /// About 2.5 minutes a set counts the lift and the rest after it, rounded to 5 minutes, at least 5.
+    static func estimatedMinutes(sets: Int) -> Int { max(5, Int((Double(sets) * 2.5 / 5).rounded()) * 5) }
+
     static func totalSets(_ e: [StrengthExercise]) -> Int { e.reduce(0) { $0 + $1.sets.count } }
     static func totalReps(_ e: [StrengthExercise]) -> Int { e.reduce(0) { $0 + $1.totalReps } }
     static func volumeKg(_ e: [StrengthExercise]) -> Double { e.reduce(0) { $0 + $1.volumeKg } }
