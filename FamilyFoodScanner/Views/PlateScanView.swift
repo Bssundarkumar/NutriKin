@@ -6,6 +6,7 @@ import SwiftUI
 struct PlateScanView: View {
     @Environment(FamilyStore.self) private var family
     @Environment(AIConnection.self) private var ai
+    @Environment(TrackingStore.self) private var tracking
     @Environment(\.dismiss) private var dismiss
 
     private enum Phase: Equatable { case setup, analyzing, describe, results, failed(String) }
@@ -23,6 +24,7 @@ struct PlateScanView: View {
     private let sizes = [0, 20, 23, 26, 28, 30]      // 0 = let the AI estimate it
     @State private var showMeasure = false
     @State private var foodsText = ""
+    @State private var loggedNote: String?
     @State private var lastFoods: String?
     @FocusState private var foodsFocused: Bool
     @State private var usedCm = 26
@@ -332,8 +334,16 @@ struct PlateScanView: View {
                 Section { Label(note, systemImage: "info.circle").font(.footnote) }
             }
 
+            if !items.isEmpty {
+                Section {
+                    Menu {
+                        ForEach(family.members) { m in Button(m.name) { logMeal(for: m) } }
+                    } label: { Label(loggedNote ?? "Log this meal for\u{2026}", systemImage: loggedNote == nil ? "plus.circle.fill" : "checkmark.circle.fill") }
+                } footer: { Text("Adds it to that person's day on the Today tab.") }
+            }
+
             Section {
-                Button { phase = .setup; image = nil; lastFoods = nil } label: { Label("Scan another plate", systemImage: "camera.viewfinder") }
+                Button { phase = .setup; image = nil; lastFoods = nil; loggedNote = nil } label: { Label("Scan another plate", systemImage: "camera.viewfinder") }
                 Text("Guidance only, not medical advice. Portions are estimated from a photo and can be significantly off.")
                     .font(.footnote).foregroundStyle(.secondary)
             }
@@ -357,6 +367,14 @@ struct PlateScanView: View {
             Text(title).font(.caption2).foregroundStyle(.secondary)
         }
         .frame(maxWidth: .infinity)
+    }
+
+    private func logMeal(for member: Member) {
+        let entry = PortionScaler.entry(for: items, memberId: member.id, householdId: family.householdId, at: tracking.timestampForNewItem)
+        Task {
+            if await tracking.add(entry) { loggedNote = "Logged for \(member.name)"; UINotificationFeedbackGenerator().notificationOccurred(.success) }
+            else { loggedNote = nil }
+        }
     }
 
     // MARK: Analysis

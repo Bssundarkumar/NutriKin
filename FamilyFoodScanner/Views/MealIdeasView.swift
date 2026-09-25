@@ -6,6 +6,8 @@ struct MealIdeasView: View {
     let member: Member
     let plan: NutritionPlan?
     @Environment(AIConnection.self) private var ai
+    @Environment(GroceryStore.self) private var groceries
+    @State private var groceryNote: String?
     @Environment(\.dismiss) private var dismiss
     @AppStorage private var preferences: String
     @State private var phase: Phase = Demo.opensMeals ? .loaded(Demo.mealIdeas) : .idle
@@ -115,6 +117,16 @@ struct MealIdeasView: View {
             }
             .staggeredAppear(i)
         }
+        Section {
+            Button {
+                let names = ideas.slots.flatMap(\.dishes).flatMap(\.ingredients)
+                Task {
+                    let added = await groceries.addMany(names)
+                    groceryNote = added == 0 ? "Everything is already on the list" : "Added \(added) item\(added == 1 ? "" : "s") to the grocery list"
+                }
+            } label: { Label(groceryNote ?? "Add all ingredients to the grocery list", systemImage: groceryNote == nil ? "cart.badge.plus" : "checkmark.circle.fill") }
+            .disabled(groceryNote != nil)
+        } footer: { Text("Skips anything already on the family's list.") }
         if !ideas.tips.isEmpty {
             Section("Tips") { ForEach(ideas.tips, id: \.self) { Label($0, systemImage: "lightbulb.fill").font(.subheadline) } }
         }

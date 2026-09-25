@@ -5,12 +5,15 @@ struct ResultView: View {
     @Environment(FamilyStore.self) private var family
     @Environment(HistoryStore.self) private var history
     @Environment(AIConnection.self) private var ai
+    @Environment(GroceryStore.self) private var groceries
     private let engine = ScoringEngine()
     private let analyzer = IngredientAnalyzer()
     @State private var alternatives: AlternativesSection.Phase = .unavailable
     @State private var showGradesInfo = false
     @State private var ideas: AlternativesSection.IdeasPhase = .idle
     @State private var showAsk = Demo.opensAsk
+    @State private var showLog = Demo.opensLogProduct
+    @State private var groceryNote: String?
 
     private var scores: [MemberScore] {
         engine.scoreFamily(product, members: family.members)
@@ -116,6 +119,14 @@ struct ResultView: View {
                 }
             }
 
+            Section {
+                Button { showLog = true } label: { Label("Log as eaten", systemImage: "plus.circle.fill") }
+                Button { addToGroceries() } label: { Label(groceryNote ?? "Add to grocery list", systemImage: groceryNote == nil ? "cart.badge.plus" : "checkmark.circle.fill") }
+                    .disabled(groceryNote != nil)
+            } footer: {
+                Text("Log it in Today's tracker, or put it on the family's shopping list.")
+            }
+
             Section("Who can eat this") {
                 ForEach(Array(results.enumerated()), id: \.element.id) { i, s in
                     DisclosureGroup {
@@ -158,6 +169,7 @@ struct ResultView: View {
         .softList()
         .sheet(isPresented: $showGradesInfo) { GradesInfoSheet() }
         .sheet(isPresented: $showAsk) { AskAIView(product: product) }
+        .sheet(isPresented: $showLog) { LogProductSheet(product: product) }
         .navigationTitle("Scan result")
         .navigationBarTitleDisplayMode(.inline)
         .task(id: product.barcode) { await loadAlternatives(for: results) }
@@ -201,6 +213,17 @@ struct ResultView: View {
         // so it only steps in when the category search found fewer than three.
         if let provider = ai.textProvider, provider == .apple || categoryCount < 3 {
             askForIdeas()
+        }
+    }
+
+    private func addToGroceries() {
+        let label = ((product.brand.map { "\($0) " } ?? "") + product.name)
+        Task {
+            switch await groceries.add(name: label, barcode: product.barcode.hasPrefix("photo-") ? nil : product.barcode) {
+            case .added: groceryNote = "Added to the grocery list"
+            case .duplicate: groceryNote = "Already on the grocery list"
+            case .failed: groceryNote = nil
+            }
         }
     }
 

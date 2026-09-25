@@ -5,7 +5,7 @@ import Foundation
 enum Demo {
     #if DEBUG
     static let isOn = CommandLine.arguments.contains("-demoMode")
-    static var startTab: String { CommandLine.arguments.drop { $0 != "-demoTab" }.dropFirst().first ?? "scan" }
+    static var startTab: String { CommandLine.arguments.drop { $0 != "-demoTab" }.dropFirst().first ?? "today" }
     static var opensProduct: Bool { CommandLine.arguments.contains("-demoProduct") }
     static var opensAsk: Bool { CommandLine.arguments.contains("-demoAsk") }
     static var opensMeals: Bool { CommandLine.arguments.contains("-demoMeals") }
@@ -25,9 +25,36 @@ enum Demo {
         MealSlot(name: "Dinner", dishes: [MealDish(name: "Grilled fish with sauteed greens", kcal: 380, ingredients: ["fish", "spinach", "olive oil"], why: "Lean protein, low in saturated fat.")]),
         MealSlot(name: "Snacks", dishes: [MealDish(name: "Roasted chana and an apple", kcal: 180, ingredients: ["chickpeas", "apple"], why: "Keeps you full between meals.")]),
     ], tips: ["Drink a glass of water before each meal.", "Swap sugary tea for unsweetened tea with cinnamon."], removedForAllergy: 1)
+    static var opensLogFood: Bool { CommandLine.arguments.contains("-demoLogFood") }
+    static var opensLogWorkout: Bool { CommandLine.arguments.contains("-demoLogWorkout") }
+    static var opensLogProduct: Bool { CommandLine.arguments.contains("-demoLogProduct") }
     static var opensPlan: Bool { CommandLine.arguments.contains("-demoPlan") }
     static var opensPlate: Bool { CommandLine.arguments.contains("-demoPlate") }
     static var plateResults: Bool { CommandLine.arguments.contains("-demoPlateResults") }
+
+    static var foodEntries: [FoodEntry] {
+        let now = Date(), cal = Calendar.current
+        func at(_ h: Int, _ m: Int = 0) -> Date { cal.date(bySettingHour: h, minute: m, second: 0, of: now) ?? now }
+        let a = members[0].id, k = members[1].id
+        return [
+            FoodEntry(memberId: a, eatenAt: at(8, 10), label: "Vegetable upma with curd", source: .ai, calories: 320, sugarG: 4, carbsG: 48, sodiumMg: 420, satFatG: 2, proteinG: 9),
+            FoodEntry(memberId: a, eatenAt: at(10, 45), label: "Apple and almonds", source: .manual, calories: 180, sugarG: 15, carbsG: 24, sodiumMg: 2, satFatG: 1, proteinG: 4),
+            FoodEntry(memberId: a, eatenAt: at(13, 15), label: "Dal, brown rice, cucumber salad", source: .plate, calories: 470, sugarG: 6, carbsG: 78, sodiumMg: 520, satFatG: 2, proteinG: 16),
+            FoodEntry(memberId: k, eatenAt: at(8, 30), label: "Oat porridge with banana", source: .manual, calories: 260, sugarG: 12, carbsG: 46, sodiumMg: 90, satFatG: 1, proteinG: 8),
+        ]
+    }
+
+    static var workouts: [Workout] {
+        let cal = Calendar.current
+        let morning = cal.date(bySettingHour: 6, minute: 45, second: 0, of: Date()) ?? Date()
+        return [Workout(memberId: members[0].id, doneAt: morning, kind: "walking", minutes: 40, intensity: .moderate, caloriesBurned: 165, note: "Morning walk")]
+    }
+
+    static let groceries: [GroceryItem] = [
+        GroceryItem(name: "Whole wheat atta", quantity: "5 kg"), GroceryItem(name: "Curd", quantity: "1 kg"),
+        GroceryItem(name: "Spinach", quantity: "2 bunches"), GroceryItem(name: "Lentils (toor dal)", quantity: "1 kg"),
+        GroceryItem(name: "Unsweetened almond milk"), GroceryItem(name: "Bananas", quantity: "6"),
+    ]
 
     static let plateItems: [PlateItem] = [
         PlateItem(name: "Basmati rice", grams: 180,
@@ -82,16 +109,22 @@ enum Demo {
     ]
     #else
     static let isOn = false
-    static let startTab = "scan"
+    static let startTab = "today"
     static let opensProduct = false
     static let opensPlate = false
     static let opensPlan = false
+    static let opensLogFood = false
+    static let opensLogWorkout = false
+    static let opensLogProduct = false
     static let opensAsk = false
     static let opensMeals = false
     static let askMessages: [(String, String)] = []
     static let mealIdeas = MealIdeas(slots: [], tips: [], removedForAllergy: 0)
     static let plateResults = false
     static let plateItems: [PlateItem] = []
+    static let foodEntries: [FoodEntry] = []
+    static let workouts: [Workout] = []
+    static let groceries: [GroceryItem] = []
     static let members: [Member] = []
     static let product: Product? = nil
     static let records: [ScanRecord] = []

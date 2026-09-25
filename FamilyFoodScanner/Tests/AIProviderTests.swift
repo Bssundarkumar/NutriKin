@@ -70,3 +70,10 @@ final class AIProviderTests: XCTestCase {
         XCTAssertTrue(compact.contains("Never say a food is safe for an allergy"))
     }
 }
+
+final class StartTabTests: XCTestCase {
+    func testTheAppOpensOnToday() {
+        // Real launches (no demo arguments) must land on the Today dashboard.
+        XCTAssertEqual(Demo.startTab, "today")
+    }
+}

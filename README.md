@@ -58,6 +58,10 @@ SwiftUI, iOS 17+, backed by Supabase for shared family data.
   fixed, human-written reply and never reach the AI; product, label and family text is passed as data, not
   instructions; replies have links and dosing advice removed, allergen mentions flagged and length capped; AI meal
   plans are re-checked against allergies; and model-written fields are sanitised. All of it is unit tested.
+- **Today** dashboard: log food (from a scan, a plate photo, a typed or AI-estimated description) and workouts per
+  person, with calories left (half of exercise calories is added back) and daily sugar, sodium and saturated-fat limits.
+- **Groceries**: one shared list for the family; buying an item removes it for everyone, with undo. Items can be added
+  from a scan result or a meal plan.
 - **History** of past scans, one entry per product, with each member's verdict at the time.
 - **Apple Health** read access for the device owner (weight, glucose, blood
   pressure, calories).
@@ -107,6 +111,7 @@ Xcode project are called NutriKin.)
       (`https://<project>.supabase.co/auth/v1/callback`) as the authorized redirect, enable
       Google in Supabase with that client ID and secret, and add `nutrikin://login-callback`
       under URL Configuration, Redirect URLs. Keep the client secret out of the repo.
+   4b. Run `migration_007_tracking_workouts_groceries.sql` (Today, Workouts and Groceries in 1.1).
    5. Install a build that has sign-in, **then** run `migration_005_auth.sql`.
       It locks the data down, so an older build stops working once it runs.
    6. Optional: `claim_existing_household.sql` re-attaches a family created

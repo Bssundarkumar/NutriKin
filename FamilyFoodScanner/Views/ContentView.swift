@@ -5,9 +5,11 @@ struct ContentView: View {
     @Environment(FamilyStore.self) private var family
     @Environment(HistoryStore.self) private var history
     @Environment(AIConnection.self) private var ai
-    @State private var tab: Tab = Demo.startTab == "history" ? .history : Demo.startTab == "family" ? .family : .scan
+    @Environment(TrackingStore.self) private var tracking
+    @Environment(GroceryStore.self) private var groceries
+    @State private var tab: Tab = Tab(rawValue: Demo.startTab) ?? .today
 
-    private enum Tab: Hashable { case scan, history, family }
+    private enum Tab: String, Hashable { case today, scan, groceries, history, family }
 
     var body: some View {
         Group {
@@ -25,9 +27,15 @@ struct ContentView: View {
                 case .loaded:
                     if family.hasHousehold {
                         TabView(selection: $tab) {
+                            TodayView(onScan: { tab = .scan })
+                                .tabItem { Label("Today", systemImage: "chart.pie.fill") }
+                                .tag(Tab.today)
                             ScanView(isActive: tab == .scan)
                                 .tabItem { Label("Scan", systemImage: "barcode.viewfinder") }
                                 .tag(Tab.scan)
+                            GroceriesView()
+                                .tabItem { Label("Groceries", systemImage: "cart.fill") }
+                                .tag(Tab.groceries)
                             HistoryView()
                                 .tabItem { Label("History", systemImage: "clock.arrow.circlepath") }
                                 .tag(Tab.history)
@@ -45,9 +53,10 @@ struct ContentView: View {
         .tint(Theme.brand)
         .animation(.smooth(duration: 0.3), value: auth.state)
         .animation(.smooth(duration: 0.3), value: family.phase)
+        .task(id: family.householdId) { tracking.setHousehold(family.householdId); groceries.setHousehold(family.householdId) }
         // Whatever the route (sign out, deleted account, revoked session), the linked AI key goes too.
         .onChange(of: auth.state) { old, new in
-            if case .signedIn = old, case .signedOut = new { ai.disconnect(); history.wipeLocal() }
+            if case .signedIn = old, case .signedOut = new { ai.disconnect(); history.wipeLocal(); tracking.reset(); groceries.reset() }
         }
         // Runs on launch and again whenever the signed-in account changes.
         .task(id: auth.state) {

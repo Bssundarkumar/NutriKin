@@ -67,18 +67,13 @@ struct MemberImpact: Identifiable {
 
 enum PlateMath {
     static func impact(of totals: MealTotals, allergens: Set<Allergen>, for member: Member) -> MemberImpact {
-        let sugarLimit = member.goals.dailySugarGrams ?? ScoringEngine.defaultSugarLimitG(for: member.sex)
-        let satFatLimit = member.goals.dailySatFatGrams ?? ScoringEngine.defaultSatFatLimitG(for: member.sex)
-        let calorieGoal = member.goals.dailyCalories ?? ScoringEngine.defaultCalorieGoal(for: member.sex)
-        // 1500 mg is the stricter limit for high blood pressure; 2300 mg is the general adult limit.
-        let sodiumLimit = member.goals.dailySodiumMg
-            ?? (member.has(.hypertension) ? ScoringEngine.defaultSodiumLimitMg : 2300)
+        let limits = DailyLimits.for(member)
         return MemberImpact(
             member: member,
-            caloriePct: totals.calories / calorieGoal,
-            sugarPct: totals.sugarG / sugarLimit,
-            sodiumPct: totals.sodiumMg / sodiumLimit,
-            satFatPct: totals.satFatG / satFatLimit,
+            caloriePct: totals.calories / limits.calories,
+            sugarPct: totals.sugarG / limits.sugarG,
+            sodiumPct: totals.sodiumMg / limits.sodiumMg,
+            satFatPct: totals.satFatG / limits.satFatG,
             allergyHits: member.allergies.filter(allergens.contains)
         )
     }

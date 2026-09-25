@@ -60,6 +60,35 @@ struct PlateService {
         return try PlateParser.parse(try await AppleAI.plateJSON(system: system, foods: foods))
     }
 
+    /// Estimates from a typed description ("2 rotis and a bowl of dal") with whichever AI the person has.
+    /// The description is screened first, and the estimate is always shown for the person to confirm.
+    static func estimateFromDescription(_ text: String, provider: AIProvider, client: LLM?) async throws -> PlateAnalysis {
+        let foods: String
+        switch AIGuardrails.screen(text) {
+        case .allow(let clean): foods = clean
+        case .notice(_, let reply): throw AIFailure(message: reply)
+        }
+        if provider == .apple {
+            do { return try await estimateOnDevice(foods: foods, plateDiameterCm: nil) }
+            catch { guard client != nil else { throw error } }      // fall back to the person's own key
+        }
+        guard let client else { throw AnthropicClient.ClientError.invalidKey }
+        let system = """
+        \(AIGuardrails.taskRules)
+
+        You estimate the nutrition of a meal or snack a person describes, for a family health app. Work out a realistic weight \
+        in grams for each food as eaten (a normal single serving if no amount is given) and typical nutrition per 100 g. \
+        Mark confidence "low" when unsure. Never invent foods that were not described. List possible allergens only from: \
+        peanuts, nuts, milk, gluten, eggs, soybeans, fish, crustaceans, sesame.
+
+        Reply with JSON only, in exactly this shape:
+        {"items":[{"name":"Roti","grams":80,"per_100g":{"calories":260,"sugar_g":1,"carbs_g":50,"sodium_mg":300,"sat_fat_g":1,"protein_g":9},"confidence":"medium","allergens":["gluten"]}],"note":"one short sentence about the biggest uncertainty"}
+        """
+        let reply = try await client.send(system: system,
+                                          content: [["type": "text", "text": AIGuardrails.untrusted(foods, tag: "foods")]], maxTokens: 900)
+        return try PlateParser.parse(reply)
+    }
+
     /// Keeps uploads small: at most 1280 px on the long side.
     static func downscaledJPEG(_ image: UIImage, maxSide: CGFloat = 1280, quality: CGFloat = 0.75) -> Data? {
         let longest = max(image.size.width, image.size.height)
