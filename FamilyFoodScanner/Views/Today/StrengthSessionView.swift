@@ -5,6 +5,8 @@ import SwiftUI
 struct StrengthSessionView: View {
     let member: Member
     var editing: Workout? = nil
+    /// Exercises to start from, for example copied from a buddy's workout.
+    var prefill: [StrengthExercise]? = nil
     /// Called after a new session is saved, so the caller can show the cheer.
     var onSaved: ((Workout) -> Void)? = nil
     @Environment(TrackingStore.self) private var tracking
@@ -61,6 +63,7 @@ struct StrengthSessionView: View {
                 guard !prefilled else { return }
                 prefilled = true
                 if let e = editing { exercises = e.exercises ?? []; intensity = e.intensity; note = e.note ?? "" }
+                else if let prefill { exercises = prefill }
                 else if let sample = Demo.strengthSample { exercises = sample }
             }
         }

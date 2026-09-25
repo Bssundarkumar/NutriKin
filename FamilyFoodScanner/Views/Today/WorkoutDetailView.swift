@@ -4,6 +4,8 @@ import SwiftUI
 struct WorkoutDetailView: View {
     let workout: Workout
     let onEdit: () -> Void
+    /// A buddy's workout: shown, never edited.
+    var readOnly = false
     @Environment(\.dismiss) private var dismiss
     @AppStorage("strengthUsesPounds") private var pounds = false
 
@@ -39,7 +41,7 @@ struct WorkoutDetailView: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) { Button("Done") { dismiss() } }
-                if workout.source != "health" {
+                if workout.source != "health" && !readOnly {
                     ToolbarItem(placement: .confirmationAction) { Button("Edit") { dismiss(); onEdit() } }
                 }
             }

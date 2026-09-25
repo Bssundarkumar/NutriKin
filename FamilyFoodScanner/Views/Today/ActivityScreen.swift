@@ -13,6 +13,7 @@ struct ActivityScreen: View {
     @State private var editingWorkout: Workout?
     @State private var viewingWorkout: Workout?
     @State private var showSchedule = false
+    @State private var showBuddies = false
 
     var body: some View {
         NavigationStack {
@@ -53,7 +54,13 @@ struct ActivityScreen: View {
             .background(AppBackground())
             .navigationTitle("Activity")
             .navigationBarTitleDisplayMode(.inline)
-            .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Done") { dismiss() } } }
+            .toolbar {
+                ToolbarItem(placement: .confirmationAction) { Button("Done") { dismiss() } }
+                if !TodayLayout.isChild(member) && member.id == family.myMember?.id {
+                    ToolbarItem(placement: .cancellationAction) { Button { showBuddies = true } label: { Label("Gym buddies", systemImage: "person.2.fill") } }
+                }
+            }
+            .sheet(isPresented: $showBuddies) { BuddiesView() }
             .sheet(isPresented: $showWorkout) { LogWorkoutSheet(member: member) }
             .sheet(isPresented: $showSchedule) { ScheduleView(member: member) }
             .sheet(item: $viewingWorkout) { w in WorkoutDetailView(workout: w) { editingWorkout = w } }

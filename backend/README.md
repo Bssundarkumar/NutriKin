@@ -17,5 +17,6 @@ Run in the Supabase SQL Editor, in this order. Each file is safe to run again.
 | 14 | `migration_014_workout_templates.sql` | strength templates |
 | 15 | `migration_015_body_measurements.sql` | height and weight history |
 | 16 | `migration_016_activity_schedules.sql` | weekly activity schedule |
+| 17 | `migration_017_gym_buddies.sql` | gym buddy groups across families |
 
 `claim_existing_household.sql` is a one-off helper for families created before sign-in existed.
