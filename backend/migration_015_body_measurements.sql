@@ -19,6 +19,10 @@ create table if not exists body_measurements (
 create index if not exists body_measurements_member_idx on body_measurements (member_id, measured_on desc);
 
 alter table body_measurements enable row level security;
+drop policy if exists "measurements: read" on body_measurements;
+drop policy if exists "measurements: add" on body_measurements;
+drop policy if exists "measurements: edit" on body_measurements;
+drop policy if exists "measurements: remove" on body_measurements;
 create policy "measurements: read" on body_measurements
   for select to authenticated using (is_household_member(household_id));
 create policy "measurements: add" on body_measurements

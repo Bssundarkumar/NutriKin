@@ -17,6 +17,10 @@ create table if not exists workout_templates (
 create index if not exists workout_templates_member_idx on workout_templates (household_id, member_id);
 
 alter table workout_templates enable row level security;
+drop policy if exists "templates: read" on workout_templates;
+drop policy if exists "templates: add" on workout_templates;
+drop policy if exists "templates: edit" on workout_templates;
+drop policy if exists "templates: remove" on workout_templates;
 create policy "templates: read" on workout_templates
   for select to authenticated using (is_household_member(household_id));
 create policy "templates: add" on workout_templates
