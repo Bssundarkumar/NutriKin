@@ -34,6 +34,14 @@ enum MealSafety {
     }
 }
 
+extension MealSafety {
+    /// Names of pregnancy risks (raw fish, alcohol and so on) that this dish mentions, for a pregnant person.
+    static func pregnancyHits(name: String, ingredients: [String], for member: Member) -> [String] {
+        guard member.isPregnant else { return [] }
+        return PregnancyGuidance.matches(text: ([name] + ingredients).joined(separator: " , ")).map(\.title)
+    }
+}
+
 enum MealIdeasService {
     static func systemPrompt(member: Member, plan: NutritionPlan?, targetKcal: Int, preferences: String, expectJSON: Bool = true) -> String {
         var limits = ""
@@ -44,6 +52,7 @@ enum MealIdeasService {
             """
         }
         let prefs = preferences.trimmingCharacters(in: .whitespacesAndNewlines)
+        let pregnancy = member.isPregnant ? "\n        - The person is pregnant: never suggest alcohol, raw or undercooked meat, fish, shellfish or eggs, unpasteurised dairy, liver or pate, high-mercury fish (shark, swordfish, king mackerel, marlin), or more than a little caffeine. Everything must be well cooked." : ""
         return """
         \(AIGuardrails.taskRules)
 
@@ -59,7 +68,7 @@ enum MealIdeasService {
         Rules:
         - Everyday dishes with ordinary ingredients, with 1 to 3 dishes per meal.
         - NEVER include an ingredient the person is allergic to, including hidden forms (for example milk in butter or ghee, nuts in sauces).
-        - Respect their conditions (lower sugar for diabetes, lower sodium for high blood pressure, less saturated fat for high cholesterol).
+        - Respect their conditions (lower sugar for diabetes, lower sodium for high blood pressure, less saturated fat for high cholesterol).\(pregnancy)
         - kcal is per dish as served. Be honest and approximate.
 
         \(expectJSON ? """
@@ -125,7 +134,8 @@ enum MealIdeasParser {
                 let dishName = (d.name ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
                 guard !dishName.isEmpty, let kcal = d.kcal, kcal >= 0 else { continue }
                 let ingredients = Array((d.ingredients ?? []).map { $0.trimmingCharacters(in: .whitespaces) }.filter { !$0.isEmpty }.prefix(12))
-                if !MealSafety.allergenHits(name: dishName, ingredients: ingredients, for: member).isEmpty {
+                if !MealSafety.allergenHits(name: dishName, ingredients: ingredients, for: member).isEmpty
+                    || !MealSafety.pregnancyHits(name: dishName, ingredients: ingredients, for: member).isEmpty {
                     removed += 1
                     continue
                 }

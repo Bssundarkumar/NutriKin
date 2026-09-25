@@ -94,6 +94,8 @@ enum NutritionPlanner {
         /// Names of the details still missing or out of range.
         case needsInfo([String])
         case notForChildren
+        /// Needs change through pregnancy, so no weight or calorie target is suggested.
+        case notDuringPregnancy
     }
 
     /// The BMI the target weight is worked out from: the middle of the healthy range.
@@ -105,6 +107,7 @@ enum NutritionPlanner {
     }
 
     static func plan(for member: Member, activity: ActivityLevel) -> Result {
+        if member.isPregnant { return .notDuringPregnancy }
         var missing: [String] = []
         if member.age == nil { missing.append("age") }
         if member.heightCm == nil { missing.append("height") }

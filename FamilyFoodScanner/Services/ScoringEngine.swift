@@ -119,6 +119,16 @@ struct ScoringEngine {
             cap = min(cap, 69)
             warnings.append("No \(missing.joined(separator: ", ")) figure on this product, so it can't be fully checked for \(member.name).")
         }
+        if member.isPregnant {
+            for rule in PregnancyGuidance.matches(in: product) {
+                cap = min(cap, Double(rule.cap))
+                warnings.append("\(rule.title): \(rule.reason)")
+            }
+            if !product.hasIngredientInfo {
+                cap = min(cap, 65)
+                warnings.append("No ingredient list is available, so \(member.name)'s pregnancy can't be fully checked. Look at the package.")
+            }
+        }
         score = min(score, cap)
         reasons.insert(contentsOf: warnings, at: 0)
 

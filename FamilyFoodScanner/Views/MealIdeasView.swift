@@ -91,7 +91,7 @@ struct MealIdeasView: View {
         }
         if ideas.removedForAllergy > 0 {
             Section {
-                Label("Removed \(ideas.removedForAllergy) idea\(ideas.removedForAllergy == 1 ? "" : "s") that may contain \(member.name)'s allergen.",
+                Label("Removed \(ideas.removedForAllergy) idea\(ideas.removedForAllergy == 1 ? "" : "s") that may not suit \(member.name) (an allergen or a pregnancy risk).",
                       systemImage: "shield.lefthalf.filled")
                     .font(.footnote).foregroundStyle(.orange)
             }

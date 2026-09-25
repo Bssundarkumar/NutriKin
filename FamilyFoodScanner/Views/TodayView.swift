@@ -16,7 +16,10 @@ struct TodayView: View {
     @State private var showAsk = false
     @State private var showMeds = Demo.opensMeds
 
-    private var member: Member? { family.members.first { $0.id.uuidString == selectedID } ?? family.members.first }
+    private var member: Member? {
+        if Demo.isOn, let i = Demo.memberIndex, family.members.indices.contains(i) { return family.members[i] }
+        return family.members.first { $0.id.uuidString == selectedID } ?? family.members.first
+    }
 
     var body: some View {
         NavigationStack {
@@ -32,13 +35,14 @@ struct TodayView: View {
                         MemberStrip(members: family.members, selectedID: member.id) { selectedID = $0.id.uuidString }
                         let usesHealth = Demo.isOn ? member.id == Demo.members.first?.id : healthMemberID == member.id.uuidString
                         let budget = tracking.budget(for: member, healthActiveKcal: usesHealth ? health.activity.activeKcal : nil)
-                        hero(member, budget)
-                        quickActions
-                        MedicationsCard(member: member) { showMeds = true }.id("meds")
-                        nutrients(budget)
-                        foodSection(member)
-                        HealthActivityCard(member: member).id("health")
-                        workoutSection(member)
+                        let doses = medications.doses(for: member)
+                        let order = TodayLayout.cards(
+                            for: member,
+                            hasMedications: !medications.medications(for: member).isEmpty,
+                            needsAttention: tracking.isToday && doses.contains { $0.state == .due || $0.state == .missed })
+                        ForEach(order, id: \.self) { card in
+                            cardView(card, member: member, budget: budget)
+                        }
                         if let message = tracking.errorMessage {
                             Text(message).font(.footnote).foregroundStyle(.red).frame(maxWidth: .infinity, alignment: .leading)
                         }
@@ -63,6 +67,18 @@ struct TodayView: View {
             .onReceive(NotificationCenter.default.publisher(for: .nutrikinDoseAction)) { _ in
                 Task { await medications.drainPendingActions() }
             }
+        }
+    }
+
+    @ViewBuilder
+    private func cardView(_ card: TodayCard, member: Member, budget: DayBudget) -> some View {
+        switch card {
+        case .hero: hero(member, budget)
+        case .quickActions: quickActions
+        case .medications: MedicationsCard(member: member) { showMeds = true }.id("meds")
+        case .limits: nutrients(budget)
+        case .eaten: foodSection(member)
+        case .workouts: workoutSection(member)
         }
     }
 
@@ -175,7 +191,7 @@ struct TodayView: View {
                 VStack(spacing: 0) {
                     ForEach(list) { e in
                         row(symbol: symbol(for: e.source), title: e.label, subtitle: e.eatenAt.formatted(date: .omitted, time: .shortened),
-                            trailing: "\(Int(e.calories.rounded())) kcal", tint: Theme.brand) {
+                            trailing: TodayLayout.showsCalorieSummary(for: member) ? "\(Int(e.calories.rounded())) kcal" : "", tint: Theme.brand) {
                             Task { await tracking.delete(e) }
                         }
                         if e.id != list.last?.id { Divider().padding(.leading, 48) }
@@ -186,17 +202,26 @@ struct TodayView: View {
         .card()
     }
 
+    /// One card for everything about activity: Health's steps and calories, workouts waiting to be added from
+    /// Health, and the workouts already logged.
     private func workoutSection(_ member: Member) -> some View {
         let list = tracking.workouts(for: member)
-        return VStack(alignment: .leading, spacing: 10) {
-            SectionTitle(title: "Workouts", actionTitle: "Add") { showWorkout = true }
+        let showsHealth = HealthActivityCard.isVisible(for: member, linkedID: healthMemberID, health: health)
+        return VStack(alignment: .leading, spacing: 12) {
+            SectionTitle(title: TodayLayout.isChild(member) ? "Active play" : "Workouts", actionTitle: "Add") { showWorkout = true }
+            HealthActivityCard(member: member)
             if list.isEmpty {
-                EmptyState(symbol: "figure.run", title: "No workout yet", message: "Log a walk, a run or any activity to add to today's allowance.")
+                if !showsHealth {
+                    EmptyState(symbol: "figure.run", title: "No workout yet", message: "Log a walk, a run or any activity to add to today's allowance.")
+                } else {
+                    Text("No workouts logged for this day yet.").font(.footnote).foregroundStyle(.secondary)
+                }
             } else {
+                if showsHealth { Divider() }
                 VStack(spacing: 0) {
                     ForEach(list) { w in
                         row(symbol: w.workoutKind.symbol, title: w.workoutKind.title,
-                            subtitle: "\(w.minutes) min \u{00B7} \(w.intensity.title)" + (w.note.map { " \u{00B7} \($0)" } ?? ""),
+                            subtitle: "\(w.minutes) min \u{00B7} \(w.intensity.title)" + (w.source == "health" ? " \u{00B7} Health" : "") + (w.note.map { " \u{00B7} \($0)" } ?? ""),
                             trailing: "\(w.caloriesBurned) kcal", tint: .orange) {
                             Task { await tracking.delete(w) }
                         }
@@ -206,6 +231,7 @@ struct TodayView: View {
             }
         }
         .card()
+        .id("health")
     }
 
     private func symbol(for source: FoodSource) -> String {

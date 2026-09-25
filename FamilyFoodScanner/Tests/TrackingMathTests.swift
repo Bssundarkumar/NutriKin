@@ -257,3 +257,57 @@ final class HealthImportTests: XCTestCase {
         XCTAssertEqual(new.externalId, "ABC"); XCTAssertEqual(new.source, "health")
     }
 }
+
+final class BurnItOffTests: XCTestCase {
+    func testStepsScaleWithCaloriesAndBodyWeight() {
+        XCTAssertEqual(BurnItOff.equivalents(kcal: 450, weightKg: 70).steps, 10_000)
+        XCTAssertEqual(BurnItOff.equivalents(kcal: 0, weightKg: 70).steps, 0)
+        XCTAssertLessThan(BurnItOff.equivalents(kcal: 450, weightKg: 100).steps, BurnItOff.equivalents(kcal: 450, weightKg: 50).steps)
+        XCTAssertEqual(BurnItOff.equivalents(kcal: 450, weightKg: nil).steps, 10_000)         // 70 kg assumed
+        XCTAssertEqual(BurnItOff.equivalents(kcal: 450, weightKg: 9999).steps, BurnItOff.equivalents(kcal: 450, weightKg: 250).steps)
+    }
+
+    func testMinutesUseMETsSoRunningIsFasterThanWalking() {
+        let e = BurnItOff.equivalents(kcal: 490, weightKg: 70)      // brisk walk 3.5 METs: 245 kcal an hour
+        XCTAssertEqual(e.walkMinutes, 120)
+        XCTAssertLessThan(e.runMinutes, e.walkMinutes)
+        XCTAssertLessThan(e.danceMinutes, e.walkMinutes)
+    }
+
+    func testOnlyAdultsWhoAreNotUnderweightSeeIt() {
+        XCTAssertTrue(BurnItOff.isSuitable(Member(name: "A", conditions: [], age: 40, heightCm: 170, weightKg: 70)))
+        XCTAssertTrue(BurnItOff.isSuitable(Member(name: "B", conditions: [])))                       // grown-up, nothing entered
+        XCTAssertFalse(BurnItOff.isSuitable(Member(name: "Kid", conditions: [], age: 9)))
+        XCTAssertFalse(BurnItOff.isSuitable(Member(name: "Teen", conditions: [], age: 17)))
+        XCTAssertFalse(BurnItOff.isSuitable(Member(name: "Managed", conditions: [], isManagedByParent: true)))
+        XCTAssertFalse(BurnItOff.isSuitable(Member(name: "Slim", conditions: [], age: 30, heightCm: 180, weightKg: 55)))   // BMI 17
+    }
+
+    func testTheLineFitsTheFoodAndTheSizeOfThePlate() {
+        let e = BurnItOff.Equivalent(steps: 12_800, walkMinutes: 90, runMinutes: 30, danceMinutes: 60)
+        XCTAssertTrue(BurnItOff.message(kcal: 700, foods: ["Chicken biryani"], equivalent: e).lowercased().contains("biryani"))
+        XCTAssertTrue(BurnItOff.message(kcal: 700, foods: ["Chicken biryani"], equivalent: e).contains("12,800"))
+        let tiny = BurnItOff.message(kcal: 80, foods: ["Grapes"], equivalent: .init(steps: 1_800, walkMinutes: 9, runMinutes: 3, danceMinutes: 6), seed: 0)
+        XCTAssertTrue(tiny.contains("1,800"))
+        XCTAssertFalse(tiny.contains("{"))                     // every placeholder is filled in
+    }
+
+    func testTheSamePlateGivesTheSameLineUntilAskedForAnother() {
+        let e = BurnItOff.equivalents(kcal: 500, weightKg: 70)
+        XCTAssertEqual(BurnItOff.message(kcal: 500, foods: ["Rice"], equivalent: e, seed: 3), BurnItOff.message(kcal: 500, foods: ["Rice"], equivalent: e, seed: 3))
+        XCTAssertNotEqual(BurnItOff.message(kcal: 500, foods: ["Rice"], equivalent: e, seed: 0), BurnItOff.message(kcal: 500, foods: ["Rice"], equivalent: e, seed: 1))
+    }
+
+    func testNoLineEverShamesGuiltTripsOrTalksAboutEarningFood() {
+        let banned = ["fat", "guilt", "sin", "punish", "earn", "deserve", "cheat", "ashamed", "shame", "burn off", "skip a meal",
+                      "skip meals", "starve", "gain weight", "lose weight", "diet", "greedy", "pig"]
+        for line in BurnItOff.allLines {
+            let lower = line.lowercased()
+            for word in banned {
+                let pattern = "\\b" + NSRegularExpression.escapedPattern(for: word) + "\\b"
+                XCTAssertNil(lower.range(of: pattern, options: .regularExpression), "\"\(line)\" contains \"\(word)\"")
+            }
+        }
+        XCTAssertGreaterThan(BurnItOff.allLines.count, 20)
+    }
+}

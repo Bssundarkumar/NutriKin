@@ -22,6 +22,7 @@ struct MemberEditView: View {
     @State private var hasDiabetes: Bool
     @State private var hasHypertension: Bool
     @State private var hasHighCholesterol: Bool
+    @State private var isPregnant: Bool
     @State private var customConditions: [String]
     @State private var newCustomCondition = ""
 
@@ -48,6 +49,7 @@ struct MemberEditView: View {
         _hasDiabetes = State(initialValue: existing?.has(.diabetes) ?? false)
         _hasHypertension = State(initialValue: existing?.has(.hypertension) ?? false)
         _hasHighCholesterol = State(initialValue: existing?.has(.highCholesterol) ?? false)
+        _isPregnant = State(initialValue: existing?.isPregnant ?? false)
         _customConditions = State(initialValue: existing?.customConditionNames ?? [])
 
         _allergies = State(initialValue: Set(existing?.allergies ?? []))
@@ -87,6 +89,13 @@ struct MemberEditView: View {
                     Toggle("Diabetes", isOn: $hasDiabetes)
                     Toggle("High blood pressure", isOn: $hasHypertension)
                     Toggle("High cholesterol", isOn: $hasHighCholesterol)
+                    if sex != .male {
+                        Toggle("Pregnant", isOn: $isPregnant)
+                        if isPregnant {
+                            Text("NutriKin will flag foods commonly advised against in pregnancy, such as alcohol, raw fish or eggs, unpasteurised dairy and liver, and won't suggest weight plans. It's general guidance, not medical advice: ask your midwife or doctor.")
+                                .font(.footnote).foregroundStyle(.secondary)
+                        }
+                    }
 
                     ForEach(customConditions, id: \.self) { condition in
                         Text(condition)
@@ -206,6 +215,7 @@ struct MemberEditView: View {
         if hasDiabetes { conditions.append(.diabetes) }
         if hasHypertension { conditions.append(.hypertension) }
         if hasHighCholesterol { conditions.append(.highCholesterol) }
+        if isPregnant && sex != .male { conditions.append(.pregnancy) }
         conditions.append(contentsOf: allergies.map(Condition.allergy))
         conditions.append(contentsOf: customAllergies.map(Condition.customAllergy))
         conditions.append(contentsOf: customConditions.map(Condition.custom))

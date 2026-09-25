@@ -297,6 +297,14 @@ struct PlateScanView: View {
             }
             .listRowBackground(Color(.secondarySystemGroupedBackground))
 
+            if !items.isEmpty {
+                Section {
+                    BurnItOffCard(kcal: totals.calories, foods: items.map(\.name), members: family.members)
+                } footer: {
+                    Text("Just for fun: a playful idea, not advice. Enjoy your meal.")
+                }
+            }
+
             Section {
                 DisclosureGroup {
                     Stepper(value: $editedCm, in: 10...45) { Text("\(editedCm) cm across") }

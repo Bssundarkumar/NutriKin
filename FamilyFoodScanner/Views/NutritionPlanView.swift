@@ -28,6 +28,10 @@ struct NutritionPlanView: View {
                     "Plans are for adults",
                     "Children need growth charts, not adult BMI rules. Ask a pediatrician for a target, and use each scan's alerts in the meantime.",
                     symbol: "figure.and.child.holdinghands")
+                case .notDuringPregnancy: message(
+                    "No weight plan during pregnancy",
+                    "Your needs change through pregnancy, so NutriKin doesn't suggest a calorie or weight target. Please ask your midwife or doctor. Scans still flag foods commonly advised against.",
+                    symbol: "figure.and.child.holdinghands")
                 case .plan(let plan): planList(plan)
                 }
             }

@@ -59,6 +59,21 @@ enum Allergen: String, CaseIterable, Codable, Identifiable, Hashable {
     }
 }
 
+// MARK: - Pregnancy
+
+extension Condition {
+    static let pregnancyLabel = "Pregnancy"
+
+    /// Stored as a typed condition named "Pregnancy". That keeps older app versions on other family phones able
+    /// to read the family (they just show it as text); this version recognises it and changes its advice.
+    static var pregnancy: Condition { .custom(pregnancyLabel) }
+
+    var isPregnancy: Bool {
+        if case .custom(let name) = self { return name.lowercased().hasPrefix("pregnan") }
+        return false
+    }
+}
+
 // MARK: - Member
 
 enum Condition: Hashable, Codable, Identifiable {
@@ -132,10 +147,14 @@ struct Member: Identifiable, Codable, Hashable {
     }
 
     var customConditionNames: [String] {
-        conditions.compactMap { if case .custom(let name) = $0 { name } else { nil } }
+        conditions.compactMap { if case .custom(let name) = $0, !$0.isPregnancy { name } else { nil } }
     }
 
-    func has(_ condition: Condition) -> Bool { conditions.contains(condition) }
+    var isPregnant: Bool { conditions.contains { $0.isPregnancy } }
+
+    func has(_ condition: Condition) -> Bool {
+        condition.isPregnancy ? isPregnant : conditions.contains(condition)
+    }
 }
 
 // MARK: - Product

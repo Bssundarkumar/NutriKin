@@ -36,6 +36,9 @@ Target: 2 to 3 weeks after 1.0 is approved. Version 1.1.0, first build 14.
 | 19 | **Medications, step 1**: per-person medicine list, reminders on this iPhone (with Taken and Skip buttons), a dose log shared with the family, and a Medications card on Today | **Built on `release-1.2`**, needs migration 009 and a real-phone test of notifications |
 | 20 | **Medications, step 2**: alert a chosen family member when a dose isn't marked in time (server job plus push notifications) | open; needs an Apple push key and a scheduled Supabase function |
 | 21 | **Apple Health activity**: steps, active calories and workouts read (never written) for the phone's owner, one-tap workout import without duplicates, and the calorie allowance uses the larger of Health's active calories and logged workouts | **Built on `release-1.2`**, needs migration 010 and a real-phone test with an Apple Watch |
+| 22 | **Pregnancy** as a tracked condition (stored so older versions still read it): alcohol, raw or undercooked foods, unpasteurised dairy, liver and high-mercury fish flagged and capped in scores, caffeine noted; no weight plan; risky meal ideas removed | **Built on `release-1.2`** |
+| 23 | **Today adapts to age**: children get no calorie ring or adult limits, older adults see medications first, and a due or unmarked dose moves medications to the top for anyone | **Built on `release-1.2`** |
+| 24 | **Walk-it-off** idea on plate results (steps, walking and dance equivalents in a light tone; adults only, off for pregnancy and underweight) | **Built on `release-1.2`** |
 | 15 | **Workouts** (log activity, MET-based calorie estimate, half added back to the day's allowance) | **Built on `release-1.1`** |
 | 16 | **Shared grocery list** with buy-to-remove and undo, plus add-from-scan and add-from-meal-plan | **Built on `release-1.1`** |
 | 17 | App **redesign**: Today as the home screen, five tabs, shared design components, dark mode checked | **Built on `release-1.1`** |

@@ -30,6 +30,8 @@ enum Demo {
     static var opensLogProduct: Bool { CommandLine.arguments.contains("-demoLogProduct") }
     /// Which card the debug screenshots should scroll to ("meds" or "health").
     static var scrollTarget: String? { CommandLine.arguments.drop { $0 != "-demoScroll" }.dropFirst().first }
+    /// Which sample family member Today starts on (-demoMember 1 is Arjun, age 8).
+    static var memberIndex: Int? { CommandLine.arguments.drop { $0 != "-demoMember" }.dropFirst().first.flatMap(Int.init) }
     static var opensMeds: Bool { CommandLine.arguments.contains("-demoMeds") }
     static var opensMedEdit: Bool { CommandLine.arguments.contains("-demoMedEdit") }
     static var opensPlan: Bool { CommandLine.arguments.contains("-demoPlan") }
@@ -143,6 +145,7 @@ enum Demo {
     static let opensPlate = false
     static let opensPlan = false
     static let opensMeds = false
+    static let memberIndex: Int? = nil
     static let scrollTarget: String? = nil
     static let opensMedEdit = false
     static let medications: [Medication] = []

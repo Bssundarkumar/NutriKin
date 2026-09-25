@@ -14,22 +14,28 @@ struct HealthActivityCard: View {
     private var isLinkedHere: Bool { Demo.isOn ? member.id == Demo.members.first?.id : linkedID == member.id.uuidString }
     private var someoneElseLinked: Bool { !Demo.isOn && !linkedID.isEmpty && linkedID != member.id.uuidString }
 
+    /// False when Health isn't available, or another family member has claimed this phone's Health data.
+    static func isVisible(for member: Member, linkedID: String, health: HealthKitManager) -> Bool {
+        health.isAvailable && !TodayLayout.isChild(member) && (Demo.isOn || linkedID.isEmpty || linkedID == member.id.uuidString)
+    }
+
+    /// The Health part of the Workouts card: a link or connect prompt at first, then the day's steps, active
+    /// calories and workouts found in Health. It has no card of its own.
     var body: some View {
-        if health.isAvailable && !someoneElseLinked {
+        if health.isAvailable && !someoneElseLinked && !TodayLayout.isChild(member) {
             VStack(alignment: .leading, spacing: 12) {
-                SectionTitle(title: "Apple Health")
                 if !isLinkedHere { linkPrompt }
                 else if !health.hasRequestedAccess { connectPrompt }
                 else { activity }
                 if let message { Text(message).font(.footnote).foregroundStyle(.red) }
             }
-            .card()
             .task(id: tracking.day) { await health.checkAccessStatus(); if isLinkedHere { await health.loadActivity(day: tracking.day) } }
         }
     }
 
     private var linkPrompt: some View {
         VStack(alignment: .leading, spacing: 10) {
+            Label("Apple Health", systemImage: "heart.text.square.fill").font(.subheadline.weight(.semibold))
             Text("Bring in steps, active calories and workouts from the Health app: from an Apple Watch, this iPhone, or any fitness app that saves to Health.")
                 .font(.subheadline).foregroundStyle(.secondary)
             Button {

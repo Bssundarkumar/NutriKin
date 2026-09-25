@@ -65,7 +65,7 @@ enum AIGuardrails {
     private static let emergency = ["anaphyla", "can't breathe", "cannot breathe", "trouble breathing", "difficulty breathing",
         "hard to breathe", "throat is closing", "throat closing", "swollen tongue", "swollen throat", "swelling of the face",
         "face is swelling", "epipen", "auto-injector", "auto injector", "chest pain", "having an allergic reaction",
-        "is having a reaction", "allergic reaction right now", "is choking", "am choking", "started choking", "unconscious", "overdose"]
+        "is having a reaction", "allergic reaction right now", "heavy bleeding", "bleeding heavily", "vaginal bleeding", "baby has stopped moving", "baby isn't moving", "baby is not moving", "no fetal movement", "waters have broken", "water has broken", "is choking", "am choking", "started choking", "unconscious", "overdose"]
     private static let crisis = ["kill myself", "suicid", "end my life", "want to die", "self harm", "self-harm", "hurt myself",
         "starve myself", "stop eating completely", "make myself throw up", "purge", "anorexi", "bulimi", "eating disorder"]
     private static let medical = ["insulin dose", "dose of insulin", "how much insulin", "units of insulin", "how many units",

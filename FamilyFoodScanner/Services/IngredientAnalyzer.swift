@@ -96,7 +96,7 @@ struct IngredientAnalyzer {
     ]
 
     private let watchlist: [IngredientFlag]
-    init(watchlist: [IngredientFlag] = IngredientAnalyzer.watchlist) { self.watchlist = watchlist }
+    init(watchlist: [IngredientFlag] = IngredientAnalyzer.watchlist + PregnancyGuidance.flags) { self.watchlist = watchlist }
 
     /// Alerts for this product, most serious first. Condition-specific flags
     /// are dropped when nobody in the family has that condition.
@@ -179,7 +179,7 @@ struct IngredientAnalyzer {
     private static let regexLock = NSLock()
     private nonisolated(unsafe) static var regexes: [String: NSRegularExpression] = [:]
 
-    private static func regex(for term: String) -> NSRegularExpression? {
+    static func regex(for term: String) -> NSRegularExpression? {
         regexLock.lock(); defer { regexLock.unlock() }
         if let cached = regexes[term] { return cached }
         let pattern = "(?<![a-z])" + NSRegularExpression.escapedPattern(for: term) + "(?![a-z])"
