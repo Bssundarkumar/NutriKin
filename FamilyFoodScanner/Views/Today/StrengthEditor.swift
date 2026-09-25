@@ -11,6 +11,8 @@ struct StrengthEditor: View {
     @State private var group: ExerciseLibrary.Group? = Demo.strengthSample == nil ? nil : ExerciseLibrary.groups.first { $0.name == "Legs" }
     @AppStorage("strengthUsesPounds") private var pounds = false
     @State private var newName = ""
+    @State private var applied: WorkoutTemplate?
+    @State private var pendingTemplate: WorkoutTemplate?
 
     var body: some View {
         Section {
@@ -26,7 +28,9 @@ struct StrengthEditor: View {
             Menu {
                 if mine.isEmpty { Text("No templates yet") }
                 ForEach(mine) { t in
-                    Button("\(t.name) (\(t.exercises.count) exercises)") { exercises = t.exercises.map { StrengthExercise(name: $0.name, sets: $0.sets) } }
+                    Button("\(t.name) (\(t.exercises.count) exercises)") {
+                        if exercises.isEmpty { use(t, replacing: true) } else { pendingTemplate = t }
+                    }
                 }
             } label: { Label("Start from a template", systemImage: "square.on.square") }
             let past = tracking.recentStrength(for: member)
@@ -36,6 +40,11 @@ struct StrengthEditor: View {
                         Button(pastLabel(w)) { exercises = (w.exercises ?? []).map { StrengthExercise(name: $0.name, sets: $0.sets) } }
                     }
                 } label: { Label("Copy from a previous workout", systemImage: "clock.arrow.circlepath") }
+            }
+            if let applied, sameTemplate(applied) == false {
+                Button { Task { await tracking.updateTemplate(applied, exercises: exercises); self.applied = tracking.templates.first { $0.id == applied.id } } } label: {
+                    Label("Update \"\(applied.name)\" with these changes", systemImage: "arrow.triangle.2.circlepath")
+                }
             }
             if !exercises.isEmpty {
                 Button { templateName = ""; savingTemplate = true } label: { Label("Save these exercises as a template", systemImage: "square.and.arrow.down") }
@@ -47,6 +56,11 @@ struct StrengthEditor: View {
             }
         } footer: {
             Text("A template keeps the exercises, sets, reps and weights. Apply it on any day, then change, add or remove exercises for that day.")
+        }
+        .confirmationDialog("You already have exercises in this workout", isPresented: Binding(get: { pendingTemplate != nil }, set: { if !$0 { pendingTemplate = nil } }), titleVisibility: .visible) {
+            Button("Replace them") { if let t = pendingTemplate { use(t, replacing: true) } }
+            Button("Add to them") { if let t = pendingTemplate { use(t, replacing: false) } }
+            Button("Cancel", role: .cancel) {}
         }
         .alert("Name this template", isPresented: $savingTemplate) {
             TextField("e.g. Push day", text: $templateName)
@@ -147,6 +161,19 @@ struct StrengthEditor: View {
                 Text("\(sets) sets \u{00B7} \(reps) reps \u{00B7} \(volume) \(pounds ? "lb" : "kg") lifted in total")
             }
         }
+    }
+
+    private func use(_ t: WorkoutTemplate, replacing: Bool) {
+        let fresh = t.exercises.map { StrengthExercise(name: $0.name, sets: $0.sets) }
+        if replacing { exercises = fresh } else { exercises += fresh.filter { f in !exercises.contains { $0.name == f.name } } }
+        applied = t; pendingTemplate = nil
+    }
+
+    /// Whether the workout still matches the template it started from.
+    private func sameTemplate(_ t: WorkoutTemplate) -> Bool {
+        let a = StrengthMath.cleaned(exercises).map { [$0.name] + $0.sets.map { "\($0.reps)x\($0.weightKg)" } }
+        let b = StrengthMath.cleaned(t.exercises).map { [$0.name] + $0.sets.map { "\($0.reps)x\($0.weightKg)" } }
+        return a == b
     }
 
     private func pastLabel(_ w: Workout) -> String {

@@ -172,7 +172,7 @@ struct LogWorkoutSheet: View {
     @State private var intensity: WorkoutIntensity = .moderate
     @State private var override: Int?
     @State private var note = ""
-    @State private var exercises: [StrengthExercise] = []
+    @State private var showStrength = false
     @State private var isSaving = false
     @State private var message: String?
     @State private var saved: Workout?
@@ -182,27 +182,22 @@ struct LogWorkoutSheet: View {
     @State private var prefilled = false
     @State private var ideaLoading = false
 
-    /// A strength session is timed by its sets, so the person only enters exercises, not how long each took.
-    private var setsDriveTime: Bool { kind == .strength && StrengthMath.totalSets(StrengthMath.cleaned(exercises)) > 0 }
-    private var effectiveMinutes: Int {
-        setsDriveTime ? StrengthMath.estimatedMinutes(sets: StrengthMath.totalSets(StrengthMath.cleaned(exercises))) : minutes
-    }
     init(member: Member, editing: Workout? = nil) {
         self.member = member; self.editing = editing
         _kind = State(initialValue: TodayLayout.isChild(member) ? .play : .walking)
     }
 
-    private var estimate: Int { WorkoutEstimator.calories(kind: kind, intensity: intensity, minutes: effectiveMinutes, weightKg: member.weightKg) }
+    private var estimate: Int { WorkoutEstimator.calories(kind: kind, intensity: intensity, minutes: minutes, weightKg: member.weightKg) }
     private var burned: Int { override ?? estimate }
 
     var body: some View {
         if let saved { cheerView(saved) } else {
             formView.onAppear {
-                if editing == nil, !prefilled, let sample = Demo.strengthSample { prefilled = true; kind = .strength; exercises = sample; return }
+                if editing == nil, !prefilled, Demo.strengthSample != nil { prefilled = true; showStrength = true; return }
                 guard let e = editing, !prefilled else { return }
                 prefilled = true
                 kind = e.workoutKind; minutes = e.minutes; intensity = e.intensity; note = e.note ?? ""
-                exercises = e.exercises ?? []; override = e.caloriesBurned
+                override = e.caloriesBurned
             }
         }
     }
@@ -231,7 +226,7 @@ struct LogWorkoutSheet: View {
                 Section("Activity") {
                     LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 8), count: 4), spacing: 10) {
                         ForEach(WorkoutKind.choices(for: member)) { k in
-                            Button { kind = k; override = nil } label: {
+                            Button { kind = k; override = nil; if k == .strength { showStrength = true } } label: {
                                 VStack(spacing: 5) {
                                     Image(systemName: k.symbol).font(.title3).frame(height: 24)
                                     Text(k.title).font(.caption2).lineLimit(1).minimumScaleFactor(0.7)
@@ -246,15 +241,9 @@ struct LogWorkoutSheet: View {
                     }
                 }
                 if kind == .strength {
-                    StrengthEditor(member: member, exercises: $exercises)
-                }
-                if setsDriveTime {
                     Section {
-                        Picker("Effort", selection: $intensity) { ForEach(WorkoutIntensity.allCases) { Text($0.title).tag($0) } }
-                            .pickerStyle(.segmented).onChange(of: intensity) { _, _ in override = nil }
-                    } header: { Text("How hard") } footer: {
-                        Text("Saved as about \(effectiveMinutes) minutes in total, worked out from your sets and rest between them.")
-                    }
+                        Button { showStrength = true } label: { Label("Open the strength log", systemImage: "dumbbell.fill") }
+                    } footer: { Text("Choose exercises by muscle group, use a template or copy a past session, and enter sets, reps and weight.") }
                 } else {
                 Section("How long and how hard") {
                     Stepper("\(minutes) minutes", value: $minutes, in: 5...300, step: 5).onChange(of: minutes) { _, _ in override = nil }
@@ -263,7 +252,6 @@ struct LogWorkoutSheet: View {
                     } }
                     Picker("Effort", selection: $intensity) { ForEach(WorkoutIntensity.allCases) { Text($0.title).tag($0) } }
                         .pickerStyle(.segmented).onChange(of: intensity) { _, _ in override = nil }
-                }
                 }
                 if !TodayLayout.isChild(member) {
                 Section {
@@ -274,15 +262,19 @@ struct LogWorkoutSheet: View {
                          : "An estimate for \(Int(member.weightKg ?? 0)) kg. Change it if your watch says otherwise.")
                 }
                 }
+                }
                 Section("Note (optional)") { TextField("e.g. Morning walk in the park", text: $note) }
                 if let message { Section { Text(message).font(.footnote).foregroundStyle(.red) } }
             }
             .softList()
+            .fullScreenCover(isPresented: $showStrength) {
+                StrengthSessionView(member: member, editing: nil) { w in showStrength = false; showCheer(for: w) }
+            }
             .navigationTitle(editing == nil ? "Log workout" : "Edit workout")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } }
-                ToolbarItem(placement: .confirmationAction) { Button(isSaving ? "Saving\u{2026}" : "Save") { save() }.disabled(isSaving) }
+                ToolbarItem(placement: .confirmationAction) { Button(isSaving ? "Saving\u{2026}" : "Save") { save() }.disabled(isSaving || kind == .strength) }
             }
         }
     }
@@ -290,19 +282,18 @@ struct LogWorkoutSheet: View {
     private func save() {
         isSaving = true
         if var changed = editing {
-            changed.kind = kind.rawValue; changed.minutes = effectiveMinutes; changed.intensity = intensity; changed.caloriesBurned = burned
+            changed.kind = kind.rawValue; changed.minutes = minutes; changed.intensity = intensity; changed.caloriesBurned = burned
             changed.note = note.trimmingCharacters(in: .whitespaces).isEmpty ? nil : note
-            changed.exercises = kind == .strength ? StrengthMath.cleaned(exercises) : nil
-            Task {
+                        Task {
                 if await tracking.update(changed) { UINotificationFeedbackGenerator().notificationOccurred(.success); dismiss() }
                 else { message = tracking.errorMessage; isSaving = false }
             }
             return
         }
         let workout = Workout(householdId: family.householdId, memberId: member.id, doneAt: tracking.timestampForNewItem,
-                              kind: kind.rawValue, minutes: effectiveMinutes, intensity: intensity, caloriesBurned: burned,
+                              kind: kind.rawValue, minutes: minutes, intensity: intensity, caloriesBurned: burned,
                               note: note.trimmingCharacters(in: .whitespaces).isEmpty ? nil : note,
-                              exercises: kind == .strength ? StrengthMath.cleaned(exercises) : nil)
+                              exercises: nil)
         Task {
             if await tracking.add(workout) { UINotificationFeedbackGenerator().notificationOccurred(.success); showCheer(for: workout) }
             else { message = tracking.errorMessage; isSaving = false }

@@ -46,6 +46,26 @@ extension TrackingStore {
         }
     }
 
+    /// Replaces a template's exercises with the current ones (same name, same id).
+    @discardableResult
+    func updateTemplate(_ t: WorkoutTemplate, exercises: [StrengthExercise]) async -> Bool {
+        let clean = StrengthMath.cleaned(exercises)
+        guard !clean.isEmpty else { return false }
+        errorMessage = nil
+        let before = templates
+        if let i = templates.firstIndex(where: { $0.id == t.id }) { templates[i].exercises = clean }
+        if Demo.isOn { return true }
+        struct Patch: Encodable { var exercises: [StrengthExercise] }
+        do {
+            try await Backend.withRetry { try await client.from("workout_templates").update(Patch(exercises: clean)).eq("id", value: t.id).execute() }
+            return true
+        } catch {
+            templates = before
+            errorMessage = "Couldn't update that template. \(error.localizedDescription)"
+            return false
+        }
+    }
+
     func deleteTemplate(_ t: WorkoutTemplate) async {
         templates.removeAll { $0.id == t.id }
         if Demo.isOn { return }

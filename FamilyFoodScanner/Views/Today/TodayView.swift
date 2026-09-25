@@ -79,7 +79,9 @@ struct TodayView: View {
             }
             .sheet(isPresented: $showSchedule) { if let member { ScheduleView(member: member) } }
             .sheet(item: $viewingWorkout) { w in WorkoutDetailView(workout: w) { editingWorkout = w } }
-            .sheet(item: $editingWorkout) { w in if let member { LogWorkoutSheet(member: member, editing: w) } }
+            .sheet(item: $editingWorkout) { w in
+                if let member { if w.workoutKind == .strength { StrengthSessionView(member: member, editing: w) } else { LogWorkoutSheet(member: member, editing: w) } }
+            }
             .sheet(isPresented: $showAsk) { AskAIView(product: nil) }
             .sheet(isPresented: $showMeds) { if let member { MedicationsManageView(member: member) } }
             .task(id: tracking.day) {
