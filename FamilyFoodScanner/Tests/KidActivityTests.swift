@@ -40,3 +40,23 @@ final class KidActivityTests: XCTestCase {
         XCTAssertEqual(Workout(memberId: UUID(), kind: "somethingNew", minutes: 5, caloriesBurned: 0).workoutKind, .other)
     }
 }
+
+final class OlderAdultTests: XCTestCase {
+    func testOlderAdultsGetGentleActivitiesFirst() {
+        let gran = Member(name: "Amma", conditions: [], age: 72)
+        let kinds = WorkoutKind.choices(for: gran)
+        XCTAssertTrue(kinds.contains(.chairExercise) && kinds.contains(.taiChi) && kinds.contains(.gardening))
+        XCTAssertFalse(kinds.contains(.hiit)); XCTAssertFalse(kinds.contains(.running))
+        XCTAssertFalse(WorkoutKind.choices(for: Member(name: "P", conditions: [], age: 35)).contains(.chairExercise))
+    }
+    func testProteinGuideOnlyForOlderAdultsWithWeight() {
+        XCTAssertEqual(DayCoach.olderProteinGuide(Member(name: "A", conditions: [], age: 70, weightKg: 62)), 62)
+        XCTAssertNil(DayCoach.olderProteinGuide(Member(name: "A", conditions: [], age: 40, weightKg: 62)))
+        XCTAssertNil(DayCoach.olderProteinGuide(Member(name: "A", conditions: [], age: 70)))
+    }
+    func testCarerRulesAreRespectful() {
+        XCTAssertTrue(DayCoach.carerWeekRules.contains("never patronising"))
+        XCTAssertTrue(DayCoach.carerWeekRules.contains("no medical advice"))
+        XCTAssertTrue(DayCoach.tipRules.contains("older adult"))
+    }
+}

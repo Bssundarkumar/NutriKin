@@ -71,7 +71,7 @@ struct MemberEditView: View {
             Form {
                 Section("Name") {
                     TextField("Name", text: $name)
-                    Toggle("Managed by a parent", isOn: $isManagedByParent)
+                    Toggle("Managed by a parent or carer", isOn: $isManagedByParent)
                     if canLinkToMe {
                         Toggle("This is me", isOn: $thisIsMe)
                             .onChange(of: thisIsMe) { _, on in if on { isManagedByParent = false } }

@@ -39,7 +39,7 @@ enum DayCoach {
     goals), write at most 3 short sentences: one thing going well, then ONE practical food idea for the rest of the day that fits \\
     their allergies and conditions (name real, everyday foods). Be warm and specific. Never shame, never suggest skipping meals or \\
     eating very little, never talk about weight loss, no medical advice, no medication, insulin or supplement advice, no emojis, no links. \\
-    For a child keep it playful and about trying foods. For a pregnant person keep to general healthy eating and suggest asking \\
+    For a child keep it playful and about trying foods. For an older adult (65 or over) favour protein at each meal, fibre, fluids, calcium and vitamin D rich foods, easy-to-chew choices, and small frequent meals if appetite is low; never suggest fasting or restrictive diets. For a pregnant person keep to general healthy eating and suggest asking \\
     their midwife or doctor. Only use the numbers given; never invent any.
     """
 
@@ -78,6 +78,28 @@ enum DayCoach {
     No medical advice, no dieting or weight talk, no emojis, no links. Only use the details given.
     """
 
+    static let carerWeekRules = """
+    You are NutriKin's friendly helper writing a short weekly note for the FAMILY of one older adult, about how their week of eating \
+    and movement went. Write at most 3 short sentences: what went well (name activities and days), then ONE gentle, practical idea for \
+    next week (a favourite walk, a shared meal, an easy protein-rich food). Be warm and respectful and never patronising. Never blame \
+    the person or the family, never talk about weight loss, no medical advice, no comments on medication beyond thanking them for \
+    keeping up with it, no emojis, no links. Only use the details given; never invent numbers.
+    """
+
+    static func carerWeekPrompt(member: Member, days: [KidActivity.Day], doses: (taken: Int, total: Int)?, eatenToday: Bool) -> String {
+        var lines = days.filter { $0.date <= Date() }.map { "\($0.date.formatted(.dateTime.weekday(.wide))): \($0.minutes) minutes of activity" }
+        if let doses, doses.total > 0 { lines.append("Medicines today: \(doses.taken) of \(doses.total) marked taken.") }
+        lines.append(eatenToday ? "Meals have been logged today." : "No meals logged yet today.")
+        if let g = member.goals.weeklyWorkoutMinutes { lines.append("Weekly activity goal: \(g) minutes.") }
+        return AIGuardrails.untrusted(AIContext.describe(member), tag: "family_data") + "\n\n" + AIGuardrails.untrusted(lines.joined(separator: "\n"), tag: "week_data")
+    }
+
+    /// A rough protein guide for older adults: about 1 g per kg a day, as general guidance.
+    static func olderProteinGuide(_ member: Member) -> Int? {
+        guard TodayLayout.isOlderAdult(member), let w = member.weightKg else { return nil }
+        return Int((min(max(w, 30), 200)).rounded())
+    }
+
     static func dayPrompt(member: Member, budget: DayBudget, steps: Int?, weekMinutes: Int) -> String {
         func n(_ v: Double) -> String { String(Int(v.rounded())) }
         var lines = [
@@ -91,6 +113,7 @@ enum DayCoach {
         ]
         if let steps { lines.append("Steps today: \(steps).") }
         if let goal = member.goals.dailySteps { lines.append("Step goal: \(goal).") }
+        if let g = olderProteinGuide(member) { lines.append("Protein guide for this age: about \(g) g a day, spread across meals.") }
         if let goal = member.goals.weeklyWorkoutMinutes { lines.append("Workout goal: \(weekMinutes) of \(goal) minutes this week.") }
         return AIGuardrails.untrusted(AIContext.describe(member), tag: "family_data") + "\n\n"
             + AIGuardrails.untrusted(lines.joined(separator: "\n"), tag: "day_data")

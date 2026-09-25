@@ -80,7 +80,7 @@ struct ScheduleEditView: View {
             Form {
                 Section("Activity") {
                     LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 8), count: 4), spacing: 10) {
-                        ForEach(WorkoutKind.choices(forChild: TodayLayout.isChild(member))) { k in
+                        ForEach(WorkoutKind.choices(for: member)) { k in
                             Button { schedule.kind = k.rawValue } label: {
                                 VStack(spacing: 5) {
                                     Image(systemName: k.symbol).font(.title3).frame(height: 24)

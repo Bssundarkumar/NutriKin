@@ -194,7 +194,7 @@ struct FamilyView: View {
     private func linkText(_ m: Member) -> String {
         if let me = family.myUserId, m.userId == me { return "This is you" }
         if m.userId != nil { return "Has NutriKin on their own phone" }
-        return m.isManagedByParent ? "Managed by a parent" : "No phone linked yet"
+        return m.isManagedByParent ? "Managed by a parent or carer" : "No phone linked yet"
     }
 
     private var inviteSection: some View {
