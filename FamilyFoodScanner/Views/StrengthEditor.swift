@@ -7,6 +7,7 @@ struct StrengthEditor: View {
     @Environment(TrackingStore.self) private var tracking
     @State private var savingTemplate = false
     @State private var templateName = ""
+    @State private var group: ExerciseLibrary.Group? = Demo.strengthSample == nil ? nil : ExerciseLibrary.groups.first { $0.name == "Legs" }
     @AppStorage("strengthUsesPounds") private var pounds = false
     @State private var newName = ""
 
@@ -79,10 +80,25 @@ struct StrengthEditor: View {
             }
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack {
-                    ForEach(StrengthMath.commonExercises.filter { name in !exercises.contains { $0.name == name } }, id: \.self) { name in
-                        Button(name) { add(name) }.buttonStyle(.bordered).buttonBorderShape(.capsule).controlSize(.small)
+                    ForEach(ExerciseLibrary.groups) { g in
+                        Button { withAnimation(.snappy) { group = (group == g) ? nil : g } } label: {
+                            Label(g.name, systemImage: g.symbol).font(.footnote.weight(.semibold))
+                        }
+                        .buttonStyle(.bordered).buttonBorderShape(.capsule).controlSize(.small)
+                        .tint(group == g ? .orange : .gray)
                     }
                 }
+            }
+            if let group {
+                LazyVGrid(columns: [GridItem(.adaptive(minimum: 130), spacing: 8)], alignment: .leading, spacing: 8) {
+                    ForEach(group.exercises.filter { name in !exercises.contains { $0.name == name } }, id: \.self) { name in
+                        Button(name) { add(name) }
+                            .font(.footnote).lineLimit(1).minimumScaleFactor(0.8)
+                            .buttonStyle(.bordered).buttonBorderShape(.capsule).controlSize(.small).frame(maxWidth: .infinity)
+                    }
+                }
+            } else {
+                Text("Pick a muscle group to see its exercises.").font(.caption).foregroundStyle(.secondary)
             }
         } footer: {
             if !exercises.isEmpty {

@@ -60,3 +60,13 @@ final class WorkoutTemplateTests: XCTestCase {
         XCTAssertEqual(back.exercises.first?.sets.first?.weightKg, 60)
     }
 }
+
+final class ExerciseLibraryTests: XCTestCase {
+    func testEveryGroupHasExercisesAndNamesAreUnique() {
+        XCTAssertGreaterThanOrEqual(ExerciseLibrary.groups.count, 8)
+        for g in ExerciseLibrary.groups { XCTAssertGreaterThanOrEqual(g.exercises.count, 6, g.name) }
+        let names = ExerciseLibrary.all
+        XCTAssertEqual(names.count, Set(names).count)
+        XCTAssertTrue(ExerciseLibrary.groups.first { $0.name == "Legs" }!.exercises.contains("Bulgarian split squat"))
+    }
+}
