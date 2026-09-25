@@ -11,7 +11,7 @@ struct PlateScanView: View {
 
     private enum Phase: Equatable { case setup, analyzing, describe, results, failed(String) }
 
-    @AppStorage("plateDiameterCm") private var plateCm = 26
+    @AppStorage("plateSizeCm") private var plateCm = 0        // 0 = let the AI estimate it
     @State private var phase: Phase = .setup
     @State private var image: UIImage?
     @State private var picked: PhotosPickerItem?
@@ -85,19 +85,27 @@ struct PlateScanView: View {
                     .foregroundStyle(.secondary)
                     .multilineTextAlignment(.center)
 
-                VStack(alignment: .leading, spacing: 8) {
-                    Text("How wide is your plate? (cm)").font(.subheadline.weight(.semibold))
-                    Picker("Plate size", selection: $plateCm) {
-                        ForEach(sizeOptions, id: \.self) { Text($0 == 0 ? "AI" : "\($0)").tag($0) }
+                DisclosureGroup {
+                    VStack(alignment: .leading, spacing: 10) {
+                        Picker("Plate size", selection: $plateCm) {
+                            ForEach(sizeOptions, id: \.self) { Text($0 == 0 ? "Auto" : "\($0)").tag($0) }
+                        }
+                        .pickerStyle(.segmented)
+                        Text(plateCm == 0
+                             ? "The AI works out the plate's size from the photo. Pick a width in cm only if you know it: it makes portions more accurate."
+                             : "Across the flat plate, edge to edge, in cm.")
+                            .font(.caption).foregroundStyle(.secondary)
+                        if PlateMeasureView.isSupported {
+                            Button { showMeasure = true } label: { Label("Measure it with the camera", systemImage: "ruler") }
+                                .font(.subheadline.weight(.semibold))
+                        }
                     }
-                    .pickerStyle(.segmented)
-                    Text(plateCm == 0
-                         ? "The AI will estimate the plate's size from the photo. Measuring is more accurate."
-                         : "Across the flat plate, edge to edge. It gives the AI a scale to judge how much food there is.")
-                        .font(.caption).foregroundStyle(.secondary)
-                    if PlateMeasureView.isSupported {
-                        Button { showMeasure = true } label: { Label("Measure it with the camera", systemImage: "ruler") }
-                            .font(.subheadline.weight(.semibold))
+                    .padding(.top, 8)
+                } label: {
+                    HStack {
+                        Label("Plate size", systemImage: "ruler").font(.subheadline.weight(.semibold))
+                        Spacer()
+                        Text(plateCm == 0 ? "Auto" : "\(plateCm) cm").font(.subheadline).foregroundStyle(.secondary)
                     }
                 }
                 .card()
@@ -290,19 +298,20 @@ struct PlateScanView: View {
             .listRowBackground(Color(.secondarySystemGroupedBackground))
 
             Section {
-                Stepper(value: $editedCm, in: 10...45) {
-                    Text("Plate size: \(editedCm) cm" + (usedWasEstimated && editedCm == usedCm ? " (AI estimate)" : ""))
-                }
-                if editedCm != usedCm, image != nil || lastFoods != nil {
-                    Button {
-                        if let foods = lastFoods { estimateOnDevice(foods, sizeOverride: editedCm) }
-                        else if let image { analyze(image, sizeOverride: editedCm) }
-                    } label: {
-                        Label("Re-estimate with a \(editedCm) cm plate", systemImage: "arrow.clockwise")
+                DisclosureGroup {
+                    Stepper(value: $editedCm, in: 10...45) { Text("\(editedCm) cm across") }
+                    if editedCm != usedCm, image != nil || lastFoods != nil {
+                        Button {
+                            if let foods = lastFoods { estimateOnDevice(foods, sizeOverride: editedCm) }
+                            else if let image { analyze(image, sizeOverride: editedCm) }
+                        } label: { Label("Re-estimate with a \(editedCm) cm plate", systemImage: "arrow.clockwise") }
                     }
+                    Text("Portions are judged against the plate's size. Only change this if it looks wrong.")
+                        .font(.footnote).foregroundStyle(.secondary)
+                } label: {
+                    Text("Plate size: \(usedCm) cm" + (usedWasEstimated ? " (AI estimate)" : ""))
+                        .font(.subheadline).foregroundStyle(.secondary)
                 }
-            } footer: {
-                Text("Portions are judged against the plate's size. If the size looks wrong, fix it and re-estimate.")
             }
 
             if items.isEmpty {
