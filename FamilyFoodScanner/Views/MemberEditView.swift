@@ -72,7 +72,7 @@ struct MemberEditView: View {
                 Section("Name") {
                     TextField("Name", text: $name)
                     Toggle("Managed by a parent", isOn: $isManagedByParent)
-                    if !isEditing && family.myMember == nil {
+                    if canLinkToMe {
                         Toggle("This is me", isOn: $thisIsMe)
                             .onChange(of: thisIsMe) { _, on in if on { isManagedByParent = false } }
                     }
@@ -185,6 +185,9 @@ struct MemberEditView: View {
                     }
                 }
             }
+            .onAppear {
+                if let e = existingMember, let me = family.myUserId, e.userId == me { thisIsMe = true }
+            }
             .navigationTitle(isEditing ? "Edit member" : "Add member")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -202,6 +205,15 @@ struct MemberEditView: View {
     /// Just enough of the form to ask for suggested goals by age.
     private var draftMember: Member {
         Member(name: name, conditions: [], isManagedByParent: isManagedByParent, age: Int(age))
+    }
+
+    private var existingMember: Member? { if case .edit(let m) = mode { m } else { nil } }
+
+    /// Offered when adding (and not yet linked to anyone), or when editing the person who is already you or nobody yet.
+    private var canLinkToMe: Bool {
+        guard let e = existingMember else { return family.myMember == nil }
+        if let me = family.myUserId, e.userId == me { return true }
+        return e.userId == nil && family.myMember == nil
     }
 
     private var isEditing: Bool {
@@ -283,6 +295,9 @@ struct MemberEditView: View {
             existing.weightKg = weightValue
             existing.sex = sex
             await family.updateMember(existing)
+            let mine = family.myUserId != nil && existing.userId == family.myUserId
+            if thisIsMe && !mine && canLinkToMe { await family.claimMember(existing) }
+            else if !thisIsMe && mine { await family.releaseMember(existing) }
         }
 
         if family.errorMessage == nil { dismiss() }

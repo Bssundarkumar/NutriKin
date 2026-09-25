@@ -46,15 +46,6 @@ struct FamilyView: View {
                             Text(linkText(m))
                                 .font(.caption)
                                 .foregroundStyle(.green)
-                            if m.userId == nil && family.myMember == nil {
-                                Button { Task { await family.claimMember(m) } } label: {
-                                    Label("This is me", systemImage: "person.crop.circle.badge.checkmark")
-                                        .font(.caption.weight(.semibold))
-                                        .padding(.horizontal, 10).padding(.vertical, 5)
-                                        .background(Theme.brand.opacity(0.12), in: Capsule())
-                                }
-                                .buttonStyle(.borderless)
-                            }
                             Button { planMember = m } label: {
                                 Label("Weight & daily intake plan", systemImage: "chart.bar.doc.horizontal")
                                     .font(.caption.weight(.semibold))
