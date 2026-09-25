@@ -37,9 +37,9 @@ enum Demo {
         func at(_ h: Int, _ m: Int = 0) -> Date { cal.date(bySettingHour: h, minute: m, second: 0, of: now) ?? now }
         let a = members[0].id, k = members[1].id
         return [
-            FoodEntry(memberId: a, eatenAt: at(8, 10), label: "Vegetable upma with curd", source: .ai, calories: 320, sugarG: 4, carbsG: 48, sodiumMg: 420, satFatG: 2, proteinG: 9),
-            FoodEntry(memberId: a, eatenAt: at(10, 45), label: "Apple and almonds", source: .manual, calories: 180, sugarG: 15, carbsG: 24, sodiumMg: 2, satFatG: 1, proteinG: 4),
-            FoodEntry(memberId: a, eatenAt: at(13, 15), label: "Dal, brown rice, cucumber salad", source: .plate, calories: 470, sugarG: 6, carbsG: 78, sodiumMg: 520, satFatG: 2, proteinG: 16),
+            FoodEntry(memberId: a, eatenAt: at(8, 10), label: "Vegetable upma with curd", source: .ai, calories: 320, sugarG: 4, carbsG: 48, sodiumMg: 420, satFatG: 2, proteinG: 9, fiberG: 6, fatG: 9),
+            FoodEntry(memberId: a, eatenAt: at(10, 45), label: "Apple and almonds", source: .manual, calories: 180, sugarG: 15, carbsG: 24, sodiumMg: 2, satFatG: 1, proteinG: 4, fiberG: 5, fatG: 8),
+            FoodEntry(memberId: a, eatenAt: at(13, 15), label: "Dal, brown rice, cucumber salad", source: .plate, calories: 470, sugarG: 6, carbsG: 78, sodiumMg: 520, satFatG: 2, proteinG: 16, fiberG: 9, fatG: 8),
             FoodEntry(memberId: k, eatenAt: at(8, 30), label: "Oat porridge with banana", source: .manual, calories: 260, sugarG: 12, carbsG: 46, sodiumMg: 90, satFatG: 1, proteinG: 8),
         ]
     }
@@ -58,13 +58,13 @@ enum Demo {
 
     static let plateItems: [PlateItem] = [
         PlateItem(name: "Basmati rice", grams: 180,
-                  per100g: .init(calories: 130, sugarG: 0.1, carbsG: 28, sodiumMg: 1, satFatG: 0.1, proteinG: 2.7),
+                  per100g: .init(calories: 130, sugarG: 0.1, carbsG: 28, sodiumMg: 1, satFatG: 0.1, proteinG: 2.7, fiberG: 0.4, fatG: 0.3),
                   confidence: .high, allergens: []),
         PlateItem(name: "Chicken curry", grams: 150,
-                  per100g: .init(calories: 165, sugarG: 3, carbsG: 6, sodiumMg: 420, satFatG: 3.2, proteinG: 14),
+                  per100g: .init(calories: 165, sugarG: 3, carbsG: 6, sodiumMg: 420, satFatG: 3.2, proteinG: 14, fiberG: 1.2, fatG: 10),
                   confidence: .medium, allergens: [.milk]),
         PlateItem(name: "Peanut chutney", grams: 30,
-                  per100g: .init(calories: 320, sugarG: 5, carbsG: 12, sodiumMg: 500, satFatG: 5, proteinG: 12),
+                  per100g: .init(calories: 320, sugarG: 5, carbsG: 12, sodiumMg: 500, satFatG: 5, proteinG: 12, fiberG: 6, fatG: 26),
                   confidence: .low, allergens: [.peanuts]),
     ]
 

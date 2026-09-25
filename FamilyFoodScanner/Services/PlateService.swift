@@ -6,30 +6,65 @@ import UIKit
 struct PlateService {
     var client: LLM
 
-    /// `plateDiameterCm` nil means the person doesn't know it, so the AI estimates the plate size first.
+    /// Reference portions the AI is told to anchor on. Includes Indian staples, since many families eat them.
+    static let portionAnchors = """
+    a cup of cooked rice or pasta is about 160 g; a roti or chapati about 40 g; a paratha about 80 g; a dosa about 80 g; \
+    an idli about 45 g; a katori (small bowl) of dal, curry or sabzi about 150 g; a cup of curd or yoghurt 245 g; \
+    a boiled egg 50 g; a slice of bread 30 g; a palm-sized piece of cooked chicken, meat or fish about 100 g; \
+    a tablespoon of oil, ghee or butter 14 g; a teaspoon of sugar 4 g; a glass of milk, juice or lassi 240 g
+    """
+
+    /// The nutrients asked for per 100 g, in the order they appear in the reply.
+    static let nutrientList = "calories (kcal), protein_g, carbs_g, sugar_g, fiber_g, fat_g, sat_fat_g and sodium_mg"
+
+    static let allergenList = "peanuts, nuts, milk, gluten, eggs, soybeans, fish, crustaceans, sesame"
+
+    static func jsonShape(includePlateSize: Bool) -> String {
+        let size = includePlateSize ? #""plate_diameter_cm":26,"# : ""
+        return #"{\#(size)"items":[{"name":"Basmati rice","grams":180,"per_100g":{"calories":130,"protein_g":2.7,"carbs_g":28,"sugar_g":0.1,"fiber_g":0.4,"fat_g":0.3,"sat_fat_g":0.1,"sodium_mg":250},"confidence":"high","allergens":[]}],"note":"one short sentence about the biggest uncertainty"}"#
+    }
+
+    /// The full prompt for a photo of a plate. `plateDiameterCm` nil means the person doesn't know it,
+    /// so the AI estimates the plate size first.
     static func systemPrompt(plateDiameterCm: Int?) -> String {
         let scale: String
-        let shape: String
         if let cm = plateDiameterCm {
-            scale = "The plate is \(cm) cm across: use that as the scale reference, together with how large the plate looks in the frame, to judge distance and how much food is on it."
-            shape = #"{"items":[{"name":"Rice","grams":180,"per_100g":{"calories":130,"sugar_g":0.1,"carbs_g":28,"sodium_mg":1,"sat_fat_g":0.1,"protein_g":2.7},"confidence":"high","allergens":[]}],"note":"one short sentence about the biggest uncertainty"}"#
+            scale = "The plate is \(cm) cm across. Use that as your ruler: compare how much of the plate each food covers, and how high it is piled, to work out how much food there is."
         } else {
-            scale = "The plate's size is unknown. First estimate its diameter in cm from the photo, using cues such as cutlery, a glass, hands or the table edge and typical sizes (dinner plate 24 to 28 cm, side plate 18 to 20 cm, bowl 15 to 20 cm), then use that as the scale to judge how much food is on it. Report the diameter as plate_diameter_cm."
-            shape = #"{"plate_diameter_cm":26,"items":[{"name":"Rice","grams":180,"per_100g":{"calories":130,"sugar_g":0.1,"carbs_g":28,"sodium_mg":1,"sat_fat_g":0.1,"protein_g":2.7},"confidence":"high","allergens":[]}],"note":"one short sentence about the biggest uncertainty"}"#
+            scale = "The plate's size is unknown. First estimate its diameter in cm from the photo, using cues such as cutlery, a glass, hands or the table edge and typical sizes (dinner plate 24 to 28 cm, side plate 18 to 20 cm, bowl 15 to 20 cm), then use it as your ruler. Report it as plate_diameter_cm."
         }
         return """
         \(AIGuardrails.taskRules)
 
-        You estimate the nutrition of a plate of food for a family health app. The photo shows one plate, \
-        ideally from above. \(scale)
+        You are a registered-dietitian-level nutrition estimator for a family health app. You estimate what is on ONE plate from a photo, ideally taken from above.
 
-        Identify each distinct food (at most 8). For each give: the cooked weight in grams as served, and typical \
-        nutrition per 100 g. If you cannot tell what something is, give your best guess and mark confidence "low".
-        List possible allergens only from: peanuts, nuts, milk, gluten, eggs, soybeans, fish, crustaceans, sesame.
+        SCALE. \(scale)
+
+        METHOD
+        1. Identify every distinct food. Split mixed dishes into their main parts (for example biryani: rice, chicken, and the oil or ghee it was cooked in). Include sauces, chutneys, dressings, cooking fat and drinks. Skip tiny garnishes. At most 10 items.
+        2. Estimate the cooked weight in grams AS SERVED. Useful anchors: \(portionAnchors).
+        3. Give typical nutrition PER 100 g of the food as prepared and served (cooked, not raw), using standard food-composition values (USDA, Indian Food Composition Tables): \(nutrientList). Count the fat and salt that cooking usually adds: fried, buttery, creamy, coconut-milk and restaurant dishes are richer than plain home cooking, and cooked dishes normally contain salt, so never use raw-ingredient sodium.
+        4. Keep the numbers consistent: calories per 100 g should be close to 4 x protein + 4 x (carbs minus fibre) + 2 x fibre + 9 x fat.
+        5. Never invent food that is not visible. If you cannot tell what something is, name your best guess and set confidence "low". Set confidence "low" or "medium" when the amount is hard to judge (food hidden under other food, deep bowls, sauces).
+        List possible allergens only from: \(allergenList).
 
         Reply with JSON only, no other text, in exactly this shape:
-        \(shape)
+        \(jsonShape(includePlateSize: plateDiameterCm == nil))
         If the photo does not show food, reply {"items":[],"note":"No food found in the photo."}
+        """
+    }
+
+    /// The prompt for a written description ("2 rotis, a bowl of dal"). Shorter, so it also fits Apple's small
+    /// on-device model. `structuredOutput` is true when the reply format is enforced separately.
+    static func descriptionPrompt(plateDiameterCm: Int?, structuredOutput: Bool) -> String {
+        let scale = plateDiameterCm.map { "The plate is \($0) cm across." } ?? "Assume a normal dinner plate, about 26 cm across."
+        return """
+        \(AIGuardrails.taskRules)
+
+        You are a registered-dietitian-level nutrition estimator for a family health app. \(scale) The person lists what they ate, sometimes with amounts ("2 rotis", "small bowl of dal").
+
+        For each food: estimate a realistic cooked weight in grams as served (a normal single serving if no amount is given; anchors: \(portionAnchors)) and typical nutrition per 100 g of the food as prepared: \(nutrientList). Count the oil, ghee, butter and salt that cooking usually adds. Keep calories consistent with the macros (about 4 x protein + 4 x carbs + 9 x fat, fibre counting half). Split mixed dishes into parts. Never invent foods that were not listed; mark confidence "low" when unsure. List possible allergens only from: \(allergenList).
+        \(structuredOutput ? "" : "\nReply with JSON only, in exactly this shape:\n\(jsonShape(includePlateSize: false))")
         """
     }
 
@@ -48,15 +83,7 @@ struct PlateService {
     /// Apple's on-device AI can't see photos, so it estimates from a description of the foods (recognised from
     /// the photo on the phone, then confirmed or edited by the person). Nothing leaves the phone.
     static func estimateOnDevice(foods: String, plateDiameterCm: Int?) async throws -> PlateAnalysis {
-        let scale = plateDiameterCm.map { "The plate is \($0) cm across." } ?? "The plate is a normal dinner plate, about 26 cm across."
-        let system = """
-        \(AIGuardrails.taskRules)
-
-        You estimate the nutrition of a plate of food for a family health app. \(scale) The person lists what is on it, \
-        sometimes with amounts ("2 rotis", "small bowl of dal"). Work out a realistic cooked weight in grams for each food as \
-        served on a plate of that size, and typical nutrition per 100 g. If no amount is given, assume a normal single serving. \
-        If you are unsure of a food or amount, mark confidence "low". Never invent foods that were not listed.
-        """
+        let system = descriptionPrompt(plateDiameterCm: plateDiameterCm, structuredOutput: true)
         return try PlateParser.parse(try await AppleAI.plateJSON(system: system, foods: foods))
     }
 
@@ -73,17 +100,7 @@ struct PlateService {
             catch { guard client != nil else { throw error } }      // fall back to the person's own key
         }
         guard let client else { throw AnthropicClient.ClientError.invalidKey }
-        let system = """
-        \(AIGuardrails.taskRules)
-
-        You estimate the nutrition of a meal or snack a person describes, for a family health app. Work out a realistic weight \
-        in grams for each food as eaten (a normal single serving if no amount is given) and typical nutrition per 100 g. \
-        Mark confidence "low" when unsure. Never invent foods that were not described. List possible allergens only from: \
-        peanuts, nuts, milk, gluten, eggs, soybeans, fish, crustaceans, sesame.
-
-        Reply with JSON only, in exactly this shape:
-        {"items":[{"name":"Roti","grams":80,"per_100g":{"calories":260,"sugar_g":1,"carbs_g":50,"sodium_mg":300,"sat_fat_g":1,"protein_g":9},"confidence":"medium","allergens":["gluten"]}],"note":"one short sentence about the biggest uncertainty"}
-        """
+        let system = descriptionPrompt(plateDiameterCm: nil, structuredOutput: false)
         let reply = try await client.send(system: system,
                                           content: [["type": "text", "text": AIGuardrails.untrusted(foods, tag: "foods")]], maxTokens: 900)
         return try PlateParser.parse(reply)
@@ -111,9 +128,10 @@ enum PlateParser {
             struct Per100: Decodable {
                 var calories: Double?, sugarG: Double?, carbsG: Double?
                 var sodiumMg: Double?, satFatG: Double?, proteinG: Double?
+                var fiberG: Double?, fatG: Double?
                 enum CodingKeys: String, CodingKey {
                     case calories, sugarG = "sugar_g", carbsG = "carbs_g", sodiumMg = "sodium_mg"
-                    case satFatG = "sat_fat_g", proteinG = "protein_g"
+                    case satFatG = "sat_fat_g", proteinG = "protein_g", fiberG = "fiber_g", fatG = "fat_g"
                 }
             }
             var name: String?
@@ -129,6 +147,24 @@ enum PlateParser {
         enum CodingKeys: String, CodingKey { case items, note, plateDiameterCm = "plate_diameter_cm" }
     }
 
+    /// Calories that can be worked out from the macros: 4 per g of protein and of carbs (fibre counts 2), 9 per g of fat.
+    static func macroCalories(_ p: PlateItem.Per100g) -> Double {
+        4 * p.proteinG + 4 * max(p.carbsG - p.fiberG, 0) + 2 * p.fiberG + 9 * p.fatG
+    }
+
+    /// If reported calories are more than about a third away from what the macros add up to, pulls them halfway
+    /// together. Returns true when it changed anything.
+    @discardableResult
+    static func reconcile(_ p: inout PlateItem.Per100g) -> Bool {
+        let derived = macroCalories(p)
+        guard derived > 20 else { return false }
+        if p.calories <= 0 { p.calories = derived; return true }
+        let ratio = p.calories / derived
+        guard ratio < 0.65 || ratio > 1.35 else { return false }
+        p.calories = ((p.calories + derived) / 2).rounded()
+        return true
+    }
+
     static func parse(_ reply: String) throws -> PlateAnalysis {
         guard let start = reply.firstIndex(of: "{"), let end = reply.lastIndex(of: "}"), start < end,
               let dto = try? JSONDecoder().decode(DTO.self, from: Data(reply[start...end].utf8)) else {
@@ -139,12 +175,18 @@ enum PlateParser {
         let items: [PlateItem] = (dto.items ?? []).prefix(8).compactMap { raw in
             let name = (raw.name ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
             guard !name.isEmpty, let grams = raw.grams, grams > 0, let p = raw.per100g, let kcal = p.calories else { return nil }
+            var per100 = PlateItem.Per100g(calories: clamp(kcal, 900), sugarG: clamp(p.sugarG, 100), carbsG: clamp(p.carbsG, 100),
+                                           sodiumMg: clamp(p.sodiumMg, 5000), satFatG: clamp(p.satFatG, 100), proteinG: clamp(p.proteinG, 100),
+                                           fiberG: clamp(p.fiberG, 100), fatG: clamp(p.fatG, 100))
+            var confidence = PlateItem.Confidence(rawValue: (raw.confidence ?? "").lowercased()) ?? .medium
+            // Only when the AI gave the macros to check against: an estimate whose calories don't match its own
+            // protein, carbs and fat is corrected, and its confidence lowered.
+            if p.fatG != nil, p.proteinG != nil, p.carbsG != nil, reconcile(&per100), confidence == .high { confidence = .medium }
             return PlateItem(
                 name: AIGuardrails.sanitize(name, max: 60),
                 grams: min(max(grams, 5), 1500),
-                per100g: .init(calories: clamp(kcal, 900), sugarG: clamp(p.sugarG, 100), carbsG: clamp(p.carbsG, 100),
-                               sodiumMg: clamp(p.sodiumMg, 5000), satFatG: clamp(p.satFatG, 100), proteinG: clamp(p.proteinG, 100)),
-                confidence: PlateItem.Confidence(rawValue: (raw.confidence ?? "").lowercased()) ?? .medium,
+                per100g: per100,
+                confidence: confidence,
                 allergens: (raw.allergens ?? []).compactMap { Allergen(rawValue: $0.lowercased()) }
             )
         }

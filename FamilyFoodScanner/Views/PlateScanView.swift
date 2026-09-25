@@ -353,9 +353,11 @@ struct PlateScanView: View {
     }
 
     private func macroRow(_ t: MealTotals) -> some View {
-        HStack {
-            macro("Carbs", "\(Int(t.carbsG.rounded())) g")
+        LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 3), spacing: 12) {
             macro("Protein", "\(Int(t.proteinG.rounded())) g")
+            macro("Carbs", "\(Int(t.carbsG.rounded())) g")
+            macro("Fat", "\(Int(t.fatG.rounded())) g")
+            macro("Fibre", "\(Int(t.fiberG.rounded())) g")
             macro("Sugar", "\(Int(t.sugarG.rounded())) g")
             macro("Sodium", "\(Int(t.sodiumMg.rounded())) mg")
         }

@@ -9,6 +9,8 @@ struct PlateItem: Identifiable, Hashable {
         var sodiumMg: Double
         var satFatG: Double
         var proteinG: Double
+        var fiberG = 0.0
+        var fatG = 0.0
     }
     enum Confidence: String, Hashable { case high, medium, low }
 
@@ -27,15 +29,19 @@ struct PlateItem: Identifiable, Hashable {
     var sodiumMg: Double { amount(per100g.sodiumMg) }
     var satFatG: Double { amount(per100g.satFatG) }
     var proteinG: Double { amount(per100g.proteinG) }
+    var fiberG: Double { amount(per100g.fiberG) }
+    var fatG: Double { amount(per100g.fatG) }
 }
 
 struct MealTotals: Hashable {
     var calories = 0.0, sugarG = 0.0, carbsG = 0.0, sodiumMg = 0.0, satFatG = 0.0, proteinG = 0.0
+    var fiberG = 0.0, fatG = 0.0
 
     static func of(_ items: [PlateItem]) -> MealTotals {
         items.reduce(into: MealTotals()) {
             $0.calories += $1.calories; $0.sugarG += $1.sugarG; $0.carbsG += $1.carbsG
             $0.sodiumMg += $1.sodiumMg; $0.satFatG += $1.satFatG; $0.proteinG += $1.proteinG
+            $0.fiberG += $1.fiberG; $0.fatG += $1.fatG
         }
     }
 }

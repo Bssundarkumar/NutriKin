@@ -179,7 +179,7 @@ enum AppleAI {
                     "items": plate.items.map { f in
                         ["name": f.name, "grams": f.grams,
                          "per_100g": ["calories": f.calories, "sugar_g": f.sugar, "carbs_g": f.carbs, "sodium_mg": f.sodiumMg,
-                                      "sat_fat_g": f.satFat, "protein_g": f.protein],
+                                      "sat_fat_g": f.satFat, "protein_g": f.protein, "fiber_g": f.fiber, "fat_g": f.fat],
                          "confidence": f.confidence, "allergens": f.allergens] as [String: Any]
                     },
                     "note": plate.note,
@@ -292,6 +292,8 @@ struct GeneratedPlateFood {
     @Guide(description: "Typical sodium in mg per 100 g", .range(0...5000)) var sodiumMg: Double
     @Guide(description: "Typical saturated fat per 100 g", .range(0...100)) var satFat: Double
     @Guide(description: "Typical protein per 100 g", .range(0...100)) var protein: Double
+    @Guide(description: "Typical dietary fibre per 100 g", .range(0...100)) var fiber: Double
+    @Guide(description: "Typical total fat per 100 g, including cooking oil or ghee", .range(0...100)) var fat: Double
     @Guide(description: "high, medium or low: how sure you are of the food and amount") var confidence: String
     @Guide(description: "Possible allergens, only from: peanuts, nuts, milk, gluten, eggs, soybeans, fish, crustaceans, sesame") var allergens: [String]
 }

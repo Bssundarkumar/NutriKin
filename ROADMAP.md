@@ -32,6 +32,7 @@ Target: 2 to 3 weeks after 1.0 is approved. Version 1.1.0, first build 14.
 | 12 | Accessibility pass (Dynamic Type, VoiceOver labels) and localisation prep (Hindi, Telugu?) |
 | 13 | Crash and performance reporting (MetricKit); GitHub Actions running the tests on every push |
 | 14 | Home Screen widget and Shortcuts action to open the scanner |
+| 18 | **Better plate estimates**: a dietitian-style prompt (portion anchors, hidden oil and salt, per-100 g values as served), fibre and total fat added, and a check that calories match the reported macros | **Built on `release-1.1`**, needs migration 008 and a real-photo test |
 | 15 | **Workouts** (log activity, MET-based calorie estimate, half added back to the day's allowance) | **Built on `release-1.1`** |
 | 16 | **Shared grocery list** with buy-to-remove and undo, plus add-from-scan and add-from-meal-plan | **Built on `release-1.1`** |
 | 17 | App **redesign**: Today as the home screen, five tabs, shared design components, dark mode checked | **Built on `release-1.1`** |

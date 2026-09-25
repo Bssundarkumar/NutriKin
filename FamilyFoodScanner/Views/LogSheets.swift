@@ -26,6 +26,8 @@ struct LogFoodSheet: View {
     @State private var sodium = ""
     @State private var satFat = ""
     @State private var protein = ""
+    @State private var fiber = ""
+    @State private var fat = ""
 
     private var canDescribe: Bool { ai.textProvider != nil }
 
@@ -89,7 +91,8 @@ struct LogFoodSheet: View {
             }
             Section {
                 fieldRow("Sugar", "g", $sugar); fieldRow("Carbs", "g", $carbs); fieldRow("Sodium", "mg", $sodium)
-                fieldRow("Saturated fat", "g", $satFat); fieldRow("Protein", "g", $protein)
+                fieldRow("Saturated fat", "g", $satFat); fieldRow("Total fat", "g", $fat)
+                fieldRow("Protein", "g", $protein); fieldRow("Fibre", "g", $fiber)
             } header: { Text("More detail (optional)") } footer: { Text("Leave blank anything you don't know.") }
         }
     }
@@ -128,7 +131,8 @@ struct LogFoodSheet: View {
             entry = FoodEntry(householdId: family.householdId, memberId: member.id, eatenAt: tracking.timestampForNewItem,
                               label: name.trimmingCharacters(in: .whitespaces), source: .manual,
                               calories: number(calories) ?? 0, sugarG: number(sugar) ?? 0, carbsG: number(carbs) ?? 0,
-                              sodiumMg: number(sodium) ?? 0, satFatG: number(satFat) ?? 0, proteinG: number(protein) ?? 0)
+                              sodiumMg: number(sodium) ?? 0, satFatG: number(satFat) ?? 0, proteinG: number(protein) ?? 0,
+                              fiberG: number(fiber) ?? 0, fatG: number(fat) ?? 0)
         }
         Task {
             if await tracking.add(entry) { UINotificationFeedbackGenerator().notificationOccurred(.success); dismiss() }

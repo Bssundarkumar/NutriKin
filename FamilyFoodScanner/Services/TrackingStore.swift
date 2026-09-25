@@ -78,6 +78,7 @@ final class TrackingStore {
     private struct NewFood: Encodable {
         var householdId: UUID, memberId: UUID, eatenAt: Date, label: String, barcode: String?, source: String
         var calories: Double, sugarG: Double, carbsG: Double, sodiumMg: Double, satFatG: Double, proteinG: Double
+        var fiberG: Double, fatG: Double
     }
 
     @discardableResult
@@ -88,7 +89,8 @@ final class TrackingStore {
         let payload = NewFood(householdId: householdId, memberId: entry.memberId, eatenAt: entry.eatenAt,
                               label: AIGuardrails.sanitize(entry.label, max: 120), barcode: entry.barcode, source: entry.source.rawValue,
                               calories: clamp(entry.calories, 5000), sugarG: clamp(entry.sugarG, 1000), carbsG: clamp(entry.carbsG, 1000),
-                              sodiumMg: clamp(entry.sodiumMg, 50000), satFatG: clamp(entry.satFatG, 1000), proteinG: clamp(entry.proteinG, 1000))
+                              sodiumMg: clamp(entry.sodiumMg, 50000), satFatG: clamp(entry.satFatG, 1000), proteinG: clamp(entry.proteinG, 1000),
+                              fiberG: clamp(entry.fiberG, 1000), fatG: clamp(entry.fatG, 1000))
         do {
             let saved: FoodEntry = try await Backend.withRetry {
                 try await client.from("food_log").insert(payload).select().single().execute().value

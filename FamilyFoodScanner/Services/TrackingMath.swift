@@ -16,6 +16,8 @@ struct DailyLimits: Equatable {
     var sugarG: Double
     var sodiumMg: Double
     var satFatG: Double
+    /// A fibre target (about 14 g per 1000 kcal, at least 20 g). Unlike the others, more is better.
+    var fiberG: Double
 
     static func `for`(_ member: Member) -> DailyLimits {
         DailyLimits(
@@ -23,17 +25,22 @@ struct DailyLimits: Equatable {
             sugarG: member.goals.dailySugarGrams ?? ScoringEngine.defaultSugarLimitG(for: member.sex),
             // 1500 mg is the stricter limit for high blood pressure; 2300 mg is the general adult limit.
             sodiumMg: member.goals.dailySodiumMg ?? (member.has(.hypertension) ? ScoringEngine.defaultSodiumLimitMg : 2300),
-            satFatG: member.goals.dailySatFatGrams ?? ScoringEngine.defaultSatFatLimitG(for: member.sex))
+            satFatG: member.goals.dailySatFatGrams ?? ScoringEngine.defaultSatFatLimitG(for: member.sex),
+            fiberG: 0).withFiber()
     }
+
+    private func withFiber() -> DailyLimits { var l = self; l.fiberG = max(20, 14 * calories / 1000); return l }
 }
 
 struct DayTotals: Equatable {
     var calories = 0.0, sugarG = 0.0, carbsG = 0.0, sodiumMg = 0.0, satFatG = 0.0, proteinG = 0.0
+    var fiberG = 0.0, fatG = 0.0
 
     static func of(_ entries: [FoodEntry]) -> DayTotals {
         entries.reduce(into: DayTotals()) {
             $0.calories += $1.calories; $0.sugarG += $1.sugarG; $0.carbsG += $1.carbsG
             $0.sodiumMg += $1.sodiumMg; $0.satFatG += $1.satFatG; $0.proteinG += $1.proteinG
+            $0.fiberG += $1.fiberG; $0.fatG += $1.fatG
         }
     }
 }
@@ -61,6 +68,7 @@ struct DayBudget {
     var sugarShare: Double { eaten.sugarG / limits.sugarG }
     var sodiumShare: Double { eaten.sodiumMg / limits.sodiumMg }
     var satFatShare: Double { eaten.satFatG / limits.satFatG }
+    var fiberShare: Double { eaten.fiberG / limits.fiberG }
 
     /// Green until 80% of any daily limit is used, orange until it's passed, then red.
     var status: Verdict {
@@ -121,7 +129,8 @@ enum PortionScaler {
             householdId: householdId, memberId: memberId, eatenAt: date,
             label: String(items.map(\.name).joined(separator: ", ").prefix(120)),
             source: .plate, calories: totals.calories, sugarG: totals.sugarG, carbsG: totals.carbsG,
-            sodiumMg: totals.sodiumMg, satFatG: totals.satFatG, proteinG: totals.proteinG)
+            sodiumMg: totals.sodiumMg, satFatG: totals.satFatG, proteinG: totals.proteinG,
+            fiberG: totals.fiberG, fatG: totals.fatG)
     }
 }
 

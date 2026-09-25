@@ -91,8 +91,13 @@ struct NutrientBar: View {
     let title: String
     let share: Double
     let detail: String
+    /// For things like fibre, where reaching the target is good and falling short is what needs a nudge.
+    var goodWhenHigh = false
 
-    private var color: Color { share >= 1 ? .red : share >= 0.8 ? .orange : .green }
+    private var color: Color {
+        if goodWhenHigh { return share >= 0.7 ? .green : share >= 0.35 ? .orange : .red.opacity(0.75) }
+        return share >= 1 ? .red : share >= 0.8 ? .orange : .green
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 5) {
@@ -110,7 +115,7 @@ struct NutrientBar: View {
             .frame(height: 8)
         }
         .accessibilityElement(children: .combine)
-        .accessibilityValue("\(Int((share * 100).rounded())) percent of the daily limit")
+        .accessibilityValue(goodWhenHigh ? "\(Int((share * 100).rounded())) percent of the daily target" : "\(Int((share * 100).rounded())) percent of the daily limit")
     }
 }
 

@@ -128,14 +128,17 @@ struct TodayView: View {
 
     private func nutrients(_ b: DayBudget) -> some View {
         VStack(alignment: .leading, spacing: 14) {
-            SectionTitle(title: "Daily limits")
+            SectionTitle(title: "Daily limits and targets")
             NutrientBar(title: "Sugar", share: b.sugarShare, detail: "\(Int(b.eaten.sugarG.rounded())) / \(Int(b.limits.sugarG.rounded())) g")
             NutrientBar(title: "Sodium", share: b.sodiumShare, detail: "\(Int(b.eaten.sodiumMg.rounded())) / \(Int(b.limits.sodiumMg.rounded())) mg")
             NutrientBar(title: "Saturated fat", share: b.satFatShare, detail: "\(Int(b.eaten.satFatG.rounded())) / \(Int(b.limits.satFatG.rounded())) g")
+            NutrientBar(title: "Fibre", share: b.fiberShare, detail: "\(Int(b.eaten.fiberG.rounded())) / \(Int(b.limits.fiberG.rounded())) g", goodWhenHigh: true)
             HStack {
                 Text("Carbs \(Int(b.eaten.carbsG.rounded())) g").font(.caption).foregroundStyle(.secondary)
                 Spacer()
                 Text("Protein \(Int(b.eaten.proteinG.rounded())) g").font(.caption).foregroundStyle(.secondary)
+                Spacer()
+                Text("Fat \(Int(b.eaten.fatG.rounded())) g").font(.caption).foregroundStyle(.secondary)
             }
         }
         .card()
