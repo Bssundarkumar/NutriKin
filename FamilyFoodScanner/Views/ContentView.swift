@@ -47,7 +47,7 @@ struct ContentView: View {
         .animation(.smooth(duration: 0.3), value: family.phase)
         // Whatever the route (sign out, deleted account, revoked session), the linked AI key goes too.
         .onChange(of: auth.state) { old, new in
-            if case .signedIn = old, case .signedOut = new { ai.disconnect() }
+            if case .signedIn = old, case .signedOut = new { ai.disconnect(); history.wipeLocal() }
         }
         // Runs on launch and again whenever the signed-in account changes.
         .task(id: auth.state) {

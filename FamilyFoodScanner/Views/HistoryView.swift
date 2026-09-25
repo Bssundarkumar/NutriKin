@@ -5,43 +5,79 @@ import SwiftUI
 struct HistoryView: View {
     @Environment(FamilyStore.self) private var family
     @Environment(HistoryStore.self) private var history
+    @Environment(\.editMode) private var editMode
     @State private var product: Product?
     @State private var openingBarcode: String?
     @State private var openError: String?
+    @State private var selection = Set<UUID>()
+    @State private var confirm: Confirm?
 
     private let service = ProductService()
 
+    private enum Confirm: Identifiable {
+        case deleteSelected, deleteOne(ScanRecord), clearThisPhone, deleteAll
+        var id: String {
+            switch self {
+            case .deleteSelected: "selected"
+            case .deleteOne(let r): "one-\(r.id)"
+            case .clearThisPhone: "phone"
+            case .deleteAll: "all"
+            }
+        }
+    }
+
+    private var isEditing: Bool { editMode?.wrappedValue.isEditing == true }
+
     var body: some View {
         NavigationStack {
-            List {
+            List(selection: $selection) {
+                if history.showingSavedCopy && !history.isLoading {
+                    Label("Showing the copy saved on this phone", systemImage: "icloud.slash")
+                        .font(.footnote).foregroundStyle(.secondary)
+                        .listRowBackground(Color.clear)
+                }
                 if history.records.isEmpty && !history.isLoading {
-                    Text("Nothing scanned yet. Scan a product and it will show up here.")
+                    Text(history.hiddenCount > 0
+                         ? "Everything is hidden on this phone. Use the menu to show it again."
+                         : "Nothing scanned yet. Scan a product and it will show up here.")
                         .font(.footnote)
                         .foregroundStyle(.secondary)
                 }
 
                 ForEach(Array(history.records.enumerated()), id: \.element.id) { index, record in
-                    Button { open(record) } label: { HistoryRow(record: record, isOpening: openingBarcode == record.barcode) }
-                        .buttonStyle(PressableStyle())
-                        .staggeredAppear(index)
-                        .listRowSeparator(.hidden)
-                        .listRowBackground(
-                            RoundedRectangle(cornerRadius: 18, style: .continuous)
-                                .fill(Color(.secondarySystemGroupedBackground))
-                                .overlay(alignment: .leading) {
-                                    Capsule().fill(record.worstVerdict.map(Theme.color(for:)) ?? .gray)
-                                        .frame(width: 5).padding(.vertical, 12).padding(.leading, 6)
-                                }
-                                .shadow(color: .black.opacity(0.06), radius: 8, y: 3)
-                                .padding(.vertical, 4)
-                        )
-                        .swipeActions {
-                            Button("Delete", role: .destructive) { Task { await history.delete(record) } }
-                        }
+                    Button { if !isEditing { open(record) } } label: {
+                        HistoryRow(record: record, isOpening: openingBarcode == record.barcode)
+                    }
+                    .buttonStyle(PressableStyle())
+                    .tag(record.id)
+                    .staggeredAppear(index)
+                    .listRowSeparator(.hidden)
+                    .listRowBackground(
+                        RoundedRectangle(cornerRadius: 18, style: .continuous)
+                            .fill(Color(.secondarySystemGroupedBackground))
+                            .overlay(alignment: .leading) {
+                                Capsule().fill(record.worstVerdict.map(Theme.color(for:)) ?? .gray)
+                                    .frame(width: 5).padding(.vertical, 12).padding(.leading, 6)
+                            }
+                            .shadow(color: .black.opacity(0.06), radius: 8, y: 3)
+                            .padding(.vertical, 4)
+                    )
+                    .swipeActions(edge: .trailing) {
+                        Button("Delete", role: .destructive) { confirm = .deleteOne(record) }
+                        Button("This phone only") { history.hideOnThisPhone(record) }.tint(.orange)
+                    }
                 }
 
                 if let message = openError ?? history.errorMessage {
                     Section { Text(message).font(.footnote).foregroundStyle(.red) }
+                }
+
+                if !history.records.isEmpty {
+                    Section {
+                        Text("Scans are shared with your family. \u{201C}This phone only\u{201D} hides a scan just here; \u{201C}Delete\u{201D} removes it for everyone.")
+                            .font(.caption).foregroundStyle(.secondary)
+                    }
+                    .listRowBackground(Color.clear)
                 }
             }
             .animation(.snappy, value: history.records)
@@ -51,7 +87,84 @@ struct HistoryView: View {
             .overlay { if history.isLoading && history.records.isEmpty { ProgressView() } }
             .refreshable { await history.load(householdId: family.householdId) }
             .task(id: family.householdId) { await history.load(householdId: family.householdId) }
+            .toolbar {
+                ToolbarItem(placement: .topBarLeading) {
+                    if !history.records.isEmpty || history.hiddenCount > 0 {
+                        Menu {
+                            if !history.records.isEmpty {
+                                Button { editMode?.wrappedValue = .active } label: { Label("Select scans", systemImage: "checkmark.circle") }
+                                Button { confirm = .clearThisPhone } label: { Label("Clear on this phone", systemImage: "iphone.slash") }
+                            }
+                            if history.hiddenCount > 0 {
+                                Button { history.restoreHidden() } label: {
+                                    Label("Show \(history.hiddenCount) hidden again", systemImage: "eye")
+                                }
+                            }
+                            if !history.records.isEmpty {
+                                Divider()
+                                Button(role: .destructive) { confirm = .deleteAll } label: {
+                                    Label("Delete all for everyone", systemImage: "trash")
+                                }
+                            }
+                        } label: { Image(systemName: "ellipsis.circle") }
+                    }
+                }
+                ToolbarItem(placement: .topBarTrailing) { if !history.records.isEmpty { EditButton() } }
+                ToolbarItemGroup(placement: .bottomBar) {
+                    if isEditing {
+                        Button("This phone only") {
+                            history.hideOnThisPhone(selection); finishEditing()
+                        }.disabled(selection.isEmpty)
+                        Spacer()
+                        Button("Delete for everyone", role: .destructive) { confirm = .deleteSelected }.disabled(selection.isEmpty)
+                    }
+                }
+            }
+            .confirmationDialog(confirmTitle, isPresented: Binding(get: { confirm != nil }, set: { if !$0 { confirm = nil } }),
+                                titleVisibility: .visible) {
+                switch confirm {
+                case .deleteSelected:
+                    Button("Delete \(selection.count) for everyone", role: .destructive) {
+                        let ids = selection
+                        finishEditing()
+                        Task { await history.deleteForEveryone(ids) }
+                    }
+                case .deleteOne(let record):
+                    Button("Delete for everyone", role: .destructive) { Task { await history.deleteForEveryone(record) } }
+                case .clearThisPhone:
+                    Button("Clear on this phone") { history.clearThisPhone(); finishEditing() }
+                case .deleteAll:
+                    Button("Delete all for everyone", role: .destructive) { Task { await history.deleteAllForEveryone() }; finishEditing() }
+                case nil:
+                    EmptyView()
+                }
+                Button("Cancel", role: .cancel) {}
+            } message: {
+                Text(confirmMessage)
+            }
         }
+    }
+
+    private var confirmTitle: String {
+        switch confirm {
+        case .deleteSelected: "Delete \(selection.count) scan\(selection.count == 1 ? "" : "s") for everyone?"
+        case .deleteOne(let r): "Delete \u{201C}\(r.productName)\u{201D} for everyone?"
+        case .clearThisPhone: "Clear History on this phone?"
+        case .deleteAll: "Delete all History for everyone?"
+        case nil: ""
+        }
+    }
+
+    private var confirmMessage: String {
+        switch confirm {
+        case .clearThisPhone: "Your family keeps these scans, and you can show them here again from the menu."
+        default: "This removes them from every family member's History and can't be undone."
+        }
+    }
+
+    private func finishEditing() {
+        selection = []
+        editMode?.wrappedValue = .inactive
     }
 
     private func open(_ record: ScanRecord) {

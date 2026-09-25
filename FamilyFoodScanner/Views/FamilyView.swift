@@ -5,6 +5,7 @@ struct FamilyView: View {
     @Environment(FamilyStore.self) private var family
     @Environment(HealthKitManager.self) private var health
     @Environment(AIConnection.self) private var ai
+    @Environment(HistoryStore.self) private var history
     @State private var showConnectAI = false
     @State private var showAskAI = false
     @State private var isAdding = false
@@ -123,6 +124,7 @@ struct FamilyView: View {
 
                 Section {
                     Button("Leave this family", role: .destructive) {
+                        history.wipeLocal()
                         Task { await family.leaveHousehold() }
                     }
                 }
