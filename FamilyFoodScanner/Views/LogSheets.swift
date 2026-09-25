@@ -14,6 +14,7 @@ struct LogFoodSheet: View {
 
     private enum Mode: String, CaseIterable { case describe = "Describe", manual = "Type it in" }
     @State private var mode: Mode = .manual
+    @State private var showPlate = false
     @State private var description = ""
     @State private var estimate: PlateAnalysis?
     @State private var isEstimating = false
@@ -34,6 +35,20 @@ struct LogFoodSheet: View {
     var body: some View {
         NavigationStack {
             Form {
+                Section {
+                    Button { showPlate = true } label: {
+                        HStack(spacing: 12) {
+                            Image(systemName: "camera.viewfinder").font(.title2).foregroundStyle(Theme.brand)
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text("Scan a plate").font(.headline)
+                                Text("Take a photo and get calories and nutrients estimated").font(.caption).foregroundStyle(.secondary)
+                            }
+                            Spacer()
+                            Image(systemName: "chevron.right").font(.footnote.weight(.semibold)).foregroundStyle(.tertiary)
+                        }
+                    }
+                    .buttonStyle(.plain)
+                } footer: { Text("Or describe the meal, or type the numbers in below.") }
                 if canDescribe {
                     Picker("How", selection: $mode) { ForEach(Mode.allCases, id: \.self) { Text($0.rawValue).tag($0) } }
                         .pickerStyle(.segmented)
@@ -52,6 +67,7 @@ struct LogFoodSheet: View {
                 }
             }
             .onAppear { ai.refreshApple(); if canDescribe { mode = .describe } }
+            .sheet(isPresented: $showPlate) { PlateScanView(logFor: member, onLogged: { dismiss() }) }
         }
     }
 

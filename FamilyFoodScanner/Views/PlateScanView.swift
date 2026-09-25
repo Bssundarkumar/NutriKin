@@ -4,6 +4,11 @@ import SwiftUI
 /// Photograph a plate, let the person's own AI estimate what's on it, then review
 /// and correct the portions. Everything shown is an estimate.
 struct PlateScanView: View {
+    /// When set, the result offers one-tap logging for this person, straight into their day.
+    var logFor: Member? = nil
+    /// Called after a meal is logged from here (the food log sheet uses it to close itself).
+    var onLogged: (() -> Void)? = nil
+
     @Environment(FamilyStore.self) private var family
     @Environment(AIConnection.self) private var ai
     @Environment(TrackingStore.self) private var tracking
@@ -353,10 +358,19 @@ struct PlateScanView: View {
 
             if !items.isEmpty {
                 Section {
-                    Menu {
-                        ForEach(family.members) { m in Button(m.name) { logMeal(for: m) } }
-                    } label: { Label(loggedNote ?? "Log this meal for\u{2026}", systemImage: loggedNote == nil ? "plus.circle.fill" : "checkmark.circle.fill") }
-                } footer: { Text("Adds it to that person's day on the Today tab.") }
+                    if let person = logFor {
+                        Button { logMeal(for: person) } label: {
+                            Label(loggedNote ?? "Log this meal for \(person.name)", systemImage: loggedNote == nil ? "plus.circle.fill" : "checkmark.circle.fill")
+                                .font(.headline).frame(maxWidth: .infinity)
+                        }
+                        .buttonStyle(.borderedProminent).buttonBorderShape(.capsule).controlSize(.large)
+                        .disabled(loggedNote != nil)
+                    } else {
+                        Menu {
+                            ForEach(family.members) { m in Button(m.name) { logMeal(for: m) } }
+                        } label: { Label(loggedNote ?? "Log this meal for\u{2026}", systemImage: loggedNote == nil ? "plus.circle.fill" : "checkmark.circle.fill") }
+                    }
+                } footer: { Text("Adjust the amounts above first if something looks off. It's added to the person's day on the Today tab.") }
             }
 
             Section {
@@ -391,7 +405,11 @@ struct PlateScanView: View {
     private func logMeal(for member: Member) {
         let entry = PortionScaler.entry(for: items, memberId: member.id, householdId: family.householdId, at: tracking.timestampForNewItem)
         Task {
-            if await tracking.add(entry) { loggedNote = "Logged for \(member.name)"; UINotificationFeedbackGenerator().notificationOccurred(.success) }
+            if await tracking.add(entry) {
+                loggedNote = "Logged for \(member.name)"
+                UINotificationFeedbackGenerator().notificationOccurred(.success)
+                if let onLogged { try? await Task.sleep(for: .milliseconds(700)); onLogged() }
+            }
             else { loggedNote = nil }
         }
     }
