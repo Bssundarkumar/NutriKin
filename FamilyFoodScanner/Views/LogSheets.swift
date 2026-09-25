@@ -193,6 +193,7 @@ struct LogWorkoutSheet: View {
     var body: some View {
         if let saved { cheerView(saved) } else {
             formView.onAppear {
+                if editing == nil, !prefilled, let sample = Demo.strengthSample { prefilled = true; kind = .strength; exercises = sample; return }
                 guard let e = editing, !prefilled else { return }
                 prefilled = true
                 kind = e.workoutKind; minutes = e.minutes; intensity = e.intensity; note = e.note ?? ""

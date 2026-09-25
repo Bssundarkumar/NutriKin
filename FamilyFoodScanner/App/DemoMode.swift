@@ -27,6 +27,13 @@ enum Demo {
     ], tips: ["Drink a glass of water before each meal.", "Swap sugary tea for unsweetened tea with cinnamon."], removedForAllergy: 1)
     static var opensLogFood: Bool { CommandLine.arguments.contains("-demoLogFood") }
     static var opensLogWorkout: Bool { CommandLine.arguments.contains("-demoLogWorkout") }
+    /// Opens Log workout already on Strength with a couple of sample exercises (for screenshots).
+    static var strengthSample: [StrengthExercise]? {
+        CommandLine.arguments.contains("-demoStrength") ? [
+            StrengthExercise(name: "Bench press", sets: [StrengthSet(reps: 10, weightKg: 40), StrengthSet(reps: 8, weightKg: 45)]),
+            StrengthExercise(name: "Squat", sets: [StrengthSet(reps: 8, weightKg: 60)]),
+        ] : nil
+    }
     static var opensLogProduct: Bool { CommandLine.arguments.contains("-demoLogProduct") }
     /// Which card the debug screenshots should scroll to ("meds" or "health").
     static var scrollTarget: String? { CommandLine.arguments.drop { $0 != "-demoScroll" }.dropFirst().first }
@@ -152,6 +159,7 @@ enum Demo {
     static var doseRecords: [DoseRecord] { [] }
     static let opensLogFood = false
     static let opensLogWorkout = false
+    static let strengthSample: [StrengthExercise]? = nil
     static let opensLogProduct = false
     static let opensAsk = false
     static let opensMeals = false
