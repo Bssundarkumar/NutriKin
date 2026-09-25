@@ -26,6 +26,15 @@ enum Demo {
         MealSlot(name: "Snacks", dishes: [MealDish(name: "Roasted chana and an apple", kcal: 180, ingredients: ["chickpeas", "apple"], why: "Keeps you full between meals.")]),
     ], tips: ["Drink a glass of water before each meal.", "Swap sugary tea for unsweetened tea with cinnamon."], removedForAllergy: 1)
     static var opensLogFood: Bool { CommandLine.arguments.contains("-demoLogFood") }
+    static func measurements(for member: Member) -> [BodyMeasurement] {
+        let base = member.weightKg ?? 30
+        return (0..<8).map { i in
+            let d = Calendar.current.date(byAdding: .month, value: -(7 - i), to: Date()) ?? Date()
+            return BodyMeasurement(memberId: member.id, measuredOn: BodyMeasurement.day(d),
+                                   heightCm: (member.heightCm ?? 120) - Double(7 - i) * 0.6, weightKg: base - Double(7 - i) * 0.4)
+        }
+    }
+    static var opensGrowth: Bool { CommandLine.arguments.contains("-demoGrowth") }
     static var opensLogWorkout: Bool { CommandLine.arguments.contains("-demoLogWorkout") }
     /// Opens Log workout already on Strength with a couple of sample exercises (for screenshots).
     static var strengthSample: [StrengthExercise]? {
@@ -159,6 +168,8 @@ enum Demo {
     static var doseRecords: [DoseRecord] { [] }
     static let opensLogFood = false
     static let opensLogWorkout = false
+    static func measurements(for member: Member) -> [BodyMeasurement] { [] }
+    static let opensGrowth = false
     static let strengthSample: [StrengthExercise]? = nil
     static let opensLogProduct = false
     static let opensAsk = false

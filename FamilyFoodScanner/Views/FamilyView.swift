@@ -10,6 +10,7 @@ struct FamilyView: View {
     @State private var showAskAI = false
     @State private var isAdding = false
     @State private var editingMember: Member?
+    @State private var growthMember: Member? = Demo.opensGrowth ? Demo.members.first : nil
     @State private var planMember: Member? = Demo.opensPlan ? Demo.members.first : nil
     @State private var didCopyCode = false
     @State private var confirmDelete = false
@@ -46,6 +47,14 @@ struct FamilyView: View {
                             Text(linkText(m))
                                 .font(.caption)
                                 .foregroundStyle(.green)
+                            Button { growthMember = m } label: {
+                                Label("Height & weight chart", systemImage: "chart.xyaxis.line")
+                                    .font(.caption.weight(.semibold))
+                                    .padding(.horizontal, 10).padding(.vertical, 5)
+                                    .background(Theme.brand.opacity(0.12), in: Capsule())
+                            }
+                            .buttonStyle(.borderless)
+                            .padding(.top, 2)
                             Button { planMember = m } label: {
                                 Label("Weight & daily intake plan", systemImage: "chart.bar.doc.horizontal")
                                     .font(.caption.weight(.semibold))
@@ -169,6 +178,7 @@ struct FamilyView: View {
             .sheet(isPresented: $showAskAI) { AskAIView(product: nil) }
             .sheet(item: $editingMember) { MemberEditView(mode: .edit($0)) }
             .sheet(item: $planMember) { NutritionPlanView(member: $0) }
+            .sheet(item: $growthMember) { GrowthView(member: $0) }
             .alert("Delete your account?", isPresented: $confirmDelete) {
                 Button("Delete account", role: .destructive) { Task { if await auth.deleteAccount() { ai.disconnect() } } }
                 Button("Cancel", role: .cancel) {}
