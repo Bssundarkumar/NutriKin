@@ -15,6 +15,8 @@ struct TodayView: View {
     @State private var showWorkout = Demo.opensLogWorkout
     @State private var editingWorkout: Workout?
     @State private var viewingWorkout: Workout?
+    @State private var showDatePicker = false
+    @State private var pickedDay = Date()
     @State private var showAsk = false
     @State private var showMeds = Demo.opensMeds
 
@@ -60,6 +62,20 @@ struct TodayView: View {
             .task(id: family.householdId) { await tracking.load(householdId: family.householdId) }
             .sheet(isPresented: $showFood) { if let member { LogFoodSheet(member: member) } }
             .sheet(isPresented: $showWorkout) { if let member { LogWorkoutSheet(member: member) } }
+            .sheet(isPresented: $showDatePicker) {
+                NavigationStack {
+                    DatePicker("Day", selection: $pickedDay, in: ...Date(), displayedComponents: .date)
+                        .datePickerStyle(.graphical).padding()
+                        .navigationTitle("Go to a day").navigationBarTitleDisplayMode(.inline)
+                        .toolbar {
+                            ToolbarItem(placement: .cancellationAction) { Button("Cancel") { showDatePicker = false } }
+                            ToolbarItem(placement: .confirmationAction) {
+                                Button("Show") { showDatePicker = false; Task { await tracking.load(householdId: family.householdId, day: pickedDay) } }
+                            }
+                        }
+                }
+                .presentationDetents([.medium, .large])
+            }
             .sheet(item: $viewingWorkout) { w in WorkoutDetailView(workout: w) { editingWorkout = w } }
             .sheet(item: $editingWorkout) { w in if let member { LogWorkoutSheet(member: member, editing: w) } }
             .sheet(isPresented: $showAsk) { AskAIView(product: nil) }
@@ -106,7 +122,13 @@ struct TodayView: View {
                 Text(dayTitle).font(.headline)
                 Text(tracking.day.formatted(.dateTime.day().month(.wide).year())).font(.caption).foregroundStyle(.secondary)
             }
-            .onTapGesture { Task { await tracking.goToToday() } }
+            .contentShape(Rectangle())
+            .onTapGesture { pickedDay = tracking.day; showDatePicker = true }
+            .accessibilityAddTraits(.isButton)
+            .accessibilityHint("Pick a date")
+            if !tracking.isToday {
+                Button("Today") { Task { await tracking.goToToday() } }.font(.footnote.weight(.semibold))
+            }
             Spacer()
             Button { Task { await tracking.moveDay(by: 1) } } label: { Image(systemName: "chevron.right").frame(width: 40, height: 40) }
                 .disabled(tracking.isToday)
