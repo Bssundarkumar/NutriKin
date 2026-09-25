@@ -168,6 +168,46 @@ final class TrackingStore {
         }
     }
 
+    /// Saves changes to a logged workout (kind, time spent, effort, calories, note and strength exercises).
+    @discardableResult
+    func update(_ workout: Workout) async -> Bool {
+        errorMessage = nil
+        let cleaned = workout.exercises.map(StrengthMath.cleaned)
+        var fixed = workout
+        fixed.minutes = min(max(workout.minutes, 1), 600)
+        fixed.caloriesBurned = min(max(workout.caloriesBurned, 0), 5000)
+        fixed.note = workout.note.map { AIGuardrails.sanitize($0, max: 200) }.flatMap { $0.isEmpty ? nil : $0 }
+        fixed.exercises = (cleaned?.isEmpty == false) ? cleaned : nil
+        func apply(_ list: inout [Workout]) { if let i = list.firstIndex(where: { $0.id == fixed.id }) { list[i] = fixed } }
+        let before = (workouts, weekWorkouts)
+        apply(&workouts); apply(&weekWorkouts)
+        if Demo.isOn { return true }
+        struct Patch: Encodable {
+            var minutes: Int, intensity: String, caloriesBurned: Int, note: String?
+            var exercises: [StrengthExercise]?
+            func encode(to encoder: Encoder) throws {
+                enum K: String, CodingKey { case minutes, intensity, caloriesBurned, note, exercises }
+                var c = encoder.container(keyedBy: K.self)
+                try c.encode(minutes, forKey: .minutes); try c.encode(intensity, forKey: .intensity)
+                try c.encode(caloriesBurned, forKey: .caloriesBurned)
+                try c.encode(note, forKey: .note); try c.encode(exercises, forKey: .exercises)
+            }
+        }
+        do {
+            try await Backend.withRetry {
+                try await client.from("workouts")
+                    .update(Patch(minutes: fixed.minutes, intensity: fixed.intensity.rawValue, caloriesBurned: fixed.caloriesBurned,
+                                  note: fixed.note, exercises: fixed.exercises))
+                    .eq("id", value: fixed.id).execute()
+            }
+            return true
+        } catch {
+            (workouts, weekWorkouts) = before
+            errorMessage = "Couldn't save that change. \(error.localizedDescription)"
+            return false
+        }
+    }
+
     func delete(_ workout: Workout) async {
         errorMessage = nil
         workouts.removeAll { $0.id == workout.id }

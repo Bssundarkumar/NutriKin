@@ -160,6 +160,8 @@ struct LogFoodSheet: View {
 /// Log a workout with a calorie estimate the person can adjust.
 struct LogWorkoutSheet: View {
     let member: Member
+    /// Set to change a workout that's already logged (for example to add another set).
+    var editing: Workout? = nil
     @Environment(TrackingStore.self) private var tracking
     @Environment(FamilyStore.self) private var family
     @Environment(AIConnection.self) private var ai
@@ -177,13 +179,21 @@ struct LogWorkoutSheet: View {
     @State private var cheer = ""
     @State private var cheerIsAI = false
     @State private var idea: String?
+    @State private var prefilled = false
     @State private var ideaLoading = false
 
     private var estimate: Int { WorkoutEstimator.calories(kind: kind, intensity: intensity, minutes: minutes, weightKg: member.weightKg) }
     private var burned: Int { override ?? estimate }
 
     var body: some View {
-        if let saved { cheerView(saved) } else { formView }
+        if let saved { cheerView(saved) } else {
+            formView.onAppear {
+                guard let e = editing, !prefilled else { return }
+                prefilled = true
+                kind = e.workoutKind; minutes = e.minutes; intensity = e.intensity; note = e.note ?? ""
+                exercises = e.exercises ?? []; override = e.caloriesBurned
+            }
+        }
     }
 
     private var formView: some View {
@@ -246,7 +256,7 @@ struct LogWorkoutSheet: View {
                 if let message { Section { Text(message).font(.footnote).foregroundStyle(.red) } }
             }
             .softList()
-            .navigationTitle("Log workout")
+            .navigationTitle(editing == nil ? "Log workout" : "Edit workout")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } }
@@ -257,6 +267,16 @@ struct LogWorkoutSheet: View {
 
     private func save() {
         isSaving = true
+        if var changed = editing {
+            changed.kind = kind.rawValue; changed.minutes = minutes; changed.intensity = intensity; changed.caloriesBurned = burned
+            changed.note = note.trimmingCharacters(in: .whitespaces).isEmpty ? nil : note
+            changed.exercises = kind == .strength ? StrengthMath.cleaned(exercises) : nil
+            Task {
+                if await tracking.update(changed) { UINotificationFeedbackGenerator().notificationOccurred(.success); dismiss() }
+                else { message = tracking.errorMessage; isSaving = false }
+            }
+            return
+        }
         let workout = Workout(householdId: family.householdId, memberId: member.id, doneAt: tracking.timestampForNewItem,
                               kind: kind.rawValue, minutes: minutes, intensity: intensity, caloriesBurned: burned,
                               note: note.trimmingCharacters(in: .whitespaces).isEmpty ? nil : note,
