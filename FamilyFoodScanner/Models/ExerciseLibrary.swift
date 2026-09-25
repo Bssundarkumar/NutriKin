@@ -34,5 +34,10 @@ enum ExerciseLibrary {
             "Burpee", "Kettlebell swing", "Clean and press", "Thruster", "Farmer's carry", "Turkish get-up"]),
     ]
 
+    /// Only the exercises that belong to this muscle group.
+    static func only(_ exercises: [StrengthExercise], in group: Group) -> [StrengthExercise] {
+        exercises.filter { group.exercises.contains($0.name) }
+    }
+
     static var all: [String] { groups.flatMap(\.exercises) }
 }

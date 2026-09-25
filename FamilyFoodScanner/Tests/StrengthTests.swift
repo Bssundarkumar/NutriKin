@@ -70,3 +70,13 @@ final class ExerciseLibraryTests: XCTestCase {
         XCTAssertTrue(ExerciseLibrary.groups.first { $0.name == "Legs" }!.exercises.contains("Bulgarian split squat"))
     }
 }
+
+final class ExerciseFilterTests: XCTestCase {
+    func testOnlyKeepsTheGroupsExercises() {
+        let legs = ExerciseLibrary.groups.first { $0.name == "Legs" }!
+        let mix = [StrengthExercise(name: "Squat", sets: [StrengthSet(reps: 8, weightKg: 60)]),
+                   StrengthExercise(name: "Bench press", sets: [StrengthSet(reps: 8, weightKg: 40)]),
+                   StrengthExercise(name: "Leg press", sets: [StrengthSet(reps: 10, weightKg: 100)])]
+        XCTAssertEqual(ExerciseLibrary.only(mix, in: legs).map(\.name), ["Squat", "Leg press"])
+    }
+}

@@ -67,7 +67,7 @@ targets:
         TARGETED_DEVICE_FAMILY: "1"
         # Bump CURRENT_PROJECT_VERSION for every build you upload to TestFlight.
         MARKETING_VERSION: "1.2.0"
-        CURRENT_PROJECT_VERSION: "31"
+        CURRENT_PROJECT_VERSION: "32"
   NutriKinTests:
     type: bundle.unit-test
     platform: iOS

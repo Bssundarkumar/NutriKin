@@ -110,6 +110,21 @@ struct StrengthEditor: View {
                         .buttonStyle(.bordered).buttonBorderShape(.capsule).controlSize(.small).tint(on ? .orange : .gray)
                     }
                 }
+                let sessions = tracking.recentStrength(for: member).compactMap { w -> (Workout, [StrengthExercise])? in
+                    let mine = ExerciseLibrary.only(w.exercises ?? [], in: group)
+                    return mine.isEmpty ? nil : (w, mine)
+                }
+                if !sessions.isEmpty {
+                    Menu {
+                        ForEach(sessions.prefix(10), id: \.0.id) { w, mine in
+                            Button("\(w.doneAt.formatted(.dateTime.weekday(.abbreviated).day().month(.abbreviated))): \(mine.prefix(3).map(\.name).joined(separator: ", "))\(mine.count > 3 ? " +\(mine.count - 3)" : "")") {
+                                for ex in mine where !exercises.contains(where: { $0.name == ex.name }) {
+                                    exercises.append(StrengthExercise(name: ex.name, sets: ex.sets))
+                                }
+                            }
+                        }
+                    } label: { Label("Copy a previous \(group.name.lowercased()) session", systemImage: "clock.arrow.circlepath").font(.subheadline.weight(.semibold)) }
+                }
                 HStack {
                     Button(picked.count == available.count && !available.isEmpty ? "Clear" : "Select all") {
                         picked = picked.count == available.count ? [] : Set(available)
