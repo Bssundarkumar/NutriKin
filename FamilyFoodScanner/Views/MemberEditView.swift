@@ -75,6 +75,8 @@ struct MemberEditView: View {
                     if canLinkToMe {
                         Toggle("This is me", isOn: $thisIsMe)
                             .onChange(of: thisIsMe) { _, on in if on { isManagedByParent = false } }
+                    } else {
+                        Text(linkNote).font(.footnote).foregroundStyle(.secondary)
                     }
                 }
 
@@ -214,6 +216,13 @@ struct MemberEditView: View {
         guard let e = existingMember else { return family.myMember == nil }
         if let me = family.myUserId, e.userId == me { return true }
         return e.userId == nil && family.myMember == nil
+    }
+
+    /// Why "This is me" isn't offered, so it never just goes missing.
+    private var linkNote: String {
+        if let mine = family.myMember, mine.id != existingMember?.id { return "You're linked to \(mine.name). To change that, open \(mine.name) and turn off \"This is me\"." }
+        if let e = existingMember, e.userId != nil { return "This person is linked to their own phone." }
+        return "Still loading your account. Close this and open it again in a moment."
     }
 
     private var isEditing: Bool {
