@@ -73,7 +73,11 @@ struct TodayView: View {
     @ViewBuilder
     private func cardView(_ card: TodayCard, member: Member, budget: DayBudget) -> some View {
         switch card {
-        case .hero: hero(member, budget)
+        case .hero:
+            VStack(spacing: 22) {
+                hero(member, budget)
+                DayTipCard(member: member, budget: budget, steps: health.activity.steps, weekMinutes: tracking.weeklyMinutes(for: member))
+            }
         case .quickActions: quickActions
         case .medications: MedicationsCard(member: member) { showMeds = true }.id("meds")
         case .limits: nutrients(budget)

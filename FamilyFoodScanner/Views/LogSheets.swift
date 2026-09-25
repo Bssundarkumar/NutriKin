@@ -176,6 +176,8 @@ struct LogWorkoutSheet: View {
     @State private var saved: Workout?
     @State private var cheer = ""
     @State private var cheerIsAI = false
+    @State private var idea: String?
+    @State private var ideaLoading = false
 
     private var estimate: Int { WorkoutEstimator.calories(kind: kind, intensity: intensity, minutes: minutes, weightKg: member.weightKg) }
     private var burned: Int { override ?? estimate }
@@ -187,6 +189,24 @@ struct LogWorkoutSheet: View {
     private var formView: some View {
         NavigationStack {
             Form {
+                if ai.textProvider != nil {
+                    Section {
+                        if let idea { Text(idea).font(.subheadline) }
+                        Button {
+                            ideaLoading = true
+                            Task {
+                                idea = await AIQuick.text(rules: DayCoach.workoutIdeaRules,
+                                                          user: DayCoach.workoutPrompt(member: member, weekMinutes: tracking.weeklyMinutes(for: member), steps: nil),
+                                                          members: family.members, ai: ai)
+                                    ?? "Couldn't get an idea right now. A walk you enjoy is always a good start."
+                                ideaLoading = false
+                            }
+                        } label: {
+                            Label(ideaLoading ? "Thinking\u{2026}" : (idea == nil ? "Not sure what to do? Get an idea" : "Another idea"), systemImage: "sparkles")
+                        }
+                        .disabled(ideaLoading)
+                    } footer: { if idea != nil { Text("Written by AI. A general idea, not medical advice.") } }
+                }
                 Section("Activity") {
                     LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 8), count: 4), spacing: 10) {
                         ForEach(WorkoutKind.allCases) { k in

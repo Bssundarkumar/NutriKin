@@ -64,28 +64,7 @@ enum WorkoutCoach {
     /// The AI version, or nil if nothing is set up or it fails. Never throws: the cheer is a bonus, not a requirement.
     @MainActor
     static func aiCheer(workout: Workout, member: Member, minutesToday: Int, weekMinutes: Int = 0, ai: AIConnection, family: [Member]) async -> String? {
-        guard let provider = ai.textProvider else { return nil }
-        let user = prompt(workout: workout, member: member, minutesToday: minutesToday, weekMinutes: weekMinutes)
-        let turns = [(role: "user", text: user)]
-        let system = rules + "\n\n" + AIGuardrails.taskRules
-        do {
-            let reply: String
-            switch provider {
-            case .apple:
-                do { reply = try await AppleAI.chat(system: system, messages: turns) }
-                catch {
-                    guard let llm = ai.keyClient else { return nil }
-                    reply = try await llm.chat(system: system, messages: [["role": "user", "content": user]], maxTokens: 200)
-                }
-            case .claude, .openai, .grok, .gemini:
-                guard let llm = ai.client(for: provider) else { return nil }
-                reply = try await llm.chat(system: system, messages: [["role": "user", "content": user]], maxTokens: 200)
-            }
-            let reviewed = AIGuardrails.review(reply: reply, members: family)
-            let trimmed = AIGuardrails.capped(reviewed.trimmingCharacters(in: .whitespacesAndNewlines), to: maxCharacters)
-            return trimmed.isEmpty ? nil : trimmed
-        } catch {
-            return nil
-        }
+        await AIQuick.text(rules: rules, user: prompt(workout: workout, member: member, minutesToday: minutesToday, weekMinutes: weekMinutes),
+                           members: family, ai: ai, maxTokens: 200, limit: maxCharacters)
     }
 }

@@ -1,0 +1,79 @@
+import Foundation
+
+/// One place for short, single-shot AI text (a cheer, a daily tip, a workout idea). It picks the person's provider,
+/// falls back from Apple's on-device model to their own key, and runs the reply through the shared review.
+/// Returns nil when nothing is set up or the AI fails, so callers always have a non-AI path.
+enum AIQuick {
+    @MainActor
+    static func text(rules: String, user: String, members: [Member], ai: AIConnection, maxTokens: Int = 220, limit: Int = 420) async -> String? {
+        guard let provider = ai.textProvider else { return nil }
+        let system = rules + "\n\n" + AIGuardrails.taskRules
+        let turns = [(role: "user", text: user)]
+        let raw = [["role": "user", "content": user]]
+        do {
+            let reply: String
+            switch provider {
+            case .apple:
+                do { reply = try await AppleAI.chat(system: system, messages: turns) }
+                catch {
+                    guard let llm = ai.keyClient else { return nil }
+                    reply = try await llm.chat(system: system, messages: raw, maxTokens: maxTokens)
+                }
+            case .claude, .openai, .grok, .gemini:
+                guard let llm = ai.client(for: provider) else { return nil }
+                reply = try await llm.chat(system: system, messages: raw, maxTokens: maxTokens)
+            }
+            let reviewed = AIGuardrails.review(reply: reply, members: members)
+            let trimmed = AIGuardrails.capped(reviewed.trimmingCharacters(in: .whitespacesAndNewlines), to: limit)
+            return trimmed.isEmpty ? nil : trimmed
+        } catch {
+            return nil
+        }
+    }
+}
+
+/// A daily food-and-movement tip, and a workout idea, both on request.
+enum DayCoach {
+    static let tipRules = """
+    You are NutriKin's friendly food helper. Given one family member's day so far (food eaten against their limits, movement and \\
+    goals), write at most 3 short sentences: one thing going well, then ONE practical food idea for the rest of the day that fits \\
+    their allergies and conditions (name real, everyday foods). Be warm and specific. Never shame, never suggest skipping meals or \\
+    eating very little, never talk about weight loss, no medical advice, no medication, insulin or supplement advice, no emojis, no links. \\
+    For a child keep it playful and about trying foods. For a pregnant person keep to general healthy eating and suggest asking \\
+    their midwife or doctor. Only use the numbers given; never invent any.
+    """
+
+    static let workoutIdeaRules = """
+    You are NutriKin's friendly movement helper. Given one family member's details, this week's activity and goals, suggest ONE \\
+    simple workout or activity for today in at most 3 short sentences: what to do, roughly how long, and a light reason. Match \\
+    their age and stay gentle: never suggest anything intense for a child, an older adult, a pregnant person or anyone with a \\
+    listed condition; say to check with their doctor if unsure. No medical advice, no weight-loss talk, no emojis, no links. \\
+    Only use the details given; never invent numbers.
+    """
+
+    static func dayPrompt(member: Member, budget: DayBudget, steps: Int?, weekMinutes: Int) -> String {
+        func n(_ v: Double) -> String { String(Int(v.rounded())) }
+        var lines = [
+            "Calories: \(n(budget.eaten.calories)) eaten, allowance \(n(budget.allowance)).",
+            "Sugar: \(n(budget.eaten.sugarG)) g of a \(n(budget.limits.sugarG)) g limit.",
+            "Sodium: \(n(budget.eaten.sodiumMg)) mg of a \(n(budget.limits.sodiumMg)) mg limit.",
+            "Saturated fat: \(n(budget.eaten.satFatG)) g of a \(n(budget.limits.satFatG)) g limit.",
+            "Fibre: \(n(budget.eaten.fiberG)) g of a \(n(budget.limits.fiberG)) g target.",
+            "Protein: \(n(budget.eaten.proteinG)) g.",
+            "Active calories today: \(budget.burned).",
+        ]
+        if let steps { lines.append("Steps today: \(steps).") }
+        if let goal = member.goals.dailySteps { lines.append("Step goal: \(goal).") }
+        if let goal = member.goals.weeklyWorkoutMinutes { lines.append("Workout goal: \(weekMinutes) of \(goal) minutes this week.") }
+        return AIGuardrails.untrusted(AIContext.describe(member), tag: "family_data") + "\n\n"
+            + AIGuardrails.untrusted(lines.joined(separator: "\n"), tag: "day_data")
+    }
+
+    static func workoutPrompt(member: Member, weekMinutes: Int, steps: Int?) -> String {
+        var lines = ["Minutes of activity so far this week: \(weekMinutes)."]
+        if let goal = member.goals.weeklyWorkoutMinutes { lines.append("Weekly workout goal: \(goal) minutes.") }
+        if let steps { lines.append("Steps today: \(steps).") }
+        return AIGuardrails.untrusted(AIContext.describe(member), tag: "family_data") + "\n\n"
+            + AIGuardrails.untrusted(lines.joined(separator: "\n"), tag: "activity_data")
+    }
+}
