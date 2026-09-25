@@ -51,12 +51,26 @@ enum WorkoutIntensity: String, Codable, CaseIterable, Identifiable {
 
 enum WorkoutKind: String, Codable, CaseIterable, Identifiable {
     case walking, running, cycling, swimming, yoga, strength, hiit, dance, sports, housework, other
+    // Activities children do. Older app versions read these as "other".
+    case play, playground, ballGames, martialArts, schoolPE
     var id: String { rawValue }
+
+    private static let kidOnly: [WorkoutKind] = [.play, .playground, .ballGames, .martialArts, .schoolPE]
+    /// What the activity picker offers: kid-friendly choices for children, the usual list for everyone else.
+    static func choices(forChild child: Bool) -> [WorkoutKind] {
+        child ? [.play, .playground, .ballGames, .cycling, .swimming, .running, .walking, .dance, .martialArts, .schoolPE, .yoga, .other]
+              : allCases.filter { !kidOnly.contains($0) }
+    }
 
     var title: String {
         switch self {
         case .hiit: "HIIT"
         case .housework: "Housework"
+        case .play: "Free play"
+        case .playground: "Playground"
+        case .ballGames: "Ball games"
+        case .martialArts: "Martial arts"
+        case .schoolPE: "School PE"
         default: rawValue.capitalized
         }
     }
@@ -74,6 +88,11 @@ enum WorkoutKind: String, Codable, CaseIterable, Identifiable {
         case .sports: "sportscourt.fill"
         case .housework: "house.fill"
         case .other: "figure.mixed.cardio"
+        case .play: "figure.play"
+        case .playground: "figure.climbing"
+        case .ballGames: "soccerball"
+        case .martialArts: "figure.martial.arts"
+        case .schoolPE: "figure.run.circle"
         }
     }
 
@@ -92,6 +111,11 @@ enum WorkoutKind: String, Codable, CaseIterable, Identifiable {
         case .sports: (5.0, 7.0, 9.0)
         case .housework: (2.5, 3.5, 5.0)
         case .other: (3.0, 5.0, 7.0)
+        case .play: (3.5, 4.5, 6.0)
+        case .playground: (3.5, 5.0, 6.5)
+        case .ballGames: (4.0, 6.0, 8.0)
+        case .martialArts: (4.0, 6.0, 10.0)
+        case .schoolPE: (4.0, 5.5, 7.5)
         }
         switch intensity { case .light: return light; case .moderate: return moderate; case .vigorous: return vigorous }
     }
@@ -216,4 +240,38 @@ struct WorkoutTemplate: Identifiable, Codable, Hashable {
     var memberId: UUID
     var name: String
     var exercises: [StrengthExercise]
+}
+
+/// A child's day of active play against the usual one-hour-a-day guidance, and a week of stars.
+enum KidActivity {
+    static let dailyGoalMinutes = 60
+
+    static func minutes(_ workouts: [Workout], on day: Date, calendar: Calendar = .current) -> Int {
+        workouts.filter { calendar.isDate($0.doneAt, inSameDayAs: day) }.reduce(0) { $0 + $1.minutes }
+    }
+
+    struct Day: Identifiable, Equatable {
+        var date: Date
+        var minutes: Int
+        var id: Date { date }
+        var earnedStar: Bool { minutes >= KidActivity.dailyGoalMinutes }
+    }
+
+    /// Monday to Sunday of the week containing `today`; days that haven't happened yet have no minutes.
+    static func week(_ workouts: [Workout], today: Date = Date(), calendar: Calendar = .current) -> [Day] {
+        let start = ActivityGoals.weekStart(today, calendar: calendar)
+        return (0..<7).compactMap { calendar.date(byAdding: .day, value: $0, to: start) }.map {
+            Day(date: $0, minutes: minutes(workouts, on: $0, calendar: calendar))
+        }
+    }
+
+    static func stars(_ days: [Day]) -> Int { days.filter(\.earnedStar).count }
+
+    /// A friendly line: always encouraging, never a failure.
+    static func message(name: String, todayMinutes: Int) -> String {
+        let left = max(dailyGoalMinutes - todayMinutes, 0)
+        if left == 0 { return "\(name) got today's star! An hour of play is a big win." }
+        if todayMinutes == 0 { return "A little play today? \(dailyGoalMinutes) minutes earns a star." }
+        return "\(todayMinutes) minutes so far. \(left) more for today's star."
+    }
 }

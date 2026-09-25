@@ -51,6 +51,33 @@ enum DayCoach {
     Only use the details given; never invent numbers.
     """
 
+    static let kidWeekRules = """
+    You are NutriKin's friendly helper writing a short weekly note for the PARENTS of one child about the child's active play. \
+    Write at most 3 short sentences: what the child did well this week (name the activities and days), then ONE simple, fun idea \
+    for next week (for example a new activity or something to do together as a family). Be warm and encouraging. Never criticise \
+    the child or the parents, never compare with other children, never talk about weight, body size or calories, no medical advice, \
+    no emojis, no links. Only use the details given; never invent numbers.
+    """
+
+    static func kidWeekPrompt(member: Member, days: [KidActivity.Day], workouts: [Workout]) -> String {
+        let cal = Calendar.current
+        let start = ActivityGoals.weekStart()
+        let lines = days.filter { $0.date <= Date() }.map { d -> String in
+            let kinds = Set(workouts.filter { cal.isDate($0.doneAt, inSameDayAs: d.date) }.map { $0.workoutKind.title }).sorted().joined(separator: ", ")
+            return "\(d.date.formatted(.dateTime.weekday(.wide))): \(d.minutes) minutes\(kinds.isEmpty ? "" : " (\(kinds))")"
+        }
+        _ = start
+        return AIGuardrails.untrusted(AIContext.describe(member), tag: "family_data") + "\n\n"
+            + AIGuardrails.untrusted(("Daily target: \(KidActivity.dailyGoalMinutes) minutes of active play.\n" + lines.joined(separator: "\n")), tag: "week_data")
+    }
+
+    static let kidSnackRules = """
+    You are NutriKin's friendly food helper for the parents of one child. Suggest 3 simple, healthy snack or lunchbox ideas in at \
+    most 4 short sentences, using everyday foods. Strictly avoid anything matching the child's allergies or conditions in the data, \
+    and never say a food is safe for an allergy (say to read the label). Keep portions and choking safety in mind for young children. \
+    No medical advice, no dieting or weight talk, no emojis, no links. Only use the details given.
+    """
+
     static func dayPrompt(member: Member, budget: DayBudget, steps: Int?, weekMinutes: Int) -> String {
         func n(_ v: Double) -> String { String(Int(v.rounded())) }
         var lines = [

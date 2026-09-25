@@ -116,6 +116,8 @@ final class TrackingStore {
 
     static var recentCutoff: Date { Calendar.current.date(byAdding: .day, value: -28, to: Calendar.current.startOfDay(for: Date())) ?? Date() }
 
+    func recentWorkouts(for member: Member) -> [Workout] { recentWorkouts.filter { $0.memberId == member.id } }
+
     /// This person's strength workouts from the last four weeks with exercises, newest first.
     func recentStrength(for member: Member) -> [Workout] {
         recentWorkouts.filter { $0.memberId == member.id && $0.exercises?.isEmpty == false }.sorted { $0.doneAt > $1.doneAt }

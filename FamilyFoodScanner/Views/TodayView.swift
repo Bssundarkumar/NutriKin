@@ -239,11 +239,13 @@ struct TodayView: View {
         let showsHealth = HealthActivityCard.isVisible(for: member, linkedID: healthMemberID, health: health)
         return VStack(alignment: .leading, spacing: 12) {
             SectionTitle(title: TodayLayout.isChild(member) ? "Active play" : "Workouts", actionTitle: "Add") { showWorkout = true }
+            if TodayLayout.isChild(member) { KidActivityCard(member: member, healthMinutes: showsHealth ? health.activity.exerciseMinutes : nil) }
             HealthActivityCard(member: member)
             goalBars(member, showsSteps: showsHealth)
             if list.isEmpty {
                 if !showsHealth {
-                    EmptyState(symbol: "figure.run", title: "No workout yet", message: "Log a walk, a run or any activity to add to today's allowance.")
+                    EmptyState(symbol: "figure.run", title: TodayLayout.isChild(member) ? "No play logged yet" : "No workout yet",
+                                   message: TodayLayout.isChild(member) ? "Log free play, sports, cycling or any activity to earn today's star." : "Log a walk, a run or any activity to add to today's allowance.")
                 } else {
                     Text("No workouts logged for this day yet.").font(.footnote).foregroundStyle(.secondary)
                 }

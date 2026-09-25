@@ -167,7 +167,7 @@ struct LogWorkoutSheet: View {
     @Environment(AIConnection.self) private var ai
     @Environment(\.dismiss) private var dismiss
 
-    @State private var kind: WorkoutKind = .walking
+    @State private var kind: WorkoutKind
     @State private var minutes = 30
     @State private var intensity: WorkoutIntensity = .moderate
     @State private var override: Int?
@@ -187,6 +187,11 @@ struct LogWorkoutSheet: View {
     private var effectiveMinutes: Int {
         setsDriveTime ? StrengthMath.estimatedMinutes(sets: StrengthMath.totalSets(StrengthMath.cleaned(exercises))) : minutes
     }
+    init(member: Member, editing: Workout? = nil) {
+        self.member = member; self.editing = editing
+        _kind = State(initialValue: TodayLayout.isChild(member) ? .play : .walking)
+    }
+
     private var estimate: Int { WorkoutEstimator.calories(kind: kind, intensity: intensity, minutes: effectiveMinutes, weightKg: member.weightKg) }
     private var burned: Int { override ?? estimate }
 
@@ -225,7 +230,7 @@ struct LogWorkoutSheet: View {
                 }
                 Section("Activity") {
                     LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 8), count: 4), spacing: 10) {
-                        ForEach(WorkoutKind.allCases) { k in
+                        ForEach(WorkoutKind.choices(forChild: TodayLayout.isChild(member))) { k in
                             Button { kind = k; override = nil } label: {
                                 VStack(spacing: 5) {
                                     Image(systemName: k.symbol).font(.title3).frame(height: 24)
@@ -260,12 +265,14 @@ struct LogWorkoutSheet: View {
                         .pickerStyle(.segmented).onChange(of: intensity) { _, _ in override = nil }
                 }
                 }
+                if !TodayLayout.isChild(member) {
                 Section {
                     Stepper("\(burned) kcal burned", value: Binding(get: { burned }, set: { override = $0 }), in: 0...3000, step: 10)
                 } header: { Text("Calories") } footer: {
                     Text(member.weightKg == nil
                          ? "An estimate for a 70 kg adult. Add \(member.name)'s weight in the Family tab for a better one."
                          : "An estimate for \(Int(member.weightKg ?? 0)) kg. Change it if your watch says otherwise.")
+                }
                 }
                 Section("Note (optional)") { TextField("e.g. Morning walk in the park", text: $note) }
                 if let message { Section { Text(message).font(.footnote).foregroundStyle(.red) } }
