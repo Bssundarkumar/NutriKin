@@ -14,6 +14,7 @@ struct TodayView: View {
     @State private var showFood = Demo.opensLogFood
     @State private var showWorkout = Demo.opensLogWorkout
     @State private var editingWorkout: Workout?
+    @State private var viewingWorkout: Workout?
     @State private var showAsk = false
     @State private var showMeds = Demo.opensMeds
 
@@ -59,6 +60,7 @@ struct TodayView: View {
             .task(id: family.householdId) { await tracking.load(householdId: family.householdId) }
             .sheet(isPresented: $showFood) { if let member { LogFoodSheet(member: member) } }
             .sheet(isPresented: $showWorkout) { if let member { LogWorkoutSheet(member: member) } }
+            .sheet(item: $viewingWorkout) { w in WorkoutDetailView(workout: w) { editingWorkout = w } }
             .sheet(item: $editingWorkout) { w in if let member { LogWorkoutSheet(member: member, editing: w) } }
             .sheet(isPresented: $showAsk) { AskAIView(product: nil) }
             .sheet(isPresented: $showMeds) { if let member { MedicationsManageView(member: member) } }
@@ -230,6 +232,7 @@ struct TodayView: View {
                         row(symbol: w.workoutKind.symbol, title: w.workoutKind.title,
                             subtitle: "\(w.minutes) min \u{00B7} \(w.intensity.title)" + (w.source == "health" ? " \u{00B7} Health" : "") + StrengthSummary.text(w.exercises) + (w.note.map { " \u{00B7} \($0)" } ?? ""),
                             trailing: "\(w.caloriesBurned) kcal", tint: .orange,
+                            onTap: (w.exercises?.isEmpty == false) ? { viewingWorkout = w } : nil,
                             onEdit: w.source == "health" ? nil : { editingWorkout = w }) {
                             Task { await tracking.delete(w) }
                         }
@@ -275,7 +278,7 @@ struct TodayView: View {
         }
     }
 
-    private func row(symbol: String, title: String, subtitle: String, trailing: String, tint: Color, onEdit: (() -> Void)? = nil, onDelete: @escaping () -> Void) -> some View {
+    private func row(symbol: String, title: String, subtitle: String, trailing: String, tint: Color, onTap: (() -> Void)? = nil, onEdit: (() -> Void)? = nil, onDelete: @escaping () -> Void) -> some View {
         HStack(spacing: 12) {
             Image(systemName: symbol).frame(width: 34, height: 34)
                 .background(tint.opacity(0.12), in: Circle()).foregroundStyle(tint)
@@ -284,12 +287,15 @@ struct TodayView: View {
                 Text(subtitle).font(.caption).foregroundStyle(.secondary).lineLimit(1)
             }
             Spacer(minLength: 8)
+            if onTap != nil { Image(systemName: "chevron.right").font(.caption2).foregroundStyle(.tertiary) }
             Text(trailing).font(.subheadline.monospacedDigit()).foregroundStyle(.secondary)
             Menu {
                 if let onEdit { Button("Edit", systemImage: "pencil", action: onEdit) }
                 Button("Remove", systemImage: "trash", role: .destructive, action: onDelete)
             } label: { Image(systemName: "ellipsis").foregroundStyle(.secondary).frame(width: 30, height: 34) }
         }
+        .contentShape(Rectangle())
+        .onTapGesture { onTap?() }
         .padding(.vertical, 8)
     }
 }
