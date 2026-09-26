@@ -195,3 +195,15 @@ final class CoachingGuardrailTests: XCTestCase {
         }
     }
 }
+
+final class SanitizeFastPathTests: XCTestCase {
+    func testPlainTextIsUnchangedAndMessyTextIsStillCleaned() {
+        XCTAssertEqual(AIGuardrails.sanitize("Bench press", max: 60), "Bench press")
+        XCTAssertEqual(AIGuardrails.sanitize("  Squat  ", max: 60), "Squat")
+        XCTAssertEqual(AIGuardrails.sanitize("Squat   and   lunge", max: 60), "Squat and lunge")
+        XCTAssertFalse(AIGuardrails.sanitize("See https://evil.example now", max: 60).contains("http"))
+        XCTAssertFalse(AIGuardrails.sanitize("<b>Bold</b> move", max: 60).contains("<"))
+        XCTAssertFalse(AIGuardrails.sanitize("Line\nbreak", max: 60).contains("\n"))
+        XCTAssertEqual(AIGuardrails.sanitize("abcdef", max: 3), "abc")
+    }
+}

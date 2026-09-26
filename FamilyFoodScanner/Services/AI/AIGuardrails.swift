@@ -156,11 +156,27 @@ enum AIGuardrails {
 
     /// For short model-written fields (dish names, reasons, tips): no links, tags or control characters.
     static func sanitize(_ s: String, max: Int, keepNewlines: Bool = false) -> String {
+        // Fast path: ordinary short text (a name, an exercise) has nothing to strip, and this runs on every redraw of some screens.
+        if isPlain(s) { return String(s.trimmingCharacters(in: .whitespacesAndNewlines).prefix(max)) }
         var t = stripControl(s, keepNewlines: keepNewlines)
         t = removeLinks(t)
         t = t.replacingOccurrences(of: #"<[^>]{0,40}>"#, with: "", options: .regularExpression)
         if !keepNewlines { t = t.replacingOccurrences(of: #"\s+"#, with: " ", options: .regularExpression) }
         return String(t.trimmingCharacters(in: .whitespacesAndNewlines).prefix(max))
+    }
+
+    /// No markup, links, control characters, new lines or doubled spaces: nothing for `sanitize` to change.
+    private static func isPlain(_ s: String) -> Bool {
+        var previousWasSpace = false
+        for scalar in s.unicodeScalars {
+            if scalar.value < 32 || scalar.value == 127 { return false }
+            if scalar == "<" || scalar == "[" || scalar == "]" { return false }
+            let isSpace = scalar == " "
+            if isSpace && previousWasSpace { return false }
+            previousWasSpace = isSpace
+        }
+        let lower = s.lowercased()
+        return !lower.contains("http") && !lower.contains("www")
     }
 
     static func removeLinks(_ s: String) -> String {
