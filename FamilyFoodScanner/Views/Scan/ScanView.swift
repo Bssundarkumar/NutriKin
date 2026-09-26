@@ -15,7 +15,6 @@ struct ScanView: View {
     @State private var hasRegion = false
     @State private var resetRegionToken = 0
     @State private var showPhoto = false
-    @State private var showPlate = Demo.opensPlate
     /// Set by the photo sheet, acted on once the sheet has closed.
     @State private var photoProduct: Product?
     @State private var photoBarcode: String?
@@ -56,17 +55,6 @@ struct ScanView: View {
                 }
                 .buttonStyle(PressableStyle())
 
-                Button { showPlate = true } label: {
-                    Label("Scan a plate (estimate calories)", systemImage: "fork.knife")
-                        .font(.subheadline.weight(.semibold))
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 12)
-                        .foregroundStyle(Theme.brand)
-                        .background(Color(.secondarySystemGroupedBackground), in: Capsule())
-                        .overlay(Capsule().strokeBorder(Theme.brand.opacity(0.35)))
-                }
-                .buttonStyle(PressableStyle())
-
                 if let errorMessage {
                     VStack(spacing: 6) {
                         Text(errorMessage)
@@ -90,7 +78,6 @@ struct ScanView: View {
             .animation(.smooth(duration: 0.25), value: errorMessage)
             .navigationTitle("Scan a product")
             .navigationDestination(item: $product) { ResultView(product: $0) }
-            .sheet(isPresented: $showPlate) { PlateScanView() }
             .sheet(isPresented: $showPhoto, onDismiss: photoSheetClosed) {
                 PhotoScanView(
                     onBarcode: { photoBarcode = $0 },
@@ -101,7 +88,7 @@ struct ScanView: View {
     }
 
     /// The live camera runs only while nothing covers it.
-    private var scannerShouldRun: Bool { isActive && !showPhoto && !showPlate && product == nil }
+    private var scannerShouldRun: Bool { isActive && !showPhoto && product == nil }
 
     @ViewBuilder
     private var scannerArea: some View {

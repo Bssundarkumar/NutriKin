@@ -365,6 +365,11 @@ struct PlateScanView: View {
                         }
                         .buttonStyle(.borderedProminent).buttonBorderShape(.capsule).controlSize(.large)
                         .disabled(loggedNote != nil)
+                        if family.members.count > 1 && loggedNote == nil {
+                            Menu {
+                                ForEach(family.members.filter { $0.id != person.id }) { m in Button(m.name) { logMeal(for: m) } }
+                            } label: { Label("Log for someone else\u{2026}", systemImage: "person.2") }
+                        }
                     } else {
                         Menu {
                             ForEach(family.members) { m in Button(m.name) { logMeal(for: m) } }

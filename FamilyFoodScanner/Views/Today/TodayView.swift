@@ -11,7 +11,7 @@ struct TodayView: View {
     @Environment(HealthKitManager.self) private var health
     @AppStorage("healthMemberID") private var healthMemberID = ""
     @AppStorage("todayMemberID") private var selectedID = ""
-    @State private var showFood = Demo.opensLogFood
+    @State private var showFood = Demo.opensLogFood || Demo.opensPlate
     @State private var showDatePicker = false
     @State private var pickedDay = Date()
     @State private var showAsk = false

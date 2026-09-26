@@ -14,7 +14,7 @@ struct LogFoodSheet: View {
 
     private enum Mode: String, CaseIterable { case describe = "Describe", manual = "Type it in" }
     @State private var mode: Mode = .manual
-    @State private var showPlate = false
+    @State private var showPlate = Demo.opensPlate
     @State private var description = ""
     @State private var estimate: PlateAnalysis?
     @State private var isEstimating = false
