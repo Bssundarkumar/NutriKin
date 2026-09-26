@@ -15,6 +15,7 @@ struct ActivityScreen: View {
     @State private var showSchedule = false
     @State private var showBuddies = false
     @State private var showPlan = Demo.opensPlan
+    @State private var showGrowth = Demo.opensGrowth
 
     var body: some View {
         NavigationStack {
@@ -47,6 +48,21 @@ struct ActivityScreen: View {
                             }
                         }
                     }
+                    .card()
+                    Button { showGrowth = true } label: {
+                        HStack(spacing: 12) {
+                            Image(systemName: "chart.xyaxis.line").frame(width: 34, height: 34)
+                                .background(Theme.brand.opacity(0.12), in: Circle()).foregroundStyle(Theme.brand)
+                            VStack(alignment: .leading, spacing: 1) {
+                                Text("Growth chart").font(.subheadline.weight(.semibold))
+                                Text("Height and weight over time for \(member.name)").font(.caption).foregroundStyle(.secondary)
+                            }
+                            Spacer()
+                            Image(systemName: "chevron.right").font(.caption).foregroundStyle(.tertiary)
+                        }
+                        .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
                     .card()
                     if !TodayLayout.isChild(member) {
                         Button { showPlan = true } label: {
@@ -92,6 +108,7 @@ struct ActivityScreen: View {
             }
             .sheet(isPresented: $showBuddies) { BuddiesView() }
             .sheet(isPresented: $showPlan) { NutritionPlanView(member: member) }
+            .sheet(isPresented: $showGrowth) { GrowthView(member: member) }
             .sheet(isPresented: $showWorkout) { LogWorkoutSheet(member: member) }
             .sheet(isPresented: $showSchedule) { ScheduleView(member: member) }
             .sheet(item: $viewingWorkout) { w in WorkoutDetailView(workout: w) { editingWorkout = w } }

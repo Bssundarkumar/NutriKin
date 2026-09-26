@@ -10,7 +10,6 @@ struct FamilyView: View {
     @State private var showAskAI = false
     @State private var isAdding = false
     @State private var editingMember: Member?
-    @State private var growthMember: Member? = Demo.opensGrowth ? Demo.members.first : nil
     @State private var didCopyCode = false
     @State private var confirmDelete = false
 
@@ -46,16 +45,6 @@ struct FamilyView: View {
                             Text(linkText(m))
                                 .font(.caption)
                                 .foregroundStyle(.green)
-                            VStack(alignment: .leading, spacing: 6) {
-                                Button { growthMember = m } label: {
-                                    Label("Growth chart", systemImage: "chart.xyaxis.line")
-                                        .font(.caption.weight(.semibold))
-                                        .padding(.horizontal, 10).padding(.vertical, 5)
-                                        .background(Theme.brand.opacity(0.12), in: Capsule())
-                                }
-                                .buttonStyle(.borderless)
-                            }
-                            .padding(.top, 2)
                         }
                         }
                         .padding(.vertical, 2)
@@ -170,7 +159,6 @@ struct FamilyView: View {
             .sheet(isPresented: $showConnectAI) { ConnectAIView() }
             .sheet(isPresented: $showAskAI) { AskAIView(product: nil) }
             .sheet(item: $editingMember) { MemberEditView(mode: .edit($0)) }
-            .sheet(item: $growthMember) { GrowthView(member: $0) }
             .alert("Delete your account?", isPresented: $confirmDelete) {
                 Button("Delete account", role: .destructive) { Task { if await auth.deleteAccount() { ai.disconnect() } } }
                 Button("Cancel", role: .cancel) {}

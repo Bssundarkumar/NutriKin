@@ -15,7 +15,7 @@ struct TodayView: View {
     @State private var showDatePicker = false
     @State private var pickedDay = Date()
     @State private var showAsk = false
-    @State private var showActivity = Demo.opensLogWorkout || Demo.opensPlan
+    @State private var showActivity = Demo.opensLogWorkout || Demo.opensPlan || Demo.opensGrowth
     @State private var showMeds = Demo.opensMeds
 
     private var member: Member? {
