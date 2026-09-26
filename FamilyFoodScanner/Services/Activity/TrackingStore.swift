@@ -55,12 +55,16 @@ final class TrackingStore {
                     .gte("done_at", value: Self.iso(start)).lt("done_at", value: Self.iso(end))
                     .order("done_at").execute().value
             }
+            // The week, templates and schedule don't depend on the day being shown, so they load alongside the day
+            // (in parallel) and only on a first load or a pull to refresh, not every time the day changes.
+            let reloadExtras = newDay == nil
+            async let week: Void = reloadExtras ? loadWeek(householdId) : ()
+            async let tmpl: Void = reloadExtras ? loadTemplates(householdId) : ()
+            async let sched: Void = reloadExtras ? loadSchedules(householdId) : ()
             let (f, w) = try await (food, training)
+            _ = await (week, tmpl, sched)
             guard day == start else { return }              // the person moved to another day meanwhile
             entries = f; workouts = w
-            await loadWeek(householdId)
-            await loadTemplates(householdId)
-            await loadSchedules(householdId)
         } catch {
             errorMessage = "Couldn't load this day. \(error.localizedDescription)"
         }
