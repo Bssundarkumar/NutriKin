@@ -5,8 +5,8 @@ import Foundation
 /// Returns nil when nothing is set up or the AI fails, so callers always have a non-AI path.
 enum AIQuick {
     @MainActor
-    static func text(rules: String, user: String, members: [Member], ai: AIConnection, maxTokens: Int = 220, limit: Int = 420) async -> String? {
-        guard let provider = ai.textProvider else { return nil }
+    static func text(rules: String, user: String, members: [Member], ai: AIConnection, forMember: Member? = nil, maxTokens: Int = 220, limit: Int = 420) async -> String? {
+        guard let provider = ai.textProvider, AIThrottle.allow() else { return nil }
         let system = rules + "\n\n" + AIGuardrails.taskRules
         let turns = [(role: "user", text: user)]
         let raw = [["role": "user", "content": user]]
@@ -23,8 +23,10 @@ enum AIQuick {
                 guard let llm = ai.client(for: provider) else { return nil }
                 reply = try await llm.chat(system: system, messages: raw, maxTokens: maxTokens)
             }
+            // Medication and link removal plus the allergen heads-up first, then the coaching checks (no dieting talk, and so on).
             let reviewed = AIGuardrails.review(reply: reply, members: members)
-            let trimmed = AIGuardrails.capped(reviewed.trimmingCharacters(in: .whitespacesAndNewlines), to: limit)
+            guard let coached = AIGuardrails.reviewCoaching(reply: reviewed, for: forMember) else { return nil }
+            let trimmed = AIGuardrails.capped(coached.trimmingCharacters(in: .whitespacesAndNewlines), to: limit)
             return trimmed.isEmpty ? nil : trimmed
         } catch {
             return nil

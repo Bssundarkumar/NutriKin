@@ -13,12 +13,13 @@ enum AIContext {
         var parts: [String] = []
         if let sex = m.sex { parts.append(sex.displayName.lowercased()) }
         if let age = m.age { parts.append("\(age) years old") }
-        if let h = m.heightCm, let w = m.weightKg {
+        // A child's height and weight aren't needed for food ideas, so they're never sent.
+        if !TodayLayout.isChild(m), let h = m.heightCm, let w = m.weightKg {
             parts.append("\(Int(h)) cm, \(Int(w)) kg (BMI \(String(format: "%.1f", NutritionPlanner.bmi(weightKg: w, heightCm: h))))")
         }
-        let allergies = m.allergies.map(\.displayName) + m.customAllergyNames
+        let allergies = m.allergies.map(\.displayName) + m.customAllergyNames.map { AIGuardrails.sanitize($0, max: 40) }
         let conditions = m.conditions.filter { if case .allergy = $0 { false } else if case .customAllergy = $0 { false } else { true } }
-            .map(\.displayName)
+            .map { AIGuardrails.sanitize($0.displayName, max: 40) }
         if !conditions.isEmpty { parts.append("conditions: " + conditions.joined(separator: ", ")) }
         if !allergies.isEmpty { parts.append("ALLERGIES: " + allergies.joined(separator: ", ")) }
         var goals: [String] = []
@@ -27,7 +28,7 @@ enum AIContext {
         if let na = m.goals.dailySodiumMg { goals.append("sodium under \(Int(na)) mg") }
         if let f = m.goals.dailySatFatGrams { goals.append("sat. fat under \(Int(f)) g") }
         if !goals.isEmpty { parts.append("daily goals: " + goals.joined(separator: ", ")) }
-        return "- \(m.name)" + (parts.isEmpty ? "" : ": " + parts.joined(separator: "; "))
+        return "- \(AIGuardrails.sanitize(m.name, max: 40))" + (parts.isEmpty ? "" : ": " + parts.joined(separator: "; "))
     }
 
     static func product(_ p: Product, members: [Member]) -> String {

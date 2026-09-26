@@ -65,6 +65,6 @@ enum WorkoutCoach {
     @MainActor
     static func aiCheer(workout: Workout, member: Member, minutesToday: Int, weekMinutes: Int = 0, ai: AIConnection, family: [Member]) async -> String? {
         await AIQuick.text(rules: rules, user: prompt(workout: workout, member: member, minutesToday: minutesToday, weekMinutes: weekMinutes),
-                           members: family, ai: ai, maxTokens: 200, limit: maxCharacters)
+                           members: family, ai: ai, forMember: member, maxTokens: 200, limit: maxCharacters)
     }
 }

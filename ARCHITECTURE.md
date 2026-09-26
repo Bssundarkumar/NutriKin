@@ -23,7 +23,7 @@ Pure logic (scoring, schedules, goals, permissions, strength maths) lives in Mod
 
 ## Rules that hold everywhere
 
-1. **AI is optional and on request.** Every AI feature has a non-AI path or hides itself. All AI text goes through `AIGuardrails.review` and is marked "Written by AI". Prompts pass user data inside `<..._data>` tags as data, never instructions. No medication or dosing advice, no weight-loss talk, no shaming.
+1. **AI is optional and on request.** Every AI feature has a non-AI path or hides itself. All AI text goes through `AIGuardrails.review` and is marked "Written by AI". Prompts pass user data inside `<..._data>` tags as data, never instructions. No medication or dosing advice, no weight-loss talk, no shaming. Short coaching texts also pass `reviewCoaching` (removes dieting, fasting, supplement, diagnosis and shaming sentences, plus topics that don't fit a child, a pregnant person or an older adult), are throttled (20 per 10 minutes), and never send a child's height or weight. Prompt inputs are sanitised, and if nothing safe is left the app shows its own written line.
 2. **Access is enforced in the database (row-level security), not in the app.** The app's `MemberAccess` only decides which buttons to show. Anyone in a family can read; writes to a person's medicines, templates, schedules and measurements need `can_manage_member`: the person themselves, or a parent/carer for someone managed by one.
 3. **Backward compatible.** New fields are optional; new enum cases decode as `other` in older apps; new tables are loaded in their own `try` so an old database doesn't break the rest.
 4. **Local-first reminders.** Medicine and activity reminders are local notifications on this phone. They are a nudge, never a safety system.

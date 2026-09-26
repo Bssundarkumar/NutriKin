@@ -82,7 +82,7 @@ struct KidActivityCard: View {
         let days = week
         Task {
             summary = await AIQuick.text(rules: DayCoach.kidWeekRules, user: DayCoach.kidWeekPrompt(member: member, days: days, workouts: tracking.recentWorkouts(for: member)),
-                                         members: family.members, ai: ai)
+                                         members: family.members, ai: ai, forMember: member)
                 ?? "Couldn't get a summary right now. Try again in a moment."
             loading = false
         }

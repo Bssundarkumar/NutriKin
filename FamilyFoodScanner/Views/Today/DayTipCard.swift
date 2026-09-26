@@ -58,7 +58,7 @@ struct DayTipCard: View {
         Task {
             carerNote = await AIQuick.text(rules: DayCoach.carerWeekRules,
                                            user: DayCoach.carerWeekPrompt(member: member, days: days, doses: doses, eatenToday: budget.eaten.calories > 0),
-                                           members: family.members, ai: ai)
+                                           members: family.members, ai: ai, forMember: member)
                 ?? "Couldn't get a note right now. Try again in a moment."
             loading = false
         }
@@ -68,7 +68,7 @@ struct DayTipCard: View {
         loading = true
         Task {
             snacks = await AIQuick.text(rules: DayCoach.kidSnackRules, user: DayCoach.dayPrompt(member: member, budget: budget, steps: steps, weekMinutes: weekMinutes),
-                                        members: family.members, ai: ai)
+                                        members: family.members, ai: ai, forMember: member)
                 ?? "Couldn't get ideas right now. Try again in a moment."
             loading = false
         }
@@ -78,7 +78,7 @@ struct DayTipCard: View {
         loading = true
         Task {
             tip = await AIQuick.text(rules: DayCoach.tipRules, user: DayCoach.dayPrompt(member: member, budget: budget, steps: steps, weekMinutes: weekMinutes),
-                                     members: family.members, ai: ai)
+                                     members: family.members, ai: ai, forMember: member)
                 ?? "Couldn't get a tip right now. Try again in a moment."
             loading = false
         }

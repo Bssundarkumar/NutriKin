@@ -213,7 +213,7 @@ struct LogWorkoutSheet: View {
                             Task {
                                 idea = await AIQuick.text(rules: DayCoach.workoutIdeaRules,
                                                           user: DayCoach.workoutPrompt(member: member, weekMinutes: tracking.weeklyMinutes(for: member), steps: nil),
-                                                          members: family.members, ai: ai)
+                                                          members: family.members, ai: ai, forMember: member)
                                     ?? "Couldn't get an idea right now. A walk you enjoy is always a good start."
                                 ideaLoading = false
                             }
