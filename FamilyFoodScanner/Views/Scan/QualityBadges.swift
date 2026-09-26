@@ -90,11 +90,12 @@ struct AlternativesSection: View {
     }
 
     var body: some View {
-        let merged = aiItems + categoryItems.filter { c in !aiItems.contains { $0.id == c.id } }
+        // One list, best first, whether it came from the category search or from the AI's ideas.
+        let merged = AlternativeRanker.sortedBestFirst(aiItems + categoryItems.filter { c in !aiItems.contains { $0.id == c.id } })
         if applies {
             Section {
-                ForEach(merged.prefix(4)) { item in
-                    NavigationLink { ResultView(product: item.product) } label: { AlternativeRow(item: item) }
+                ForEach(Array(merged.prefix(4).enumerated()), id: \.element.id) { index, item in
+                    NavigationLink { ResultView(product: item.product) } label: { AlternativeRow(item: item, isBest: index == 0) }
                 }
                 if isLoading {
                     HStack(spacing: 10) {
@@ -114,7 +115,7 @@ struct AlternativesSection: View {
                 Text("Try this instead")
             } footer: {
                 if !merged.isEmpty {
-                    Text("Real products scored for everyone in your family, compared per 100 g. Ideas marked in green come from your AI. Categories can occasionally be off, so check the label.")
+                    Text("Best first: real products scored for everyone in your family, compared per 100 g. Ideas marked in green come from your AI. Categories can occasionally be off, so check the label.")
                 }
             }
         }
@@ -123,6 +124,7 @@ struct AlternativesSection: View {
 
 private struct AlternativeRow: View {
     let item: Alternative
+    var isBest = false
 
     var body: some View {
         HStack(spacing: 12) {
@@ -133,6 +135,9 @@ private struct AlternativeRow: View {
             .clipShape(RoundedRectangle(cornerRadius: 8))
 
             VStack(alignment: .leading, spacing: 2) {
+                if isBest {
+                    Label("Best pick", systemImage: "star.fill").font(.caption2.weight(.bold)).foregroundStyle(.orange)
+                }
                 Text(item.product.name).font(.subheadline.weight(.semibold)).lineLimit(2)
                 if let brand = item.product.brand {
                     Text(brand).font(.caption).foregroundStyle(.secondary)

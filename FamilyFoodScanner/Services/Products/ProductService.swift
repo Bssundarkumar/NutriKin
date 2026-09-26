@@ -94,11 +94,14 @@ struct ProductService {
         var found: [Product] = []
         var seen = Set<String>()
         for tag in tags.reversed().prefix(3) {
+          // Two views of each category: what people scan most (well-known products) and what scores best on
+          // Nutri-Score, so the best option is in the pool even when few people have scanned it.
+          for sort in ["unique_scans_n", "nutriscore_score"] {
             var comps = URLComponents(string: "https://world.openfoodfacts.org/api/v2/search")!
             comps.queryItems = [
                 URLQueryItem(name: "categories_tags", value: tag),
                 URLQueryItem(name: "fields", value: Self.productFields),
-                URLQueryItem(name: "sort_by", value: "unique_scans_n"),
+                URLQueryItem(name: "sort_by", value: sort),
                 URLQueryItem(name: "page_size", value: "60"),
             ]
             var request = URLRequest(url: comps.url!)
@@ -109,6 +112,7 @@ struct ProductService {
             if status == 503 || status == 429 { if found.isEmpty { throw ProductError.busy } else { break } }
             guard status == 200 else { if found.isEmpty { throw ProductError.badResponse } else { break } }
             for p in Self.decodeProducts(data) where seen.insert(p.barcode).inserted { found.append(p) }
+          }
             if found.count >= minimum { break }
         }
         return found

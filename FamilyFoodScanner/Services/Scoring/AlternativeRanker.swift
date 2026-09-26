@@ -48,7 +48,27 @@ struct AlternativeRanker {
             guard seenNames.insert(key).inserted else { continue }
             ranked.append(Alternative(product: candidate, worstScore: worst))
         }
-        return Array(ranked.sorted { $0.worstScore > $1.worstScore }.prefix(limit))
+        return Array(Self.sortedBestFirst(ranked).prefix(limit))
+    }
+
+    /// Best first: the highest score for the worst-off family member, then a better Nutri-Score, then less processed
+    /// (lower NOVA), then fewer additives, then by name so the order is stable.
+    static func sortedBestFirst(_ list: [Alternative]) -> [Alternative] {
+        list.sorted { a, b in
+            if a.worstScore != b.worstScore { return a.worstScore > b.worstScore }
+            let ga = grade(a.product), gb = grade(b.product)
+            if ga != gb { return ga < gb }
+            let na = a.product.novaGroup ?? 5, nb = b.product.novaGroup ?? 5
+            if na != nb { return na < nb }
+            if a.product.additivesTags.count != b.product.additivesTags.count { return a.product.additivesTags.count < b.product.additivesTags.count }
+            return a.product.name < b.product.name
+        }
+    }
+
+    /// a = 0 ... e = 4; unknown sorts last.
+    private static func grade(_ p: Product) -> Int {
+        guard let g = p.nutriScore?.lowercased(), let i = ["a", "b", "c", "d", "e"].firstIndex(of: g) else { return 5 }
+        return i
     }
 
     /// Open Food Facts files some odd products under broad categories, so a
