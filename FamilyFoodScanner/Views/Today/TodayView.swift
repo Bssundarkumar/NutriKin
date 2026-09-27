@@ -2,8 +2,6 @@ import SwiftUI
 
 /// The home screen: how today is going for one person, and quick ways to log food and workouts.
 struct TodayView: View {
-    var onScan: () -> Void
-
     @Environment(FamilyStore.self) private var family
     @Environment(TrackingStore.self) private var tracking
     @Environment(AIConnection.self) private var ai
@@ -203,7 +201,6 @@ struct TodayView: View {
 
     private var quickActions: some View {
         HStack(spacing: 8) {
-            QuickAction(title: "Scan", symbol: "barcode.viewfinder", action: onScan)
             QuickAction(title: "Log food", symbol: "plus.circle.fill") { showFood = true }
             QuickAction(title: "Ask AI", symbol: "sparkles", tint: .purple) { showAsk = true }
             QuickAction(title: "Activity", symbol: "figure.run", tint: .orange) { showActivity = true }

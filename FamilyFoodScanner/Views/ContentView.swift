@@ -28,7 +28,7 @@ struct ContentView: View {
                 case .loaded:
                     if family.hasHousehold {
                         TabView(selection: $tab) {
-                            TodayView(onScan: { tab = .scan })
+                            TodayView()
                                 .tabItem { Label("Today", systemImage: "chart.pie.fill") }
                                 .tag(Tab.today)
                             ScanView(isActive: tab == .scan)
