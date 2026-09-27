@@ -13,6 +13,8 @@ struct LogFoodSheet: View {
     @Environment(\.dismiss) private var dismiss
 
     private enum Mode: String, CaseIterable { case describe = "Describe", manual = "Type it in" }
+    private enum Choice { case plate, describe, manual }
+    @State private var choice: Choice?
     @State private var mode: Mode = .manual
     @State private var showPlate = Demo.opensPlate
     @State private var description = ""
@@ -29,45 +31,73 @@ struct LogFoodSheet: View {
     @State private var protein = ""
     @State private var fiber = ""
     @State private var fat = ""
+    @State private var showMoreDetail = false
 
     private var canDescribe: Bool { ai.textProvider != nil }
 
     var body: some View {
         NavigationStack {
-            Form {
-                Section {
-                    Button { showPlate = true } label: {
-                        HStack(spacing: 12) {
-                            Image(systemName: "camera.viewfinder").font(.title2).foregroundStyle(Theme.brand)
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text("Scan a plate").font(.headline)
-                                Text("Take a photo and get calories and nutrients estimated").font(.caption).foregroundStyle(.secondary)
-                            }
-                            Spacer()
-                            Image(systemName: "chevron.right").font(.footnote.weight(.semibold)).foregroundStyle(.tertiary)
-                        }
-                    }
-                    .buttonStyle(.plain)
-                } footer: { Text("Or describe the meal, or type the numbers in below.") }
-                if canDescribe {
-                    Picker("How", selection: $mode) { ForEach(Mode.allCases, id: \.self) { Text($0.rawValue).tag($0) } }
-                        .pickerStyle(.segmented)
-                        .listRowBackground(Color.clear)
-                }
-                if mode == .describe && canDescribe { describeSection } else { manualSection }
-                if let message { Section { Text(message).font(.footnote).foregroundStyle(.red) } }
+            Group {
+                if let choice { formView(for: choice) } else { chooseView }
             }
-            .softList()
             .navigationTitle("Log food for \(member.name)")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } }
-                ToolbarItem(placement: .confirmationAction) {
-                    Button(isSaving ? "Saving\u{2026}" : "Log") { save() }.disabled(!canSave || isSaving)
+                if choice != nil {
+                    ToolbarItem(placement: .confirmationAction) {
+                        Button(isSaving ? "Saving\u{2026}" : "Log") { save() }.disabled(!canSave || isSaving)
+                    }
                 }
             }
-            .onAppear { ai.refreshApple(); if canDescribe { mode = .describe } }
+            .onAppear { ai.refreshApple() }
             .sheet(isPresented: $showPlate) { PlateScanView(logFor: member, onLogged: { dismiss() }) }
+        }
+    }
+
+    /// The first thing anyone sees: pick how, then only that path's screen shows.
+    private var chooseView: some View {
+        List {
+            Section {
+                choiceRow(symbol: "camera.viewfinder", title: "Scan a plate", subtitle: "Take a photo and get calories and nutrients estimated") { showPlate = true }
+                if canDescribe {
+                    choiceRow(symbol: "sparkles", title: "Describe it", subtitle: "Tell your AI what was eaten and it estimates the numbers") { choice = .describe }
+                }
+                choiceRow(symbol: "keyboard", title: "Type it in", subtitle: "Enter the name and calories yourself") { choice = .manual }
+            }
+        }
+        .softList()
+    }
+
+    private func choiceRow(symbol: String, title: String, subtitle: String, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            HStack(spacing: 12) {
+                Image(systemName: symbol).font(.title2).foregroundStyle(Theme.brand).frame(width: 28)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(title).font(.headline).foregroundStyle(.primary)
+                    Text(subtitle).font(.caption).foregroundStyle(.secondary)
+                }
+                Spacer()
+                Image(systemName: "chevron.right").font(.footnote.weight(.semibold)).foregroundStyle(.tertiary)
+            }
+        }
+        .buttonStyle(.plain)
+    }
+
+    @ViewBuilder
+    private func formView(for choice: Choice) -> some View {
+        Form {
+            Section { backRow } .listRowBackground(Color.clear).listRowInsets(EdgeInsets())
+            if choice == .describe { describeSection } else { manualSection }
+            if let message { Section { Text(message).font(.footnote).foregroundStyle(.red) } }
+        }
+        .softList()
+        .onAppear { mode = choice == .describe ? .describe : .manual }
+    }
+
+    private var backRow: some View {
+        Button { self.choice = nil; message = nil } label: {
+            Label("Choose a different way", systemImage: "chevron.left").font(.footnote.weight(.semibold))
         }
     }
 
@@ -106,10 +136,12 @@ struct LogFoodSheet: View {
                 HStack { Text("Calories"); Spacer(); TextField("kcal", text: $calories).keyboardType(.decimalPad).multilineTextAlignment(.trailing).frame(width: 110) }
             }
             Section {
-                fieldRow("Sugar", "g", $sugar); fieldRow("Carbs", "g", $carbs); fieldRow("Sodium", "mg", $sodium)
-                fieldRow("Saturated fat", "g", $satFat); fieldRow("Total fat", "g", $fat)
-                fieldRow("Protein", "g", $protein); fieldRow("Fibre", "g", $fiber)
-            } header: { Text("More detail (optional)") } footer: { Text("Leave blank anything you don't know.") }
+                DisclosureGroup("More detail (optional)", isExpanded: $showMoreDetail) {
+                    fieldRow("Sugar", "g", $sugar); fieldRow("Carbs", "g", $carbs); fieldRow("Sodium", "mg", $sodium)
+                    fieldRow("Saturated fat", "g", $satFat); fieldRow("Total fat", "g", $fat)
+                    fieldRow("Protein", "g", $protein); fieldRow("Fibre", "g", $fiber)
+                }
+            } footer: { Text("Leave blank anything you don't know.") }
         }
     }
 
