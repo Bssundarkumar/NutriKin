@@ -13,9 +13,7 @@ struct ActivityScreen: View {
     @State private var editingWorkout: Workout?
     @State private var viewingWorkout: Workout?
     @State private var showSchedule = false
-    @State private var showBuddies = false
-    @State private var showPlan = Demo.opensPlan
-    @State private var showGrowth = Demo.opensGrowth
+    @State private var showMore = Demo.opensPlan || Demo.opensGrowth
 
     var body: some View {
         NavigationStack {
@@ -49,13 +47,13 @@ struct ActivityScreen: View {
                         }
                     }
                     .card()
-                    Button { showGrowth = true } label: {
+                    Button { showMore = true } label: {
                         HStack(spacing: 12) {
-                            Image(systemName: "chart.xyaxis.line").frame(width: 34, height: 34)
+                            Image(systemName: "ellipsis.circle.fill").frame(width: 34, height: 34)
                                 .background(Theme.brand.opacity(0.12), in: Circle()).foregroundStyle(Theme.brand)
                             VStack(alignment: .leading, spacing: 1) {
-                                Text("Growth chart").font(.subheadline.weight(.semibold))
-                                Text("Height and weight over time for \(member.name)").font(.caption).foregroundStyle(.secondary)
+                                Text("More for \(member.name)").font(.subheadline.weight(.semibold))
+                                Text(TodayLayout.isChild(member) ? "Growth chart" : "Growth chart, weight plan, gym buddies").font(.caption).foregroundStyle(.secondary)
                             }
                             Spacer()
                             Image(systemName: "chevron.right").font(.caption).foregroundStyle(.tertiary)
@@ -64,38 +62,6 @@ struct ActivityScreen: View {
                     }
                     .buttonStyle(.plain)
                     .card()
-                    if !TodayLayout.isChild(member) {
-                        Button { showPlan = true } label: {
-                            HStack(spacing: 12) {
-                                Image(systemName: "chart.bar.doc.horizontal").frame(width: 34, height: 34)
-                                    .background(Theme.brand.opacity(0.12), in: Circle()).foregroundStyle(Theme.brand)
-                                VStack(alignment: .leading, spacing: 1) {
-                                    Text("Weight & daily intake plan").font(.subheadline.weight(.semibold))
-                                    Text("Target weight, a paced calorie goal and BMI").font(.caption).foregroundStyle(.secondary)
-                                }
-                                Spacer()
-                                Image(systemName: "chevron.right").font(.caption).foregroundStyle(.tertiary)
-                            }
-                            .contentShape(Rectangle())
-                        }
-                        .buttonStyle(.plain)
-                        .card()
-                        Button { showBuddies = true } label: {
-                            HStack(spacing: 12) {
-                                Image(systemName: "person.2.fill").frame(width: 34, height: 34)
-                                    .background(Theme.brand.opacity(0.12), in: Circle()).foregroundStyle(Theme.brand)
-                                VStack(alignment: .leading, spacing: 1) {
-                                    Text("Gym buddies").font(.subheadline.weight(.semibold))
-                                    Text("Train with friends and copy their workouts").font(.caption).foregroundStyle(.secondary)
-                                }
-                                Spacer()
-                                Image(systemName: "chevron.right").font(.caption).foregroundStyle(.tertiary)
-                            }
-                            .contentShape(Rectangle())
-                        }
-                        .buttonStyle(.plain)
-                        .card()
-                    }
                     if let message = tracking.errorMessage { Text(message).font(.footnote).foregroundStyle(.red) }
                 }
                 .padding(.horizontal, 16).padding(.bottom, 32)
@@ -106,9 +72,7 @@ struct ActivityScreen: View {
             .toolbar {
                 ToolbarItem(placement: .confirmationAction) { Button("Done") { dismiss() } }
             }
-            .sheet(isPresented: $showBuddies) { BuddiesView() }
-            .sheet(isPresented: $showPlan) { NutritionPlanView(member: member) }
-            .sheet(isPresented: $showGrowth) { GrowthView(member: member) }
+            .sheet(isPresented: $showMore) { MoreForMemberView(member: member) }
             .sheet(isPresented: $showWorkout) { LogWorkoutSheet(member: member) }
             .sheet(isPresented: $showSchedule) { ScheduleView(member: member) }
             .sheet(item: $viewingWorkout) { w in WorkoutDetailView(workout: w) { editingWorkout = w } }

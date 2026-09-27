@@ -25,34 +25,41 @@ struct StrengthEditor: View {
 
         Section {
             let mine = tracking.templates(for: member)
-            Menu {
-                if mine.isEmpty { Text("No templates yet") }
-                ForEach(mine) { t in
-                    Button("\(t.name) (\(t.exercises.count) exercises)") {
-                        if exercises.isEmpty { use(t, replacing: true) } else { pendingTemplate = t }
-                    }
-                }
-            } label: { Label("Start from a template", systemImage: "square.on.square") }
             let past = tracking.recentStrength(for: member)
-            if !past.isEmpty {
+            if !mine.isEmpty || !past.isEmpty {
                 Menu {
-                    ForEach(past.prefix(20)) { w in
-                        Button(pastLabel(w)) { exercises = (w.exercises ?? []).map { StrengthExercise(name: $0.name, sets: $0.sets) } }
+                    if !mine.isEmpty {
+                        Section("Your templates") {
+                            ForEach(mine) { t in
+                                Button("\(t.name) (\(t.exercises.count) exercises)") {
+                                    if exercises.isEmpty { use(t, replacing: true) } else { pendingTemplate = t }
+                                }
+                            }
+                        }
                     }
-                } label: { Label("Copy from a previous workout", systemImage: "clock.arrow.circlepath") }
+                    if !past.isEmpty {
+                        Section("Recent workouts") {
+                            ForEach(past.prefix(10)) { w in
+                                Button(pastLabel(w)) { exercises = (w.exercises ?? []).map { StrengthExercise(name: $0.name, sets: $0.sets) } }
+                            }
+                        }
+                    }
+                } label: { Label("Reuse a past workout", systemImage: "clock.arrow.circlepath") }
             }
             if let applied, sameTemplate(applied) == false {
                 Button { Task { await tracking.updateTemplate(applied, exercises: exercises); self.applied = tracking.templates.first { $0.id == applied.id } } } label: {
                     Label("Update \"\(applied.name)\" with these changes", systemImage: "arrow.triangle.2.circlepath")
                 }
             }
-            if !exercises.isEmpty {
-                Button { templateName = ""; savingTemplate = true } label: { Label("Save these exercises as a template", systemImage: "square.and.arrow.down") }
-            }
-            if !mine.isEmpty {
+            if !exercises.isEmpty || !mine.isEmpty {
                 Menu {
-                    ForEach(mine) { t in Button(t.name, role: .destructive) { Task { await tracking.deleteTemplate(t) } } }
-                } label: { Label("Delete a template", systemImage: "trash") }
+                    if !exercises.isEmpty {
+                        Button { templateName = ""; savingTemplate = true } label: { Label("Save these exercises as a template", systemImage: "square.and.arrow.down") }
+                    }
+                    if !mine.isEmpty {
+                        ForEach(mine) { t in Button("Delete \"\(t.name)\"", role: .destructive) { Task { await tracking.deleteTemplate(t) } } }
+                    }
+                } label: { Label("Manage templates", systemImage: "ellipsis.circle") }
             }
         } footer: {
             Text("A template keeps the exercises, sets, reps and weights. Apply it on any day, then change, add or remove exercises for that day.")
