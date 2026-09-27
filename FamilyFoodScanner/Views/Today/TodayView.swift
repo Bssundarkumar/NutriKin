@@ -13,6 +13,7 @@ struct TodayView: View {
     @State private var showDatePicker = false
     @State private var pickedDay = Date()
     @State private var showAsk = false
+    @State private var editingFood: FoodEntry?
     @State private var showActivity = Demo.opensLogWorkout || Demo.opensPlan || Demo.opensGrowth
     @State private var showMeds = Demo.opensMeds
 
@@ -73,6 +74,7 @@ struct TodayView: View {
                 .presentationDetents([.medium, .large])
             }
             .sheet(isPresented: $showAsk) { AskAIView(product: nil) }
+            .sheet(item: $editingFood) { EditFoodEntryView(entry: $0) }
             .sheet(isPresented: $showMeds) { if let member { MedicationsManageView(member: member) } }
             .task(id: tracking.day) {
                 medications.updateMemberNames(family.members)
@@ -237,7 +239,8 @@ struct TodayView: View {
                 VStack(spacing: 0) {
                     ForEach(list) { e in
                         LogRow(symbol: symbol(for: e.source), title: e.label, subtitle: e.eatenAt.formatted(date: .omitted, time: .shortened),
-                            trailing: TodayLayout.showsCalorieSummary(for: member) ? "\(Int(e.calories.rounded())) kcal" : "", tint: Theme.brand) {
+                            trailing: TodayLayout.showsCalorieSummary(for: member) ? "\(Int(e.calories.rounded())) kcal" : "", tint: Theme.brand,
+                            onEdit: { editingFood = e }) {
                             Task { await tracking.delete(e) }
                         }
                         if e.id != list.last?.id { Divider().padding(.leading, 48) }

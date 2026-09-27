@@ -114,6 +114,37 @@ final class TrackingStore {
         }
     }
 
+    /// Saves changes to a logged food entry (fixing an estimate that missed an ingredient, a typo, and so on).
+    @discardableResult
+    func update(_ entry: FoodEntry) async -> Bool {
+        errorMessage = nil
+        var fixed = entry
+        fixed.label = AIGuardrails.sanitize(entry.label, max: 120)
+        fixed.calories = clamp(entry.calories, 5000); fixed.sugarG = clamp(entry.sugarG, 1000); fixed.carbsG = clamp(entry.carbsG, 1000)
+        fixed.sodiumMg = clamp(entry.sodiumMg, 50000); fixed.satFatG = clamp(entry.satFatG, 1000); fixed.proteinG = clamp(entry.proteinG, 1000)
+        fixed.fiberG = clamp(entry.fiberG, 1000); fixed.fatG = clamp(entry.fatG, 1000)
+        let before = entries
+        if let i = entries.firstIndex(where: { $0.id == fixed.id }) { entries[i] = fixed }
+        if Demo.isOn { return true }
+        struct Patch: Encodable {
+            var label: String, calories: Double, sugarG: Double, carbsG: Double, sodiumMg: Double
+            var satFatG: Double, proteinG: Double, fiberG: Double, fatG: Double
+        }
+        do {
+            try await Backend.withRetry {
+                try await client.from("food_log")
+                    .update(Patch(label: fixed.label, calories: fixed.calories, sugarG: fixed.sugarG, carbsG: fixed.carbsG,
+                                  sodiumMg: fixed.sodiumMg, satFatG: fixed.satFatG, proteinG: fixed.proteinG, fiberG: fixed.fiberG, fatG: fixed.fatG))
+                    .eq("id", value: fixed.id).execute()
+            }
+            return true
+        } catch {
+            entries = before
+            errorMessage = "Couldn't save that change. \(error.localizedDescription)"
+            return false
+        }
+    }
+
     func delete(_ entry: FoodEntry) async {
         errorMessage = nil
         entries.removeAll { $0.id == entry.id }
