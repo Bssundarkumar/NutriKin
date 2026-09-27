@@ -70,22 +70,30 @@ struct GroceriesView: View {
 
     private func row(_ item: GroceryItem) -> some View {
         let bought = justBought.contains(item.id)
-        return Button { buy(item) } label: {
-            HStack(spacing: 12) {
-                Image(systemName: bought ? "checkmark.circle.fill" : "circle")
-                    .font(.title2).foregroundStyle(bought ? Theme.brand : .secondary)
-                    .symbolEffect(.bounce, value: bought)
-                VStack(alignment: .leading, spacing: 1) {
-                    Text(item.name).font(.body.weight(.medium)).strikethrough(bought).foregroundStyle(bought ? .secondary : .primary)
-                    if let note = item.note, !note.isEmpty { Text(note).font(.caption).foregroundStyle(.secondary) }
+        return HStack(spacing: 12) {
+            Button { buy(item) } label: {
+                HStack(spacing: 12) {
+                    Image(systemName: bought ? "checkmark.circle.fill" : "circle")
+                        .font(.title2).foregroundStyle(bought ? Theme.brand : .secondary)
+                        .symbolEffect(.bounce, value: bought)
+                    VStack(alignment: .leading, spacing: 1) {
+                        Text(item.name).font(.body.weight(.medium)).strikethrough(bought).foregroundStyle(bought ? .secondary : .primary)
+                        if let note = item.note, !note.isEmpty { Text(note).font(.caption).foregroundStyle(.secondary) }
+                    }
+                    Spacer()
+                    if let q = item.quantity { Text(q).font(.subheadline).foregroundStyle(.secondary) }
                 }
-                Spacer()
-                if let q = item.quantity { Text(q).font(.subheadline).foregroundStyle(.secondary) }
+                .contentShape(Rectangle())
             }
-            .contentShape(Rectangle())
+            .buttonStyle(.plain)
+            .accessibilityLabel("\(item.name)\(item.quantity.map { ", \($0)" } ?? ""). Double tap when bought.")
+            Button { Task { await groceries.remove([item]) } } label: {
+                Image(systemName: "trash").foregroundStyle(.secondary)
+            }
+            .buttonStyle(.plain)
+            .frame(width: 44, height: 44)
+            .accessibilityLabel("Remove \(item.name)")
         }
-        .buttonStyle(.plain)
-        .accessibilityLabel("\(item.name)\(item.quantity.map { ", \($0)" } ?? ""). Double tap when bought.")
         .listRowBackground(RoundedRectangle(cornerRadius: 16, style: .continuous).fill(Color(.secondarySystemGroupedBackground)).padding(.vertical, 3))
         .listRowSeparator(.hidden)
     }

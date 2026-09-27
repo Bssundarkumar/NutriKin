@@ -275,6 +275,11 @@ struct MedicationEditView: View {
                     Toggle("Remind me on this iPhone", isOn: $remind)
                     if medication != nil { Toggle("Active", isOn: $active) }
                 } footer: { Text("Pause a medicine with Active to stop it showing in Today. Its history is kept.") }
+                if let medication {
+                    Section {
+                        Button("Delete this medicine", role: .destructive) { Task { await meds.delete(medication); dismiss() } }
+                    }
+                }
                 if let message = meds.errorMessage { Section { Text(message).font(.footnote).foregroundStyle(.red) } }
             }
             .softList()

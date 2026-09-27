@@ -109,7 +109,13 @@ struct MemberEditView: View {
                     }
 
                     ForEach(customConditions, id: \.self) { condition in
-                        Text(condition)
+                        HStack {
+                            Text(condition)
+                            Spacer()
+                            Button { customConditions.removeAll { $0 == condition } } label: { Image(systemName: "trash").foregroundStyle(.secondary) }
+                                .buttonStyle(.plain).frame(width: 44, height: 44)
+                                .accessibilityLabel("Remove \(condition)")
+                        }
                     }
                     .onDelete { customConditions.remove(atOffsets: $0) }
 
@@ -131,7 +137,13 @@ struct MemberEditView: View {
                     }
 
                     ForEach(customAllergies, id: \.self) { allergy in
-                        Text(allergy)
+                        HStack {
+                            Text(allergy)
+                            Spacer()
+                            Button { customAllergies.removeAll { $0 == allergy } } label: { Image(systemName: "trash").foregroundStyle(.secondary) }
+                                .buttonStyle(.plain).frame(width: 44, height: 44)
+                                .accessibilityLabel("Remove \(allergy)")
+                        }
                     }
                     .onDelete { customAllergies.remove(atOffsets: $0) }
 

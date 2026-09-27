@@ -59,6 +59,11 @@ struct GrowthView: View {
                             Spacer()
                             Text([m.heightCm.map { "\(fmt($0)) cm" }, m.weightKg.map { "\(fmt($0)) kg" }].compactMap { $0 }.joined(separator: " \u{00B7} "))
                                 .monospacedDigit().foregroundStyle(.secondary)
+                            if canEdit {
+                                Button { Task { await store.delete(m) } } label: { Image(systemName: "trash").foregroundStyle(.secondary) }
+                                    .buttonStyle(.plain).frame(width: 44, height: 44)
+                                    .accessibilityLabel("Remove the reading from \(m.date.formatted(date: .abbreviated, time: .omitted))")
+                            }
                         }
                         .deleteDisabled(!canEdit)
                     }

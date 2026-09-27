@@ -116,6 +116,11 @@ struct ScheduleEditView: View {
                     Toggle("Remind me on this iPhone", isOn: $schedule.remind)
                     Toggle("Active", isOn: $schedule.active)
                 }
+                if isExisting {
+                    Section {
+                        Button("Remove from the schedule", role: .destructive) { Task { await tracking.delete(schedule); dismiss() } }
+                    }
+                }
                 if let message = tracking.errorMessage { Section { Text(message).font(.footnote).foregroundStyle(.red) } }
             }
             .softList()
@@ -127,6 +132,8 @@ struct ScheduleEditView: View {
             }
         }
     }
+
+    private var isExisting: Bool { tracking.schedules.contains { $0.id == schedule.id } }
 
     private func save() {
         saving = true
