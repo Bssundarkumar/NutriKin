@@ -9,7 +9,7 @@ struct ActivityScreen: View {
     @Environment(HealthKitManager.self) private var health
     @Environment(\.dismiss) private var dismiss
     @AppStorage("healthMemberID") private var healthMemberID = ""
-    @State private var showWorkout = Demo.opensLogWorkout
+    @State private var loggingWorkout = Demo.opensLogWorkout
     @State private var editingWorkout: Workout?
     @State private var viewingWorkout: Workout?
     @State private var showSchedule = false
@@ -22,9 +22,12 @@ struct ActivityScreen: View {
                     let showsHealth = HealthActivityCard.isVisible(for: member, linkedID: healthMemberID, health: health)
                     let list = tracking.workouts(for: member)
                     if TodayLayout.isChild(member) { KidActivityCard(member: member, healthMinutes: showsHealth ? health.activity.exerciseMinutes : nil).card() }
+                    if loggingWorkout {
+                        InlineWorkoutLogger(member: member) { withAnimation(.snappy) { loggingWorkout = false } }
+                    }
                     VStack(alignment: .leading, spacing: 12) {
                         SectionTitle(title: tracking.isToday ? "Today" : tracking.day.formatted(.dateTime.weekday(.wide).day().month(.abbreviated)),
-                                     actionTitle: "Add") { showWorkout = true }
+                                     actionTitle: loggingWorkout ? nil : "Add") { withAnimation(.snappy) { loggingWorkout = true } }
                         ScheduledTodayList(member: member) { showSchedule = true }
                         HealthActivityCard(member: member)
                         ActivityGoalBars(member: member, showsSteps: showsHealth)
@@ -73,7 +76,6 @@ struct ActivityScreen: View {
                 ToolbarItem(placement: .confirmationAction) { Button("Done") { dismiss() } }
             }
             .sheet(isPresented: $showMore) { MoreForMemberView(member: member) }
-            .sheet(isPresented: $showWorkout) { LogWorkoutSheet(member: member) }
             .sheet(isPresented: $showSchedule) { ScheduleView(member: member) }
             .sheet(item: $viewingWorkout) { w in WorkoutDetailView(workout: w) { editingWorkout = w } }
             .sheet(item: $editingWorkout) { w in
