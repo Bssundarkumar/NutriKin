@@ -10,7 +10,7 @@ struct ContentView: View {
     @Environment(MedicationStore.self) private var medications
     @State private var tab: Tab = Tab(rawValue: Demo.startTab) ?? .today
 
-    private enum Tab: String, Hashable { case today, scan, groceries, history, family }
+    private enum Tab: String, Hashable { case today, scan, groceries, family }
 
     var body: some View {
         Group {
@@ -37,9 +37,6 @@ struct ContentView: View {
                             GroceriesView()
                                 .tabItem { Label("Groceries", systemImage: "cart.fill") }
                                 .tag(Tab.groceries)
-                            HistoryView()
-                                .tabItem { Label("History", systemImage: "clock.arrow.circlepath") }
-                                .tag(Tab.history)
                             FamilyView()
                                 .tabItem { Label("Family", systemImage: "person.3") }
                                 .tag(Tab.family)

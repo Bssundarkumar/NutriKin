@@ -23,6 +23,7 @@ struct ScanView: View {
     @State private var stalled = false
     @State private var scanAttempt = 0
     @State private var ignoredNotice = false
+    @State private var showHistory = Demo.opensHistory
 
     private let service = ProductService()
 
@@ -77,6 +78,12 @@ struct ScanView: View {
             .background(AppBackground())
             .animation(.smooth(duration: 0.25), value: errorMessage)
             .navigationTitle("Scan a product")
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button { showHistory = true } label: { Image(systemName: "clock.arrow.circlepath") }
+                        .accessibilityLabel("Scan history")
+                }
+            }
             .navigationDestination(item: $product) { ResultView(product: $0) }
             .sheet(isPresented: $showPhoto, onDismiss: photoSheetClosed) {
                 PhotoScanView(
@@ -84,6 +91,7 @@ struct ScanView: View {
                     onProduct: { photoProduct = $0 }
                 )
             }
+            .sheet(isPresented: $showHistory) { HistoryView() }
         }
     }
 

@@ -13,6 +13,7 @@ struct StrengthEditor: View {
     @State private var newName = ""
     @State private var applied: WorkoutTemplate?
     @State private var pendingTemplate: WorkoutTemplate?
+    @State private var addingExercise = Demo.strengthSample != nil
 
     var body: some View {
         Section {
@@ -104,10 +105,16 @@ struct StrengthEditor: View {
         }
 
         Section {
+            if !addingExercise {
+                Button { withAnimation(.snappy) { addingExercise = true } } label: {
+                    Label("Add an exercise", systemImage: "plus.circle.fill")
+                }
+            } else {
             HStack {
-                TextField("Add an exercise", text: $newName).textInputAutocapitalization(.words)
-                Button("Add") { add(newName) }.disabled(newName.trimmingCharacters(in: .whitespaces).isEmpty)
+                TextField("Type an exercise name", text: $newName).textInputAutocapitalization(.words)
+                Button("Add") { add(newName); addingExercise = false }.disabled(newName.trimmingCharacters(in: .whitespaces).isEmpty)
             }
+            Text("Or pick a muscle group:").font(.caption).foregroundStyle(.secondary)
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack {
                     ForEach(ExerciseLibrary.groups) { g in
@@ -154,12 +161,16 @@ struct StrengthEditor: View {
                     Button("Add \(picked.count) to workout") {
                         for name in group.exercises where picked.contains(name) { add(name) }
                         picked = []
+                        addingExercise = false
                     }
                     .buttonStyle(.borderedProminent).tint(.orange).disabled(picked.isEmpty)
                 }
                 .font(.subheadline.weight(.semibold))
             } else {
                 Text("Pick a muscle group to see its exercises.").font(.caption).foregroundStyle(.secondary)
+            }
+            Button("Done adding exercises") { withAnimation(.snappy) { addingExercise = false } }
+                .font(.footnote)
             }
         } footer: {
             if !exercises.isEmpty {

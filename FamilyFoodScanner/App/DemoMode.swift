@@ -52,6 +52,7 @@ enum Demo {
     static var opensMedEdit: Bool { CommandLine.arguments.contains("-demoMedEdit") }
     static var opensPlan: Bool { CommandLine.arguments.contains("-demoPlan") }
     static var opensPlate: Bool { CommandLine.arguments.contains("-demoPlate") }
+    static var opensHistory: Bool { CommandLine.arguments.contains("-demoHistory") }
     static var plateResults: Bool { CommandLine.arguments.contains("-demoPlateResults") }
 
     static var foodEntries: [FoodEntry] {
@@ -159,6 +160,7 @@ enum Demo {
     static let startTab = "today"
     static let opensProduct = false
     static let opensPlate = false
+    static let opensHistory = false
     static let opensPlan = false
     static let opensMeds = false
     static let memberIndex: Int? = nil

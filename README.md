@@ -73,7 +73,7 @@ SwiftUI, iOS 17+, backed by Supabase for shared family data.
 | `FamilyFoodScanner/App` | App entry point |
 | `FamilyFoodScanner/Models` | Members, conditions, allergens, products, scores |
 | `FamilyFoodScanner/Services` | Grouped by feature: `Core`, `Scoring`, `Products`, `Activity`, `Medications`, `AI` (see `ARCHITECTURE.md`) |
-| `FamilyFoodScanner/Views` | Grouped by feature: `Today`, `Scan`, `Family`, `Medications`, `AI`, `Lists`, `Shared` |
+| `FamilyFoodScanner/Views` | Grouped by feature: `Today`, `Scan`, `Family`, `Medications`, `AI`, `Lists`, `Buddies`, `Shared` |
 | `FamilyFoodScanner/Tests` | Unit tests (scoring, ingredient alerts, scanner parsing) |
 | `FamilyFoodScanner/Assets.xcassets` | App icon and images |
 | `NutriKin/project.yml` | XcodeGen spec that generates the Xcode project |

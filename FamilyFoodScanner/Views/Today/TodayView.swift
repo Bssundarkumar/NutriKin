@@ -108,6 +108,7 @@ struct TodayView: View {
         case .hero:
             VStack(spacing: 22) {
                 hero(member, budget) { showPlan = true }
+                AIFirstTimeNote()
                 DayTipCard(member: member, budget: budget, steps: health.activity.steps, weekMinutes: tracking.weeklyMinutes(for: member))
             }
         case .quickActions: quickActions
@@ -289,13 +290,18 @@ struct ScoreRingLabel: View {
             VStack(spacing: 0) {
                 Text(primary).font(.system(size: 34, weight: .bold, design: .rounded)).monospacedDigit()
                     .contentTransition(.numericText())
+                    .minimumScaleFactor(0.5).lineLimit(1)
                 Text(secondary).font(.caption).foregroundStyle(.secondary)
+                    .minimumScaleFactor(0.5).lineLimit(1)
             }
+            .padding(.horizontal, 6)
         }
         .onAppear { animate() }
         .onChange(of: fraction) { _, _ in animate() }
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("\(primary) \(secondary)")
+        // A fixed circle can't grow with the text, so past a point it shrinks to fit rather than truncating.
+        .dynamicTypeSize(...DynamicTypeSize.accessibility1)
     }
 
     private func animate() {

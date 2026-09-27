@@ -31,14 +31,17 @@ struct StatTile: View {
         VStack(alignment: .leading, spacing: 4) {
             HStack(spacing: 5) {
                 if let symbol { Image(systemName: symbol).font(.caption.weight(.semibold)).foregroundStyle(tint) }
-                Text(title).font(.caption).foregroundStyle(.secondary)
+                Text(title).font(.caption).foregroundStyle(.secondary).lineLimit(1).minimumScaleFactor(0.6)
             }
             Text(value).font(.system(.title3, design: .rounded, weight: .bold)).monospacedDigit()
-                .minimumScaleFactor(0.7).lineLimit(1)
+                .minimumScaleFactor(0.5).lineLimit(1)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(12)
         .background(tint.opacity(0.10), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+        // Three of these sit side by side: past this size there's no room to grow further without breaking
+        // (wrapping letter by letter), so the shrink-to-fit above takes over instead of the text growing more.
+        .dynamicTypeSize(...DynamicTypeSize.accessibility1)
     }
 }
 

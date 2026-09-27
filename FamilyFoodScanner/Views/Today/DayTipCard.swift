@@ -28,7 +28,7 @@ struct DayTipCard: View {
                         Label("Snack ideas", systemImage: "carrot").font(.subheadline.weight(.semibold)).foregroundStyle(Theme.brand)
                         Text(snacks).font(.subheadline)
                     }
-                    Button { fetchSnacks() } label: { Label(snacks == nil ? "Snack and lunchbox ideas" : "More ideas", systemImage: "sparkles").font(.subheadline.weight(.semibold)) }
+                    Button { fetchSnacks() } label: { Label(snacks == nil ? "Snack and lunchbox ideas" : "Another idea", systemImage: "sparkles").font(.subheadline.weight(.semibold)) }
                         .disabled(loading)
                 }
                 if TodayLayout.isOlderAdult(member) {
