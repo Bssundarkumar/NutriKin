@@ -1,12 +1,12 @@
 import SwiftUI
 
-/// The less-often-used things for one person, gathered on a single screen instead of three separate ones:
-/// growth chart, weight plan and gym buddies. One tap in from Activity, one tap to any of them.
+/// The less-often-used things about one person's body and movement, gathered on a single screen: growth
+/// chart and gym buddies. (Their weight & daily intake plan lives on Today itself now, next to the
+/// calorie goal it sets, not here.)
 struct MoreForMemberView: View {
     let member: Member
     @Environment(\.dismiss) private var dismiss
     @State private var showGrowth = false
-    @State private var showPlan = false
     @State private var showBuddies = false
 
     var body: some View {
@@ -14,9 +14,6 @@ struct MoreForMemberView: View {
             List {
                 Section {
                     Button { showGrowth = true } label: { row("chart.xyaxis.line", "Growth chart", "Height and weight over time") }
-                    if !TodayLayout.isChild(member) {
-                        Button { showPlan = true } label: { row("chart.bar.doc.horizontal", "Weight & daily intake plan", "Target weight, a paced calorie goal and BMI") }
-                    }
                 }
                 if !TodayLayout.isChild(member) {
                     Section {
@@ -29,7 +26,6 @@ struct MoreForMemberView: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Done") { dismiss() } } }
             .sheet(isPresented: $showGrowth) { GrowthView(member: member) }
-            .sheet(isPresented: $showPlan) { NutritionPlanView(member: member) }
             .sheet(isPresented: $showBuddies) { BuddiesView() }
         }
     }

@@ -14,6 +14,7 @@ struct TodayView: View {
     @State private var pickedDay = Date()
     @State private var showAsk = false
     @State private var editingFood: FoodEntry?
+    @State private var showPlan = Demo.opensPlan
     @State private var showActivity = Demo.opensLogWorkout || Demo.opensPlan || Demo.opensGrowth
     @State private var showMeds = Demo.opensMeds
 
@@ -75,6 +76,7 @@ struct TodayView: View {
             }
             .sheet(isPresented: $showAsk) { AskAIView(product: nil) }
             .sheet(item: $editingFood) { EditFoodEntryView(entry: $0) }
+            .sheet(isPresented: $showPlan) { if let member { NutritionPlanView(member: member) } }
             .sheet(isPresented: $showMeds) { if let member { MedicationsManageView(member: member) } }
             .task(id: tracking.day) {
                 medications.updateMemberNames(family.members)
@@ -105,7 +107,7 @@ struct TodayView: View {
         switch card {
         case .hero:
             VStack(spacing: 22) {
-                hero(member, budget)
+                hero(member, budget) { showPlan = true }
                 DayTipCard(member: member, budget: budget, steps: health.activity.steps, weekMinutes: tracking.weeklyMinutes(for: member))
             }
         case .quickActions: quickActions
@@ -158,7 +160,7 @@ struct TodayView: View {
 
     // MARK: Hero
 
-    private func hero(_ member: Member, _ budget: DayBudget) -> some View {
+    private func hero(_ member: Member, _ budget: DayBudget, showPlan: @escaping () -> Void) -> some View {
         let color = Theme.color(for: budget.calorieStatus)
         let left = Int(budget.remaining.rounded())
         return VStack(spacing: 16) {
@@ -175,7 +177,15 @@ struct TodayView: View {
             HStack(spacing: 10) {
                 StatTile(title: "Eaten", value: "\(Int(budget.eaten.calories.rounded()))", symbol: "fork.knife")
                 StatTile(title: "Exercise", value: "+\(budget.burned)", symbol: "flame.fill", tint: .orange)
-                StatTile(title: "Goal", value: "\(Int(budget.limits.calories.rounded()))", symbol: "target", tint: .blue)
+                Button(action: showPlan) {
+                    StatTile(title: "Goal", value: "\(Int(budget.limits.calories.rounded()))", symbol: "target", tint: .blue)
+                }
+                .buttonStyle(.plain)
+                .accessibilityHint("Opens the weight and daily intake plan")
+            }
+            if !TodayLayout.isChild(member) {
+                Button("Weight & daily intake plan", action: showPlan)
+                    .font(.caption.weight(.semibold))
             }
         }
         .card()

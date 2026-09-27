@@ -56,7 +56,7 @@ struct ActivityScreen: View {
                                 .background(Theme.brand.opacity(0.12), in: Circle()).foregroundStyle(Theme.brand)
                             VStack(alignment: .leading, spacing: 1) {
                                 Text("More for \(member.name)").font(.subheadline.weight(.semibold))
-                                Text(TodayLayout.isChild(member) ? "Growth chart" : "Growth chart, weight plan, gym buddies").font(.caption).foregroundStyle(.secondary)
+                                Text(TodayLayout.isChild(member) ? "Growth chart" : "Growth chart, gym buddies").font(.caption).foregroundStyle(.secondary)
                             }
                             Spacer()
                             Image(systemName: "chevron.right").font(.caption).foregroundStyle(.tertiary)
