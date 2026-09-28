@@ -46,6 +46,7 @@ struct PlateService {
         3. Give typical nutrition PER 100 g of the food as prepared and served (cooked, not raw), using standard food-composition values (USDA, Indian Food Composition Tables): \(nutrientList). Count the fat and salt that cooking usually adds: fried, buttery, creamy, coconut-milk and restaurant dishes are richer than plain home cooking, and cooked dishes normally contain salt, so never use raw-ingredient sodium.
         4. Keep the numbers consistent: calories per 100 g should be close to 4 x protein + 4 x (carbs minus fibre) + 2 x fibre + 9 x fat.
         5. Never invent food that is not visible. If you cannot tell what something is, name your best guess and set confidence "low". Set confidence "low" or "medium" when the amount is hard to judge (food hidden under other food, deep bowls, sauces).
+        6. Only list actual food and drink. Never list the plate, bowl, tray, board, cutlery, napkin, table, hands or anything else the food sits on or is eaten with.
         List possible allergens only from: \(allergenList).
 
         Reply with JSON only, no other text, in exactly this shape:
@@ -165,6 +166,20 @@ enum PlateParser {
         return true
     }
 
+    /// The AI sometimes mistakes what's under or around the food (a board, the table, a hand, cutlery) for a
+    /// food item. This catches the obvious ones so they never reach the log or a score, without blocking a
+    /// legitimate dish that happens to share a word (a "wooden bowl of curry" still starts with "curry").
+    private static let nonFoodTerms: Set<String> = [
+        "wood", "wooden", "wooden board", "wooden plate", "cutting board", "chopping board", "table", "tablecloth",
+        "placemat", "napkin", "tissue", "plate", "bowl", "glass", "cup", "mug", "cutlery", "fork", "spoon", "knife",
+        "chopsticks", "hand", "hands", "finger", "fingers", "background", "wall", "floor", "phone", "plastic",
+        "metal", "tray", "basket", "paper", "foil", "cloth", "surface", "counter", "countertop",
+    ]
+
+    private static func isPlausibleFood(_ name: String) -> Bool {
+        !nonFoodTerms.contains(name.lowercased().trimmingCharacters(in: .whitespacesAndNewlines))
+    }
+
     static func parse(_ reply: String) throws -> PlateAnalysis {
         guard let start = reply.firstIndex(of: "{"), let end = reply.lastIndex(of: "}"), start < end,
               let dto = try? JSONDecoder().decode(DTO.self, from: Data(reply[start...end].utf8)) else {
@@ -174,7 +189,7 @@ enum PlateParser {
 
         let items: [PlateItem] = (dto.items ?? []).prefix(8).compactMap { raw in
             let name = (raw.name ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
-            guard !name.isEmpty, let grams = raw.grams, grams > 0, let p = raw.per100g, let kcal = p.calories else { return nil }
+            guard !name.isEmpty, isPlausibleFood(name), let grams = raw.grams, grams > 0, let p = raw.per100g, let kcal = p.calories else { return nil }
             var per100 = PlateItem.Per100g(calories: clamp(kcal, 900), sugarG: clamp(p.sugarG, 100), carbsG: clamp(p.carbsG, 100),
                                            sodiumMg: clamp(p.sodiumMg, 5000), satFatG: clamp(p.satFatG, 100), proteinG: clamp(p.proteinG, 100),
                                            fiberG: clamp(p.fiberG, 100), fatG: clamp(p.fatG, 100))

@@ -278,3 +278,23 @@ final class FoodEntryFibreTests: XCTestCase {
         XCTAssertEqual(budget.fiberShare, 0.5, accuracy: 0.001)    // 14 of 28 g
     }
 }
+
+final class PlateNonFoodFilterTests: XCTestCase {
+    private func json(name: String) -> String {
+        #"{"items":[{"name":"\#(name)","grams":150,"per_100g":{"calories":100,"protein_g":2,"carbs_g":10,"sugar_g":1,"fiber_g":1,"fat_g":2,"sat_fat_g":1,"sodium_mg":100},"confidence":"high"}]}"#
+    }
+    func testObviousSceneObjectsAreDropped() throws {
+        for junk in ["Wood", "wooden board", "Table", "Napkin", "Hand", "Plastic", "  glass  "] {
+            let result = try PlateParser.parse(json(name: junk))
+            XCTAssertTrue(result.items.isEmpty, "\(junk) should have been filtered")
+        }
+    }
+    func testRealFoodWithASimilarWordStillPassesThrough() throws {
+        let result = try PlateParser.parse(json(name: "Wooden-fired pizza"))
+        XCTAssertEqual(result.items.count, 1)
+    }
+    func testOrdinaryFoodIsUnaffected() throws {
+        let result = try PlateParser.parse(json(name: "Paneer biryani"))
+        XCTAssertEqual(result.items.first?.name, "Paneer biryani")
+    }
+}
