@@ -13,7 +13,7 @@ struct StrengthEditor: View {
     @State private var newName = ""
     @State private var applied: WorkoutTemplate?
     @State private var pendingTemplate: WorkoutTemplate?
-    @State private var addingExercise = Demo.strengthSample != nil
+    @State private var addingExercise = true
 
     var body: some View {
         Section {
@@ -112,7 +112,7 @@ struct StrengthEditor: View {
             } else {
             HStack {
                 TextField("Type an exercise name", text: $newName).textInputAutocapitalization(.words)
-                Button("Add") { add(newName); addingExercise = false }.disabled(newName.trimmingCharacters(in: .whitespaces).isEmpty)
+                Button("Add") { add(newName) }.disabled(newName.trimmingCharacters(in: .whitespaces).isEmpty)
             }
             Text("Or pick a muscle group:").font(.caption).foregroundStyle(.secondary)
             ScrollView(.horizontal, showsIndicators: false) {
@@ -161,7 +161,6 @@ struct StrengthEditor: View {
                     Button("Add \(picked.count) to workout") {
                         for name in group.exercises where picked.contains(name) { add(name) }
                         picked = []
-                        addingExercise = false
                     }
                     .buttonStyle(.borderedProminent).tint(.orange).disabled(picked.isEmpty)
                 }

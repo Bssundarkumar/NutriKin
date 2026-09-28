@@ -37,6 +37,7 @@ struct InlineWorkoutLogger: View {
             if let saved { cheerCard(saved) } else { form }
         }
         .card()
+        .onAppear { if Demo.strengthSample != nil { kind = .strength; showStrength = true } }
         .fullScreenCover(isPresented: $showStrength) {
             StrengthSessionView(member: member, editing: nil) { w in showStrength = false; showCheer(for: w) }
         }
