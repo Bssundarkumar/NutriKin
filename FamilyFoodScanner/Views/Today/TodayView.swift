@@ -16,6 +16,7 @@ struct TodayView: View {
     @State private var editingFood: FoodEntry?
     @State private var showPlan = Demo.opensPlan
     @State private var showActivity = Demo.opensLogWorkout || Demo.opensPlan || Demo.opensGrowth
+    @State private var activityStartsLogging = Demo.opensLogWorkout
     @State private var showMeds = Demo.opensMeds
 
     private var member: Member? {
@@ -59,7 +60,7 @@ struct TodayView: View {
             .refreshable { await tracking.load(householdId: family.householdId) }
             .task(id: family.householdId) { await tracking.load(householdId: family.householdId) }
             .sheet(isPresented: $showFood) { if let member { LogFoodSheet(member: member) } }
-            .sheet(isPresented: $showActivity) { if let member { ActivityScreen(member: member) } }
+            .sheet(isPresented: $showActivity) { if let member { ActivityScreen(member: member, startInLogging: activityStartsLogging) } }
             .sheet(isPresented: $showDatePicker) {
                 NavigationStack {
                     DatePicker("Day", selection: $pickedDay, in: ...Date(), displayedComponents: .date)
@@ -118,12 +119,12 @@ struct TodayView: View {
         case .workouts:
             if TodayLayout.isChild(member) {
                 VStack(alignment: .leading, spacing: 10) {
-                    SectionTitle(title: "Active play", actionTitle: "Open") { showActivity = true }
+                    SectionTitle(title: "Active play", actionTitle: "Open") { activityStartsLogging = false; showActivity = true }
                     KidActivityCard(member: member, healthMinutes: health.activity.exerciseMinutes)
                 }
                 .card().id("health")
             } else {
-                ActivitySummaryCard(member: member) { showActivity = true }
+                ActivitySummaryCard(member: member) { activityStartsLogging = false; showActivity = true }
             }
         }
     }
@@ -216,7 +217,7 @@ struct TodayView: View {
         HStack(spacing: 8) {
             QuickAction(title: "Log food", symbol: "plus.circle.fill") { showFood = true }
             QuickAction(title: "Ask AI", symbol: "sparkles", tint: .purple) { showAsk = true }
-            QuickAction(title: "Activity", symbol: "figure.run", tint: .orange) { showActivity = true }
+            QuickAction(title: "Activity", symbol: "figure.run", tint: .orange) { activityStartsLogging = true; showActivity = true }
         }
     }
 

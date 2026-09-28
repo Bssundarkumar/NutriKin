@@ -4,12 +4,19 @@ import SwiftUI
 /// Health steps and workouts, today's scheduled activities, goals, and the workouts logged for the day.
 struct ActivityScreen: View {
     let member: Member
+    /// True to open straight into logging a workout, skipping the summary (from Today's Activity quick action).
+    var startInLogging = false
     @Environment(FamilyStore.self) private var family
     @Environment(TrackingStore.self) private var tracking
     @Environment(HealthKitManager.self) private var health
     @Environment(\.dismiss) private var dismiss
     @AppStorage("healthMemberID") private var healthMemberID = ""
-    @State private var loggingWorkout = Demo.opensLogWorkout
+    @State private var loggingWorkout: Bool
+
+    init(member: Member, startInLogging: Bool = false) {
+        self.member = member; self.startInLogging = startInLogging
+        _loggingWorkout = State(initialValue: startInLogging || Demo.opensLogWorkout)
+    }
     @State private var editingWorkout: Workout?
     @State private var viewingWorkout: Workout?
     @State private var showSchedule = false
