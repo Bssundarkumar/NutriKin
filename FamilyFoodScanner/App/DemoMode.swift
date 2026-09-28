@@ -113,7 +113,7 @@ enum Demo {
                   confidence: .medium, allergens: [.milk]),
         PlateItem(name: "Peanut chutney", grams: 30,
                   per100g: .init(calories: 320, sugarG: 5, carbsG: 12, sodiumMg: 500, satFatG: 5, proteinG: 12, fiberG: 6, fatG: 26),
-                  confidence: .low, allergens: [.peanuts]),
+                  confidence: .low, allergens: [.peanuts], alternatives: ["Coconut chutney", "Groundnut chutney"]),
     ]
 
     static let members: [Member] = [

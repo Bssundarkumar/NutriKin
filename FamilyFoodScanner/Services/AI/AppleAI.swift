@@ -180,7 +180,7 @@ enum AppleAI {
                         ["name": f.name, "grams": f.grams,
                          "per_100g": ["calories": f.calories, "sugar_g": f.sugar, "carbs_g": f.carbs, "sodium_mg": f.sodiumMg,
                                       "sat_fat_g": f.satFat, "protein_g": f.protein, "fiber_g": f.fiber, "fat_g": f.fat],
-                         "confidence": f.confidence, "allergens": f.allergens] as [String: Any]
+                         "confidence": f.confidence, "allergens": f.allergens, "alternatives": f.alternatives] as [String: Any]
                     },
                     "note": plate.note,
                 ]
@@ -296,6 +296,7 @@ struct GeneratedPlateFood {
     @Guide(description: "Typical total fat per 100 g, including cooking oil or ghee", .range(0...100)) var fat: Double
     @Guide(description: "high, medium or low: how sure you are of the food and amount") var confidence: String
     @Guide(description: "Possible allergens, only from: peanuts, nuts, milk, gluten, eggs, soybeans, fish, crustaceans, sesame") var allergens: [String]
+    @Guide(description: "1 or 2 other names this food might be, only if confidence is medium or low; empty if confidence is high", .count(0...2)) var alternatives: [String]
 }
 
 @available(iOS 26.0, *)

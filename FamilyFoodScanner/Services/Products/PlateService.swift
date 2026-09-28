@@ -21,7 +21,7 @@ struct PlateService {
 
     static func jsonShape(includePlateSize: Bool) -> String {
         let size = includePlateSize ? #""plate_diameter_cm":26,"# : ""
-        return #"{\#(size)"items":[{"name":"Basmati rice","grams":180,"per_100g":{"calories":130,"protein_g":2.7,"carbs_g":28,"sugar_g":0.1,"fiber_g":0.4,"fat_g":0.3,"sat_fat_g":0.1,"sodium_mg":250},"confidence":"high","allergens":[]}],"note":"one short sentence about the biggest uncertainty"}"#
+        return #"{\#(size)"items":[{"name":"Basmati rice","grams":180,"per_100g":{"calories":130,"protein_g":2.7,"carbs_g":28,"sugar_g":0.1,"fiber_g":0.4,"fat_g":0.3,"sat_fat_g":0.1,"sodium_mg":250},"confidence":"high","allergens":[],"alternatives":[]}],"note":"one short sentence about the biggest uncertainty"}"#
     }
 
     /// The full prompt for a photo of a plate. `plateDiameterCm` nil means the person doesn't know it,
@@ -47,6 +47,7 @@ struct PlateService {
         4. Keep the numbers consistent: calories per 100 g should be close to 4 x protein + 4 x (carbs minus fibre) + 2 x fibre + 9 x fat.
         5. Never invent food that is not visible. If you cannot tell what something is, name your best guess and set confidence "low". Set confidence "low" or "medium" when the amount is hard to judge (food hidden under other food, deep bowls, sauces).
         6. Only list actual food and drink. Never list the plate, bowl, tray, board, cutlery, napkin, table, hands or anything else the food sits on or is eaten with.
+        7. When you're not sure exactly what a food is (confidence "low" or "medium"), put your 1 or 2 next-best guesses in "alternatives" (just the names, most likely first), so the person can pick the right one instead of you guessing wrong silently. Leave "alternatives" empty when confidence is "high".
         List possible allergens only from: \(allergenList).
 
         Reply with JSON only, no other text, in exactly this shape:
@@ -64,7 +65,7 @@ struct PlateService {
 
         You are a registered-dietitian-level nutrition estimator for a family health app. \(scale) The person lists what they ate, sometimes with amounts ("2 rotis", "small bowl of dal").
 
-        For each food: estimate a realistic cooked weight in grams as served (a normal single serving if no amount is given; anchors: \(portionAnchors)) and typical nutrition per 100 g of the food as prepared: \(nutrientList). Count the oil, ghee, butter and salt that cooking usually adds. Keep calories consistent with the macros (about 4 x protein + 4 x carbs + 9 x fat, fibre counting half). Split mixed dishes into parts. Never invent foods that were not listed; mark confidence "low" when unsure. List possible allergens only from: \(allergenList).
+        For each food: estimate a realistic cooked weight in grams as served (a normal single serving if no amount is given; anchors: \(portionAnchors)) and typical nutrition per 100 g of the food as prepared: \(nutrientList). Count the oil, ghee, butter and salt that cooking usually adds. Keep calories consistent with the macros (about 4 x protein + 4 x carbs + 9 x fat, fibre counting half). Split mixed dishes into parts. Never invent foods that were not listed; mark confidence "low" when unsure, and when unsure put 1 or 2 next-best guesses in "alternatives". List possible allergens only from: \(allergenList).
         \(structuredOutput ? "" : "\nReply with JSON only, in exactly this shape:\n\(jsonShape(includePlateSize: false))")
         """
     }
@@ -140,7 +141,8 @@ enum PlateParser {
             var per100g: Per100?
             var confidence: String?
             var allergens: [String]?
-            enum CodingKeys: String, CodingKey { case name, grams, per100g = "per_100g", confidence, allergens }
+            var alternatives: [String]?
+            enum CodingKeys: String, CodingKey { case name, grams, per100g = "per_100g", confidence, allergens, alternatives }
         }
         var items: [Item]?
         var note: String?
@@ -197,12 +199,16 @@ enum PlateParser {
             // Only when the AI gave the macros to check against: an estimate whose calories don't match its own
             // protein, carbs and fat is corrected, and its confidence lowered.
             if p.fatG != nil, p.proteinG != nil, p.carbsG != nil, reconcile(&per100), confidence == .high { confidence = .medium }
+            let alternatives = (raw.alternatives ?? [])
+                .map { AIGuardrails.sanitize($0, max: 60) }
+                .filter { !$0.isEmpty && $0.lowercased() != name.lowercased() }
             return PlateItem(
                 name: AIGuardrails.sanitize(name, max: 60),
                 grams: min(max(grams, 5), 1500),
                 per100g: per100,
                 confidence: confidence,
-                allergens: (raw.allergens ?? []).compactMap { Allergen(rawValue: $0.lowercased()) }
+                allergens: (raw.allergens ?? []).compactMap { Allergen(rawValue: $0.lowercased()) },
+                alternatives: Array(alternatives.prefix(2))
             )
         }
         let note = dto.note?.trimmingCharacters(in: .whitespacesAndNewlines)

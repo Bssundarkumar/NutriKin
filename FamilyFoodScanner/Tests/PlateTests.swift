@@ -298,3 +298,21 @@ final class PlateNonFoodFilterTests: XCTestCase {
         XCTAssertEqual(result.items.first?.name, "Paneer biryani")
     }
 }
+
+final class PlateAlternativesTests: XCTestCase {
+    func testAlternativesAreParsedAndDedupedAgainstTheName() throws {
+        let json = #"{"items":[{"name":"Chicken curry","grams":150,"per_100g":{"calories":150,"protein_g":10,"carbs_g":5,"sugar_g":1,"fiber_g":1,"fat_g":8,"sat_fat_g":2,"sodium_mg":300},"confidence":"low","alternatives":["Mutton curry","Chicken curry","Egg curry"]}]}"#
+        let result = try PlateParser.parse(json)
+        XCTAssertEqual(result.items.first?.alternatives, ["Mutton curry", "Egg curry"])
+    }
+    func testAtMostTwoAlternativesAreKept() throws {
+        let json = #"{"items":[{"name":"Rice","grams":150,"per_100g":{"calories":130,"protein_g":2,"carbs_g":28,"sugar_g":0,"fiber_g":0,"fat_g":0,"sat_fat_g":0,"sodium_mg":0},"confidence":"low","alternatives":["A","B","C","D"]}]}"#
+        let result = try PlateParser.parse(json)
+        XCTAssertEqual(result.items.first?.alternatives.count, 2)
+    }
+    func testHighConfidenceItemsTypicallyHaveNoAlternatives() throws {
+        let json = #"{"items":[{"name":"Banana","grams":100,"per_100g":{"calories":90,"protein_g":1,"carbs_g":23,"sugar_g":12,"fiber_g":3,"fat_g":0,"sat_fat_g":0,"sodium_mg":1},"confidence":"high"}]}"#
+        let result = try PlateParser.parse(json)
+        XCTAssertTrue(result.items.first?.alternatives.isEmpty ?? false)
+    }
+}

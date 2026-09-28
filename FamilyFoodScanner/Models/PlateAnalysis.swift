@@ -21,6 +21,8 @@ struct PlateItem: Identifiable, Hashable {
     var per100g: Per100g
     var confidence: Confidence
     var allergens: [Allergen]
+    /// Other names the AI considered, when it wasn't sure (empty when confidence is high).
+    var alternatives: [String] = []
 
     private func amount(_ per100: Double) -> Double { per100 * grams / 100 }
     var calories: Double { amount(per100g.calories) }

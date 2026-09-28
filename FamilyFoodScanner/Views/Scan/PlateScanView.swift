@@ -454,18 +454,32 @@ struct PlateScanView: View {
 
 private struct PlateItemRow: View {
     @Binding var item: PlateItem
+    @FocusState private var editingName: Bool
 
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
             HStack {
-                Text(item.name).font(.headline)
-                if item.confidence == .low {
-                    Text("unsure").font(.caption2.weight(.semibold)).foregroundStyle(.orange)
+                TextField("Food name", text: $item.name)
+                    .font(.headline)
+                    .focused($editingName)
+                    .submitLabel(.done)
+                if item.confidence != .high {
+                    Text(item.confidence == .low ? "not sure" : "check this").font(.caption2.weight(.semibold)).foregroundStyle(.orange)
                         .padding(.horizontal, 6).padding(.vertical, 2)
                         .background(Color.orange.opacity(0.15), in: Capsule())
+                        .fixedSize()
                 }
                 Spacer()
                 Text("\(Int(item.calories.rounded())) kcal").font(.subheadline.monospacedDigit()).foregroundStyle(.secondary)
+            }
+            if !item.alternatives.isEmpty {
+                HStack(spacing: 6) {
+                    Text("Did you mean:").font(.caption).foregroundStyle(.secondary)
+                    ForEach(item.alternatives, id: \.self) { guess in
+                        Button(guess) { item.name = guess; item.alternatives = [] }
+                            .font(.caption.weight(.semibold)).buttonStyle(.bordered).buttonBorderShape(.capsule).controlSize(.mini)
+                    }
+                }
             }
             Stepper(value: $item.grams, in: 5...1500, step: 10) {
                 Text("\(Int(item.grams.rounded())) g").font(.subheadline.monospacedDigit())
