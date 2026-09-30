@@ -6,7 +6,7 @@ struct ConnectAIView: View {
     @Environment(AIConnection.self) private var ai
     @Environment(\.dismiss) private var dismiss
     var onConnected: () -> Void = {}
-    @State private var vendor: AIProvider = .claude
+    @State private var vendor: AIProvider = .gemini
     @State private var key = ""
 
     private var vendorName: String { vendor.vendorName }

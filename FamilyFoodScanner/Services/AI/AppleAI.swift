@@ -13,7 +13,7 @@ enum AIProvider: String, CaseIterable, Identifiable {
     var id: String { rawValue }
 
     /// The services that use a key the person supplies, in the order used as a fallback.
-    static let keyVendors: [AIProvider] = [.claude, .openai, .grok, .gemini]
+    static let keyVendors: [AIProvider] = [.gemini, .claude, .openai, .grok]
 
     var title: String {
         switch self {
