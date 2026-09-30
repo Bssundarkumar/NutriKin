@@ -169,12 +169,13 @@ final class PlateSizeTests: XCTestCase {
 }
 
 final class FoodClassifierTests: XCTestCase {
-    func testKeepsLikelyFoodsAndDropsSceneLabelsDuplicatesAndLowConfidence() {
+    func testKeepsLikelyFoodsAndDropsSceneLabelsDuplicatesAndVeryLowConfidence() {
         let raw: [(label: String, confidence: Float)] = [
             ("plate", 0.9), ("fried_rice", 0.8), ("food", 0.85), ("tableware", 0.7),
-            ("curry", 0.55), ("Fried Rice", 0.5), ("naan", 0.1), ("chicken_curry", 0.4),
+            ("curry", 0.55), ("Fried Rice", 0.5), ("naan", 0.1), ("chicken_curry", 0.4), ("dust", 0.03),
         ]
-        XCTAssertEqual(FoodClassifier.foods(from: raw), ["fried rice", "curry", "chicken curry"])
+        // "naan" at 10% clears the floor and is kept; "dust" at 3% doesn't.
+        XCTAssertEqual(FoodClassifier.foods(from: raw), ["fried rice", "curry", "chicken curry", "naan"])
     }
 
     func testLimitsTheListAndHandlesNothingRecognised() {
@@ -188,8 +189,13 @@ final class FoodClassifierTests: XCTestCase {
     /// weaker, still-plausible guesses for what's hidden or partly covered. Those should still surface for the
     /// person to confirm, rather than being silently dropped the way "naan" at 0.1 correctly still is.
     func testLowerConfidenceGuessesInAMixedDishAreStillSurfaced() {
-        let raw: [(label: String, confidence: Float)] = [("rice", 0.6), ("chicken", 0.18), ("curry", 0.13), ("naan", 0.1)]
-        XCTAssertEqual(FoodClassifier.foods(from: raw), ["rice", "chicken", "curry"])
+        let raw: [(label: String, confidence: Float)] = [("rice", 0.6), ("chicken", 0.18), ("curry", 0.13), ("garlic naan", 0.08)]
+        XCTAssertEqual(FoodClassifier.foods(from: raw), ["rice", "chicken", "curry", "garlic naan"])
+    }
+
+    func testStillHasAFloorSoNearRandomNoiseIsExcluded() {
+        let raw: [(label: String, confidence: Float)] = [("rice", 0.6), ("random object", 0.05), ("something else", 0.02)]
+        XCTAssertEqual(FoodClassifier.foods(from: raw), ["rice"])
     }
 }
 
