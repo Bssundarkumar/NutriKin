@@ -457,6 +457,7 @@ struct PlateScanView: View {
             return
         }
         lastFoods = nil
+        proxyNotice = nil
         image = picture
         phase = .analyzing
         task?.cancel()
