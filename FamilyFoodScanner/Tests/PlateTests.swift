@@ -330,3 +330,16 @@ final class PlateAlternativesTests: XCTestCase {
         XCTAssertTrue(result.items.first?.alternatives.isEmpty ?? false)
     }
 }
+
+final class SharedPlateProxyTests: XCTestCase {
+    func testLimitReachedAndFailedCarryTheirMessage() {
+        XCTAssertEqual(SharedPlateProxy.ProxyError.limitReached("Today's free scans are used up.").errorDescription,
+                       "Today's free scans are used up.")
+        XCTAssertEqual(SharedPlateProxy.ProxyError.failed("Couldn't read that.").errorDescription, "Couldn't read that.")
+    }
+    func testNotConfiguredHasNoMessageSoItStaysSilent() {
+        // A missing/undeployed function should never surface as an alarming error to someone who never
+        // asked for this free path in the first place — it just falls back quietly.
+        XCTAssertNil(SharedPlateProxy.ProxyError.notConfigured.errorDescription)
+    }
+}

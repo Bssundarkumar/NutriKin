@@ -35,6 +35,8 @@ struct PlateScanView: View {
     @State private var usedCm = 26
     @State private var usedWasEstimated = false
     @State private var editedCm = 26
+    /// Free scans NutriKin's own shared key has left for today, once known.
+    @State private var freeScansLeftToday: Int?
 
     /// The presets, plus a measured size if it isn't one of them.
     private var sizeOptions: [Int] { Array(Set(sizes + (plateCm > 0 ? [plateCm] : []))).sorted() }
@@ -115,6 +117,11 @@ struct PlateScanView: View {
                 }
                 .card()
 
+                if let left = freeScansLeftToday {
+                    Label(left > 0 ? "\(left) free AI scan\(left == 1 ? "" : "s") left today" : "Today's free AI scans are used up \u{2014} using the basic guess for now",
+                          systemImage: left > 0 ? "sparkles" : "hourglass")
+                        .font(.footnote.weight(.semibold)).foregroundStyle(left > 0 ? Theme.brand : .secondary)
+                }
                 if ai.keyClient != nil || ai.appleStatus.isAvailable {
                     if ai.keyClient == nil {
                         Label("Uses Apple Intelligence on your iPhone. Nothing is uploaded.", systemImage: "apple.intelligence")
@@ -423,32 +430,56 @@ struct PlateScanView: View {
 
     /// `sizeOverride` re-runs the same photo with a corrected plate size.
     private func analyze(_ picture: UIImage, sizeOverride: Int? = nil) {
-        guard let client = ai.keyClient else {
-            if ai.appleStatus.isAvailable { beginOnDevice(picture) } else { showConnect = true }
+        let requested: Int? = sizeOverride ?? (plateCm == 0 ? nil : plateCm)
+        if let client = ai.keyClient {
+            lastFoods = nil
+            image = picture
+            phase = .analyzing
+            task?.cancel()
+            task = Task {
+                do {
+                    let analysis = try await PlateService(client: client).analyze(image: picture, plateDiameterCm: requested)
+                    guard !Task.isCancelled else { return }
+                    finish(analysis, requestedCm: requested)
+                } catch is CancellationError {
+                } catch {
+                    guard !Task.isCancelled else { return }
+                    phase = .failed(error.localizedDescription)
+                }
+            }
             return
         }
         lastFoods = nil
-        let requested: Int? = sizeOverride ?? (plateCm == 0 ? nil : plateCm)
         image = picture
         phase = .analyzing
         task?.cancel()
         task = Task {
             do {
-                let analysis = try await PlateService(client: client).analyze(image: picture, plateDiameterCm: requested)
+                if let (analysis, remaining) = try await SharedPlateProxy.estimate(image: picture, plateDiameterCm: requested) {
+                    guard !Task.isCancelled else { return }
+                    freeScansLeftToday = remaining
+                    finish(analysis, requestedCm: requested)
+                    return
+                }
+            } catch let error as SharedPlateProxy.ProxyError {
                 guard !Task.isCancelled else { return }
-                items = analysis.items
-                note = analysis.note
-                usedWasEstimated = requested == nil
-                usedCm = requested ?? analysis.estimatedPlateCm ?? 26
-                editedCm = usedCm
-                phase = .results
-                UINotificationFeedbackGenerator().notificationOccurred(.success)
-            } catch is CancellationError {
+                if case .limitReached = error { freeScansLeftToday = 0 }
             } catch {
                 guard !Task.isCancelled else { return }
-                phase = .failed(error.localizedDescription)
             }
+            guard !Task.isCancelled else { return }
+            if ai.appleStatus.isAvailable { beginOnDevice(picture) } else { showConnect = true }
         }
+    }
+
+    private func finish(_ analysis: PlateAnalysis, requestedCm: Int?) {
+        items = analysis.items
+        note = analysis.note
+        usedWasEstimated = requestedCm == nil
+        usedCm = requestedCm ?? analysis.estimatedPlateCm ?? 26
+        editedCm = usedCm
+        phase = .results
+        UINotificationFeedbackGenerator().notificationOccurred(.success)
     }
 }
 
