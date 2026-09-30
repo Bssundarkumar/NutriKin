@@ -103,7 +103,7 @@ Deno.serve(async (req) => {
 
     // Passed straight through as text: the phone's own PlateParser (the same one used for a linked key)
     // reads and validates this JSON, so the safety clamps live in one place, not duplicated here.
-    return json({ resultJSON: text, remaining: Math.max(DAILY_CAP - usage.count, 0) });
+    return json({ resultJSON: text, remaining: Math.max(DAILY_CAP - usage.scans_used, 0) });
   } catch (error) {
     console.error(error);
     return json({ error: "server_error", message: "Something went wrong. Try again, or use the basic guess instead." }, 500);
