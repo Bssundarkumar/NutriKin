@@ -1,5 +1,6 @@
 import Foundation
 import UIKit
+import Supabase
 
 /// NutriKin's own free, no-setup way to scan a plate: a few AI estimates a day per family, on NutriKin's own
 /// Gemini key, no key or setup needed from anyone. Past the daily cap it fails with `.limitReached`, and the
@@ -44,6 +45,17 @@ enum SharedPlateProxy {
             return (try PlateParser.parse(json), response.remaining ?? 0)
         } catch let error as ProxyError {
             throw error
+        } catch FunctionsError.httpError(let code, let data) {
+            // The SDK throws before decoding on any non-2xx response, so the friendly JSON body my own
+            // function sent (limit_reached, its message, etc.) has to be read back out of the raw data here.
+            if let body = try? JSONDecoder().decode(Response.self, from: data) {
+                if body.error == "limit_reached" {
+                    throw ProxyError.limitReached(body.message ?? "Today's free scans are used up.")
+                }
+                if body.error == "not_configured" { return nil }
+                if let message = body.message { throw ProxyError.failed(message) }
+            }
+            throw ProxyError.failed("Free scan didn't work (server said \(code)).")
         } catch {
             throw ProxyError.failed("Free scan didn't work: \(error.localizedDescription)")
         }
