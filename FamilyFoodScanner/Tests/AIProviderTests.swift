@@ -91,3 +91,14 @@ final class KeyCleaningTests: XCTestCase {
         XCTAssertEqual(AIConnection.cleaned("  sk-ant-x \n"), "sk-ant-x")
     }
 }
+
+final class GeminiKeyFormatTests: XCTestCase {
+    func testBothKnownGeminiKeyShapesAreAccepted() {
+        XCTAssertTrue(AIConnection.looksLikeKey("AIzaSyabcdefghijklmnopqrstuvwxyz", for: .gemini))         // older format
+        XCTAssertTrue(AIConnection.looksLikeKey("AQ.Ab8RN6Jx4example2ARDxL_RrvlDEmp8oQMPTlfetd-QA5i7Vpq", for: .gemini))   // newer format
+    }
+    func testUnrelatedProviderPrefixesAreStillRejectedForGemini() {
+        XCTAssertFalse(AIConnection.looksLikeKey("sk-ant-api03-abcdefghijklmnop", for: .gemini))
+        XCTAssertFalse(AIConnection.looksLikeKey("xai-abcdefghijklmnopqrstuvwxyz", for: .gemini))
+    }
+}

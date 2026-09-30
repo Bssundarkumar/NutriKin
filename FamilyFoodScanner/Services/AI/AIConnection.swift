@@ -126,7 +126,7 @@ final class AIConnection {
         case .claude: "It starts with \"sk-ant-\"."
         case .openai: "It starts with \"sk-\"."
         case .grok: "It starts with \"xai-\"."
-        case .gemini: "It starts with \"AIza\"."
+        case .gemini: "It usually starts with \"AIza\" or \"AQ.\"."
         case .apple: ""
         }
     }
@@ -149,7 +149,11 @@ final class AIConnection {
         case .claude: return key.hasPrefix("sk-ant-")
         case .openai: return key.hasPrefix("sk-") && !key.hasPrefix("sk-ant-")
         case .grok: return key.hasPrefix("xai-")
-        case .gemini: return key.hasPrefix("AIza")
+        // Google issues Gemini keys in two known shapes: the older "AIzaSy..." and a newer "AQ...." one.
+        // Rather than chase every future prefix Google might add, anything reasonably key-shaped is accepted
+        // here and the real check is the live API call that follows (client.verify()) — this is just a fast,
+        // friendly pre-check, not the final word.
+        case .gemini: return key.hasPrefix("AIza") || key.hasPrefix("AQ.")
         case .apple: return false
         }
     }
