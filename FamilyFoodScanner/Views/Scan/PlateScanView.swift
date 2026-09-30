@@ -37,6 +37,9 @@ struct PlateScanView: View {
     @State private var editedCm = 26
     /// Free scans NutriKin's own shared key has left for today, once known.
     @State private var freeScansLeftToday: Int?
+    /// A real error from the free-scan path, shown so it is never silently invisible (helped find the
+    /// household/RPC/Gemini bug that caused a silent fallback to the on-device guesser).
+    @State private var proxyNotice: String?
 
     /// The presets, plus a measured size if it isn't one of them.
     private var sizeOptions: [Int] { Array(Set(sizes + (plateCm > 0 ? [plateCm] : []))).sorted() }
@@ -117,6 +120,10 @@ struct PlateScanView: View {
                 }
                 .card()
 
+                if let notice = proxyNotice {
+                    Label(notice, systemImage: "exclamationmark.triangle.fill")
+                        .font(.caption).foregroundStyle(.orange).multilineTextAlignment(.center)
+                }
                 if let left = freeScansLeftToday {
                     Label(left > 0 ? "\(left) free AI scan\(left == 1 ? "" : "s") left today" : "Today's free AI scans are used up \u{2014} using the basic guess for now",
                           systemImage: left > 0 ? "sparkles" : "hourglass")
@@ -463,7 +470,11 @@ struct PlateScanView: View {
                 }
             } catch let error as SharedPlateProxy.ProxyError {
                 guard !Task.isCancelled else { return }
-                if case .limitReached = error { freeScansLeftToday = 0 }
+                switch error {
+                case .limitReached: freeScansLeftToday = 0
+                case .failed(let message): proxyNotice = message
+                case .notConfigured: break
+                }
             } catch {
                 guard !Task.isCancelled else { return }
             }
