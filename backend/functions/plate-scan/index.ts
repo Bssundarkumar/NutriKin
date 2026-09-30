@@ -78,7 +78,7 @@ Deno.serve(async (req) => {
 
     // Ask Gemini directly, with NutriKin's own key. Only this one photo and this one prompt are sent —
     // nothing else about the family goes to Google through this path.
-    const model = "gemini-2.5-flash";
+    const model = "gemini-3.8-flash";
     const geminiRes = await fetch(
       `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(GEMINI_KEY)}`,
       {
