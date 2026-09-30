@@ -8,6 +8,9 @@ struct ConnectAIView: View {
     var onConnected: () -> Void = {}
     @State private var vendor: AIProvider = .gemini
     @State private var key = ""
+    @State private var googlePresenter = GoogleSignInPresenter()
+    @State private var isAutoConnecting = false
+    @State private var autoConnectError: String?
 
     private var vendorName: String { vendor.vendorName }
     private var keyURL: URL {
@@ -43,6 +46,26 @@ struct ConnectAIView: View {
         }
     }
 
+    private func autoConnect() async {
+        guard let pkceState = GoogleOAuthConfig.isConfigured ? UUID().uuidString : nil else { return }
+        isAutoConnecting = true; autoConnectError = nil
+        defer { isAutoConnecting = false }
+        do {
+            let pkce = GoogleKeyProvisioning.makePKCE()
+            guard let url = GoogleKeyProvisioning.authorizationURL(pkce: pkce, state: pkceState) else { return }
+            let callback = try await googlePresenter.run(url)
+            guard let code = GoogleKeyProvisioning.authorizationCode(from: callback, expectedState: pkceState) else {
+                autoConnectError = "That didn't complete. Please try again."
+                return
+            }
+            let newKey = try await GoogleKeyProvisioning.requestKey(code: code, codeVerifier: pkce.verifier)
+            if await ai.connect(key: newKey, provider: .gemini) { onConnected(); dismiss() }
+            else { autoConnectError = ai.errorMessage ?? "Couldn't save that key." }
+        } catch {
+            autoConnectError = error.localizedDescription
+        }
+    }
+
     private var placeholder: String {
         switch vendor {
         case .openai: "Paste your key (sk-\u{2026})"
@@ -71,6 +94,18 @@ struct ConnectAIView: View {
                     if vendor == .gemini {
                         Label("Google gives Gemini keys a free tier \u{2014} no card needed to start.", systemImage: "gift.fill")
                             .font(.caption).foregroundStyle(Theme.brand)
+                    }
+                    if vendor == .gemini && GoogleOAuthConfig.isConfigured {
+                        Button { Task { await autoConnect() } } label: {
+                            HStack {
+                                Label(isAutoConnecting ? "Signing in\u{2026}" : "Sign in with Google to get a key automatically", systemImage: "person.badge.key.fill")
+                                if isAutoConnecting { Spacer(); ProgressView() }
+                            }
+                        }
+                        .disabled(isAutoConnecting)
+                        if let autoConnectError { Text(autoConnectError).font(.caption).foregroundStyle(.red) }
+                        Text("Beta: this signs you into Google in a secure browser (NutriKin never sees your password) and creates a key on your own Google account automatically. Or use the manual steps below instead.")
+                            .font(.caption2).foregroundStyle(.secondary)
                     }
                     VStack(alignment: .leading, spacing: 6) {
                         Text("How to get one").font(.caption.weight(.semibold)).foregroundStyle(.secondary)
