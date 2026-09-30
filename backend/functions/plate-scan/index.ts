@@ -80,7 +80,7 @@ Deno.serve(async (req) => {
     // nothing else about the family goes to Google through this path.
     const model = "gemini-2.5-flash";
     const geminiRes = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${GEMINI_KEY}`,
+      `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(GEMINI_KEY)}`,
       {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -97,8 +97,11 @@ Deno.serve(async (req) => {
     const geminiData = await geminiRes.json();
     const text = geminiData?.candidates?.[0]?.content?.parts?.[0]?.text;
     if (!geminiRes.ok || !text) {
-      console.error("Gemini error", JSON.stringify(geminiData).slice(0, 500));
-      return json({ error: "ai_failed", message: "Couldn't read that photo. Try again, or use the basic guess instead." }, 502);
+      console.error("Gemini error", geminiRes.status, JSON.stringify(geminiData).slice(0, 800));
+      // The real reason (invalid key, wrong model, quota, a safety block) is folded into the message itself,
+      // so it's visible on the phone without needing to check server logs for every failure.
+      const detail = geminiData?.error?.message || geminiData?.candidates?.[0]?.finishReason || `HTTP ${geminiRes.status}`;
+      return json({ error: "ai_failed", message: `Couldn't read that photo (${String(detail).slice(0, 150)}). Try again, or use the basic guess instead.` }, 502);
     }
 
     // Passed straight through as text: the phone's own PlateParser (the same one used for a linked key)
