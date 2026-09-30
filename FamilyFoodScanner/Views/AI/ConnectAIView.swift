@@ -26,6 +26,23 @@ struct ConnectAIView: View {
         default: "console.anthropic.com"
         }
     }
+    private var steps: [String] {
+        let last = "Copy the key, come back to NutriKin, and paste it in the box below."
+        switch vendor {
+        case .gemini: return ["Tap \"Get a key\" below \u{2014} it opens Google AI Studio in your browser.",
+                              "Sign in with any Google account (a Gmail address works).",
+                              "Tap \"Create API key\".", last]
+        case .openai: return ["Tap \"Get a key\" below \u{2014} it opens OpenAI's site in your browser.",
+                              "Sign in or create an account, and add a small amount of credit if asked.",
+                              "Tap \"Create new secret key\".", last]
+        case .grok: return ["Tap \"Get a key\" below \u{2014} it opens xAI's console in your browser.",
+                            "Sign in or create an account.", "Create a new API key.", last]
+        default: return ["Tap \"Get a key\" below \u{2014} it opens Anthropic's console in your browser.",
+                         "Sign in or create an account, and add a small amount of credit if asked.",
+                         "Tap \"Create Key\".", last]
+        }
+    }
+
     private var placeholder: String {
         switch vendor {
         case .openai: "Paste your key (sk-\u{2026})"
@@ -42,7 +59,7 @@ struct ConnectAIView: View {
                     Label("Link your own AI key", systemImage: "key.fill")
                         .font(.headline)
                         .foregroundStyle(Theme.brand)
-                    Text("A key is optional. It's needed to estimate calories from a plate photo and to read a product label from photos, and it can give longer chat answers and meal plans. Chat and meal ideas already work on Apple's on-device AI if your iPhone supports it. You use your own account, so there's no extra charge from NutriKin. Each request costs a few cents.")
+                    Text("A key is optional. It's needed to estimate calories from a plate photo and to read a product label from photos, and it can give longer chat answers and meal plans. Chat and meal ideas already work on Apple's on-device AI if your iPhone supports it. You use your own account, so there's no extra charge from NutriKin. Claude, OpenAI and Grok are usually a few cents a request; Gemini has a free tier.")
                         .font(.subheadline)
                 }
 
@@ -51,6 +68,23 @@ struct ConnectAIView: View {
                         ForEach(AIProvider.keyVendors) { Text($0.shortName).tag($0) }
                     }
                     .pickerStyle(.segmented)
+                    if vendor == .gemini {
+                        Label("Google gives Gemini keys a free tier \u{2014} no card needed to start.", systemImage: "gift.fill")
+                            .font(.caption).foregroundStyle(Theme.brand)
+                    }
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text("How to get one").font(.caption.weight(.semibold)).foregroundStyle(.secondary)
+                        ForEach(Array(steps.enumerated()), id: \.offset) { i, step in
+                            HStack(alignment: .top, spacing: 8) {
+                                Text("\(i + 1)").font(.caption.weight(.bold)).foregroundStyle(.white)
+                                    .frame(width: 18, height: 18).background(Theme.brand, in: Circle())
+                                Text(step).font(.caption).foregroundStyle(.secondary)
+                            }
+                        }
+                        Text("If this is for someone else in the family, it's easiest to do it on their iPhone, in person, once \u{2014} after that they never need to do it again.")
+                            .font(.caption2).foregroundStyle(.secondary).padding(.top, 2)
+                    }
+                    .padding(.vertical, 4)
                     if ai.isLinked(vendor) {
                         Label("\(vendor.shortName) key is linked", systemImage: "checkmark.seal.fill").foregroundStyle(Theme.brand)
                     }

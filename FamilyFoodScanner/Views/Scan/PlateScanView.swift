@@ -132,13 +132,13 @@ struct PlateScanView: View {
                         Button { image = nil; lastFoods = nil; foodsText = ""; phase = .describe } label: {
                             Label("Describe what you ate instead", systemImage: "text.cursor").font(.subheadline.weight(.semibold))
                         }
-                        Text("Apple's on-device AI can't see photos. It recognises what's on the plate on your phone, you confirm the foods, then it estimates the portions. A linked AI key can read the photo directly for better accuracy.")
+                        Text("Apple's on-device AI can't see photos. It recognises what's on the plate on your phone, you confirm the foods, then it estimates the portions. A linked AI key can read the photo directly for better accuracy \u{2014} Gemini has a free tier if you'd rather not pay per request.")
                             .font(.caption).foregroundStyle(.secondary).multilineTextAlignment(.center)
                     }
                 } else {
                     VStack(spacing: 10) {
                         Label("Link an AI to scan plates", systemImage: "key.fill").font(.headline).foregroundStyle(Theme.brand)
-                        Text("Apple Intelligence isn't available on this iPhone, so plate scanning needs your own AI account (Claude, OpenAI, Grok or Gemini). It takes a minute to set up.")
+                        Text("Apple Intelligence isn't available on this iPhone, so plate scanning needs your own AI account (Claude, OpenAI, Grok or Gemini). Gemini has a free tier, no card needed. It takes a minute to set up.")
                             .font(.footnote).foregroundStyle(.secondary).multilineTextAlignment(.center)
                         if case .unavailable(let reason) = ai.appleStatus {
                             Text(reason).font(.caption).foregroundStyle(.secondary).multilineTextAlignment(.center)
