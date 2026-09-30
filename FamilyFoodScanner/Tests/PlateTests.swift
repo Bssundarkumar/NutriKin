@@ -179,9 +179,17 @@ final class FoodClassifierTests: XCTestCase {
 
     func testLimitsTheListAndHandlesNothingRecognised() {
         let many = (0..<20).map { (label: "food_\($0)x", confidence: Float(0.9) - Float($0) * 0.01) }
-        XCTAssertEqual(FoodClassifier.foods(from: many).count, 6)
+        XCTAssertEqual(FoodClassifier.foods(from: many).count, 8)
         XCTAssertTrue(FoodClassifier.foods(from: []).isEmpty)
         XCTAssertTrue(FoodClassifier.foods(from: [("plate", 0.9), ("indoor", 0.8), ("outdoor", 0.7), ("night_sky", 0.6)]).isEmpty)
+    }
+
+    /// A mixed dish (rice with meat tucked underneath) often gives the classifier a confident top guess and
+    /// weaker, still-plausible guesses for what's hidden or partly covered. Those should still surface for the
+    /// person to confirm, rather than being silently dropped the way "naan" at 0.1 correctly still is.
+    func testLowerConfidenceGuessesInAMixedDishAreStillSurfaced() {
+        let raw: [(label: String, confidence: Float)] = [("rice", 0.6), ("chicken", 0.18), ("curry", 0.13), ("naan", 0.1)]
+        XCTAssertEqual(FoodClassifier.foods(from: raw), ["rice", "chicken", "curry"])
     }
 }
 

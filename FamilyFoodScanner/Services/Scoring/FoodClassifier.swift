@@ -15,7 +15,7 @@ enum FoodClassifier {
     ]
 
     /// Turns raw (label, confidence) pairs into a short, readable list of likely foods. Pure, so it's tested.
-    static func foods(from observations: [(label: String, confidence: Float)], minimumConfidence: Float = 0.25, limit: Int = 6) -> [String] {
+    static func foods(from observations: [(label: String, confidence: Float)], minimumConfidence: Float = 0.12, limit: Int = 8) -> [String] {
         var seen = Set<String>()
         var out: [String] = []
         for o in observations.sorted(by: { $0.confidence > $1.confidence }) where o.confidence >= minimumConfidence {
