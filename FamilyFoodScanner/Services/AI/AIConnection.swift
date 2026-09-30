@@ -131,8 +131,16 @@ final class AIConnection {
         }
     }
 
+    /// Strips ordinary whitespace plus invisible characters that sometimes come along with a copy from a web
+    /// page or a notes app (zero-width spaces, a byte-order mark) and would otherwise silently break a prefix
+    /// check like `hasPrefix("AIza")` without the person ever seeing why.
     nonisolated static func cleaned(_ raw: String) -> String {
-        raw.trimmingCharacters(in: .whitespacesAndNewlines)
+        // Filtered by Unicode scalar, not Character: a joiner scalar can merge into the SAME grapheme cluster
+        // as the letter next to it, so filtering whole Characters can miss it. Scalars can't hide that way.
+        let invisible: Set<Unicode.Scalar> = ["\u{200B}", "\u{200C}", "\u{200D}", "\u{FEFF}", "\u{00A0}"]
+        var scalars = raw.unicodeScalars
+        scalars.removeAll { invisible.contains($0) }
+        return String(String.UnicodeScalarView(scalars)).trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
     nonisolated static func looksLikeKey(_ key: String, for provider: AIProvider) -> Bool {

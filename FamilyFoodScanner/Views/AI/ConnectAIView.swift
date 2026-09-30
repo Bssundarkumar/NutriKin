@@ -11,6 +11,7 @@ struct ConnectAIView: View {
     @State private var googlePresenter = GoogleSignInPresenter()
     @State private var isAutoConnecting = false
     @State private var autoConnectError: String?
+    @State private var revealKey = false
 
     private var vendorName: String { vendor.vendorName }
     private var keyURL: URL {
@@ -125,10 +126,26 @@ struct ConnectAIView: View {
                     }
                     Link("Get a key at \(keyHost)", destination: keyURL)
                         .font(.subheadline.weight(.semibold))
-                    SecureField(placeholder, text: $key)
+                    HStack {
+                        Group {
+                            if revealKey {
+                                TextField(placeholder, text: $key)
+                            } else {
+                                SecureField(placeholder, text: $key)
+                            }
+                        }
                         .textContentType(.password)
                         .textInputAutocapitalization(.never)
                         .autocorrectionDisabled()
+                        if !key.isEmpty {
+                            Button { revealKey.toggle() } label: { Image(systemName: revealKey ? "eye.slash" : "eye") }
+                                .foregroundStyle(.secondary)
+                                .accessibilityLabel(revealKey ? "Hide key" : "Show key, to check it pasted correctly")
+                        }
+                    }
+                    if revealKey && !key.isEmpty {
+                        Text("Starts with \u{201C}\(String(AIConnection.cleaned(key).prefix(6)))\u{201D}").font(.caption2).foregroundStyle(.secondary)
+                    }
                     Button {
                         Task {
                             if await ai.connect(key: key, provider: vendor) { key = ""; onConnected(); dismiss() }

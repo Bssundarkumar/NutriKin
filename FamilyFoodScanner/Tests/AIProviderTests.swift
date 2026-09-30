@@ -77,3 +77,17 @@ final class StartTabTests: XCTestCase {
         XCTAssertEqual(Demo.startTab, "today")
     }
 }
+
+final class KeyCleaningTests: XCTestCase {
+    func testZeroWidthAndNoBreakSpaceCharactersAreStripped() {
+        let real = "AIzaSyabcdefghijklmnopqrstuvwxyz"
+        for wrapped in ["\u{FEFF}" + real, real + "\u{200B}", "\u{00A0}" + real + "\u{00A0}", "\u{200C}\u{200D}" + real] {
+            let cleaned = AIConnection.cleaned(wrapped)
+            XCTAssertEqual(cleaned, real, "failed for a copy containing an invisible character")
+            XCTAssertTrue(AIConnection.looksLikeKey(cleaned, for: .gemini))
+        }
+    }
+    func testOrdinaryWhitespaceStillTrimmed() {
+        XCTAssertEqual(AIConnection.cleaned("  sk-ant-x \n"), "sk-ant-x")
+    }
+}
