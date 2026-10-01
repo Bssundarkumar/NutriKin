@@ -229,8 +229,8 @@ struct TodayView: View {
                 if let grade { FoodGradeBadge(percent: grade.percent, letter: grade.grade.letter) }
             }
             HStack(spacing: 18) {
-                MacroBar(symbol: "leaf.fill", tint: .blue, title: "Carbs", value: budget.eaten.carbsG, goal: goals.carbsG)
-                MacroBar(symbol: "circle.fill", tint: .purple, title: "Protein", value: budget.eaten.proteinG, goal: goals.proteinG)
+                MacroBar(symbol: "leaf.fill", tint: .blue, title: "Carbs", value: budget.eaten.carbsG, goal: goals.carbsG, iconTint: .green)
+                MacroBar(symbol: "drop.fill", tint: .purple, title: "Protein", value: budget.eaten.proteinG, goal: goals.proteinG, iconTint: .orange)
                 MacroBar(symbol: "drop.fill", tint: .orange, title: "Fat", value: budget.eaten.fatG, goal: goals.fatG)
             }
             if !TodayLayout.isChild(member) {
@@ -596,11 +596,14 @@ struct MacroBar: View {
     let title: String
     let value: Double
     let goal: Double
+    /// The icon's own color, when it differs from the bar's — e.g. the reference design's carbs icon is
+    /// green (a leaf) while its bar is blue. Defaults to `tint` so existing callers don't need to change.
+    var iconTint: Color? = nil
 
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
             HStack(spacing: 4) {
-                Image(systemName: symbol).font(.caption2).foregroundStyle(tint)
+                Image(systemName: symbol).font(.caption2).foregroundStyle(iconTint ?? tint)
                 Text(title).font(.caption).foregroundStyle(.secondary)
             }
             Text("\(Int(value.rounded())) / \(Int(goal.rounded())) g").font(.caption.weight(.semibold))
