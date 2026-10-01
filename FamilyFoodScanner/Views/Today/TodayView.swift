@@ -207,15 +207,21 @@ struct TodayView: View {
         let left = Int(budget.remaining.rounded())
         let grade = FoodGrade.average(tracking.entries(for: member))
         let goals = macroGoals(budget.limits.calories)
-        return VStack(alignment: .leading, spacing: 18) {
+        return VStack(alignment: .leading, spacing: 14) {
             HStack(alignment: .top, spacing: 18) {
                 ScoreRingLabel(fraction: budget.calorieShare, color: color, primary: "\(abs(left))",
                                secondary: left >= 0 ? "kcal left" : "kcal over")
                     .frame(width: 108, height: 108)
-                VStack(alignment: .leading, spacing: 4) {
-                    Text("Daily Calories").font(.headline)
-                    Text("\(Int(budget.eaten.calories.rounded())) of \(Int(budget.limits.calories.rounded())) kcal")
-                        .font(.subheadline).foregroundStyle(.secondary)
+                VStack(alignment: .leading, spacing: 10) {
+                    HStack(alignment: .top) {
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text("Daily Calories").font(.headline)
+                            Text("\(Int(budget.eaten.calories.rounded())) of \(Int(budget.limits.calories.rounded())) kcal")
+                                .font(.subheadline).foregroundStyle(.secondary)
+                        }
+                        Spacer(minLength: 4)
+                        if let grade { FoodGradeBadge(percent: grade.percent, letter: grade.grade.letter) }
+                    }
                     Capsule().fill(color.opacity(0.18)).frame(height: 7)
                         .overlay(alignment: .leading) {
                             GeometryReader { geo in
@@ -223,15 +229,15 @@ struct TodayView: View {
                             }
                         }
                         .frame(height: 7)
-                        .padding(.top, 2)
+                    // All three macros stacked here, beside the ring, rather than spanning the full
+                    // card width below it — keeps every individual tracking figure in one glance on
+                    // the right, with the ring as the one big number on the left.
+                    VStack(spacing: 8) {
+                        MacroBar(symbol: "leaf.fill", tint: .blue, title: "Carbs", value: budget.eaten.carbsG, goal: goals.carbsG, iconTint: .green)
+                        MacroBar(symbol: "drop.fill", tint: .purple, title: "Protein", value: budget.eaten.proteinG, goal: goals.proteinG, iconTint: .orange)
+                        MacroBar(symbol: "drop.fill", tint: .orange, title: "Fat", value: budget.eaten.fatG, goal: goals.fatG)
+                    }
                 }
-                Spacer(minLength: 0)
-                if let grade { FoodGradeBadge(percent: grade.percent, letter: grade.grade.letter) }
-            }
-            HStack(spacing: 18) {
-                MacroBar(symbol: "leaf.fill", tint: .blue, title: "Carbs", value: budget.eaten.carbsG, goal: goals.carbsG, iconTint: .green)
-                MacroBar(symbol: "drop.fill", tint: .purple, title: "Protein", value: budget.eaten.proteinG, goal: goals.proteinG, iconTint: .orange)
-                MacroBar(symbol: "drop.fill", tint: .orange, title: "Fat", value: budget.eaten.fatG, goal: goals.fatG)
             }
             if !TodayLayout.isChild(member) {
                 Button("Weight & daily intake plan", action: showPlan)
