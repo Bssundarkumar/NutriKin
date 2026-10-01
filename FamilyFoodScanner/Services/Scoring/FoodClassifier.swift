@@ -9,9 +9,15 @@ enum FoodClassifier {
         "food", "dish", "plate", "tableware", "dishware", "cuisine", "meal", "table", "indoor", "kitchen", "restaurant",
         "cookware", "bowl", "cutlery", "fork", "spoon", "knife", "glass", "cup", "drink", "beverage", "lunch", "dinner",
         "breakfast", "snack", "ingredient", "produce", "vegetable", "fruit", "baked goods", "still life", "photography",
-        "container", "serveware", "utensil", "material", "wood", "furniture", "textile", "ceramic", "market",
-        "outdoor", "sky", "night sky", "cloud", "nature", "plant", "people", "adult", "person", "hand", "text", "screenshot",
-        "cartoon", "art", "illustration", "pattern", "sport", "structure", "room", "floor", "wall", "black", "white",
+        "container", "serveware", "utensil", "material", "wood", "wood processed", "furniture", "textile", "ceramic",
+        "market", "outdoor", "sky", "night sky", "cloud", "nature", "plant", "people", "adult", "person", "hand", "text",
+        "screenshot", "cartoon", "art", "illustration", "pattern", "sport", "structure", "room", "floor", "wall",
+        "black", "white",
+        // Objects and scenery Vision sometimes names instead of admitting it found no food — the same gap
+        // that let a photo of a wooden surface log itself as "wood processed, tool".
+        "tool", "device", "electronics", "metal", "plastic", "fabric", "paper", "cardboard", "box", "bag",
+        "vehicle", "building", "architecture", "mountain", "grass", "tree", "leaf", "animal", "chair", "door",
+        "window", "ground", "street", "road", "water", "stone", "rock", "concrete", "fence", "shelf", "cabinet",
     ]
 
     /// Turns raw (label, confidence) pairs into a short, readable list of likely foods. Pure, so it's tested.

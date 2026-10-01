@@ -197,6 +197,13 @@ final class FoodClassifierTests: XCTestCase {
         let raw: [(label: String, confidence: Float)] = [("rice", 0.6), ("random object", 0.05), ("something else", 0.02)]
         XCTAssertEqual(FoodClassifier.foods(from: raw), ["rice"])
     }
+
+    /// A real report: a photo of a wooden surface (no food at all) came back as "wood processed, tool"
+    /// instead of an empty list, because those exact Vision labels weren't in the scene denylist.
+    func testPhotoOfAWoodenSurfaceWithNoFoodYieldsNothing() {
+        let raw: [(label: String, confidence: Float)] = [("wood_processed", 0.8), ("tool", 0.6), ("material", 0.4)]
+        XCTAssertTrue(FoodClassifier.foods(from: raw).isEmpty)
+    }
 }
 
 final class PlateNutrientTests: XCTestCase {
