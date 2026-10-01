@@ -5,12 +5,14 @@ struct StrengthEditor: View {
     let member: Member
     @Binding var exercises: [StrengthExercise]
     @Environment(TrackingStore.self) private var tracking
+    @Environment(CustomExerciseStore.self) private var customExercises
     @State private var savingTemplate = false
     @State private var templateName = ""
     @State private var picked: Set<String> = []
     @State private var group: ExerciseLibrary.Group? = Demo.strengthSample == nil ? nil : ExerciseLibrary.groups.first { $0.name == "Legs" }
     @AppStorage("strengthUsesPounds") private var pounds = false
     @State private var newName = ""
+    @State private var newGroupExerciseName = ""
     @State private var applied: WorkoutTemplate?
     @State private var pendingTemplate: WorkoutTemplate?
     @State private var addingExercise = true
@@ -127,19 +129,42 @@ struct StrengthEditor: View {
                 }
             }
             if let group {
-                let available = group.exercises.filter { name in !exercises.contains { $0.name == name } }
+                let mineForGroup = customExercises.exercises(for: group.name)
+                let available = (group.exercises + mineForGroup).filter { name in !exercises.contains { $0.name == name } }
                 LazyVGrid(columns: [GridItem(.adaptive(minimum: 130), spacing: 8)], alignment: .leading, spacing: 8) {
                     ForEach(available, id: \.self) { name in
                         let on = picked.contains(name)
+                        let isCustom = mineForGroup.contains(name)
                         Button { if on { picked.remove(name) } else { picked.insert(name) } } label: {
                             Label(name, systemImage: on ? "checkmark.circle.fill" : "circle").font(.footnote).lineLimit(1).minimumScaleFactor(0.8)
                                 .frame(maxWidth: .infinity)
                         }
                         .buttonStyle(.bordered).buttonBorderShape(.capsule).controlSize(.small).tint(on ? .orange : .gray)
+                        .contextMenu {
+                            if isCustom {
+                                Button("Remove from \(group.name)", role: .destructive) {
+                                    customExercises.remove(name, from: group.name)
+                                    picked.remove(name)
+                                }
+                            }
+                        }
                     }
                 }
+                HStack {
+                    TextField("Add your own \(group.name.lowercased()) exercise", text: $newGroupExerciseName)
+                        .textInputAutocapitalization(.words)
+                        .font(.footnote)
+                    Button("Add") {
+                        let trimmed = newGroupExerciseName.trimmingCharacters(in: .whitespaces)
+                        guard !trimmed.isEmpty else { return }
+                        customExercises.add(trimmed, to: group)
+                        picked.insert(trimmed)
+                        newGroupExerciseName = ""
+                    }
+                    .disabled(newGroupExerciseName.trimmingCharacters(in: .whitespaces).isEmpty)
+                }
                 let sessions = tracking.recentStrength(for: member).compactMap { w -> (Workout, [StrengthExercise])? in
-                    let mine = ExerciseLibrary.only(w.exercises ?? [], in: group)
+                    let mine = ExerciseLibrary.only(w.exercises ?? [], in: group, customNames: mineForGroup)
                     return mine.isEmpty ? nil : (w, mine)
                 }
                 if !sessions.isEmpty {
@@ -159,7 +184,7 @@ struct StrengthEditor: View {
                     }.disabled(available.isEmpty)
                     Spacer()
                     Button("Add \(picked.count) to workout") {
-                        for name in group.exercises where picked.contains(name) { add(name) }
+                        for name in group.exercises + mineForGroup where picked.contains(name) { add(name) }
                         picked = []
                     }
                     .buttonStyle(.borderedProminent).tint(.orange).disabled(picked.isEmpty)

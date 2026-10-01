@@ -1,4 +1,5 @@
 import Foundation
+import Observation
 
 /// Built-in exercises grouped by what they work, so picking "Legs" shows every leg exercise.
 enum ExerciseLibrary {
@@ -34,10 +35,55 @@ enum ExerciseLibrary {
             "Burpee", "Kettlebell swing", "Clean and press", "Thruster", "Farmer's carry", "Turkish get-up"]),
     ]
 
-    /// Only the exercises that belong to this muscle group.
-    static func only(_ exercises: [StrengthExercise], in group: Group) -> [StrengthExercise] {
-        exercises.filter { group.exercises.contains($0.name) }
+    /// Only the exercises that belong to this muscle group. Pass in anyone's custom additions to it too
+    /// (e.g. from `CustomExerciseStore`), so a past session built from one still groups correctly even
+    /// after the on-device library changes.
+    static func only(_ exercises: [StrengthExercise], in group: Group, customNames: [String] = []) -> [StrengthExercise] {
+        let names = Set(group.exercises + customNames)
+        return exercises.filter { names.contains($0.name) }
     }
 
     static var all: [String] { groups.flatMap(\.exercises) }
+}
+
+/// Exercises someone added themselves under a muscle group that isn't in the built-in library — e.g. a
+/// machine specific to their gym. Kept on-device (UserDefaults), since the built-in groups aren't backed
+/// by the household's data at all; each person's additions are their own.
+@MainActor
+@Observable
+final class CustomExerciseStore {
+    private static let key = "customExercisesByGroup"
+    /// Group name -> the names someone's added to it, in the order added.
+    private var byGroup: [String: [String]]
+
+    init() {
+        if let data = UserDefaults.standard.data(forKey: Self.key),
+           let decoded = try? JSONDecoder().decode([String: [String]].self, from: data) {
+            byGroup = decoded
+        } else {
+            byGroup = [:]
+        }
+    }
+
+    func exercises(for groupName: String) -> [String] { byGroup[groupName] ?? [] }
+
+    /// Adds a custom exercise to a group, unless it's already there (built-in or custom) under that name.
+    func add(_ name: String, to group: ExerciseLibrary.Group) {
+        let trimmed = AIGuardrails.sanitize(name, max: 60)
+        guard !trimmed.isEmpty else { return }
+        let existing = group.exercises + exercises(for: group.name)
+        guard !existing.contains(where: { $0.caseInsensitiveCompare(trimmed) == .orderedSame }) else { return }
+        byGroup[group.name, default: []].append(trimmed)
+        persist()
+    }
+
+    func remove(_ name: String, from groupName: String) {
+        byGroup[groupName]?.removeAll { $0 == name }
+        persist()
+    }
+
+    private func persist() {
+        guard let data = try? JSONEncoder().encode(byGroup) else { return }
+        UserDefaults.standard.set(data, forKey: Self.key)
+    }
 }

@@ -21,6 +21,7 @@ struct FamilyFoodScannerApp: App {
     @State private var tracking = TrackingStore()
     @State private var groceries = GroceryStore()
     @State private var medications = MedicationStore()
+    @State private var customExercises = CustomExerciseStore()
 
     var body: some Scene {
         WindowGroup {
@@ -33,6 +34,7 @@ struct FamilyFoodScannerApp: App {
                 .environment(tracking)
                 .environment(groceries)
                 .environment(medications)
+                .environment(customExercises)
                 .onOpenURL { url in
                     // Only invite links matter here; the Google sign-in
                     // callback is handled by the browser sheet itself.
