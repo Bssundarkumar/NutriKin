@@ -10,6 +10,7 @@ struct DayTimelineView: View {
     @Environment(TrackingStore.self) private var tracking
     @Environment(MedicationStore.self) private var medications
     @Environment(DailyCheckInStore.self) private var checkIns
+    @Environment(HealthKitManager.self) private var health
     @Environment(\.dismiss) private var dismiss
 
     private var events: [TimelineEvent] {
@@ -19,7 +20,10 @@ struct DayTimelineView: View {
             doses: medications.doses(for: member),
             waterTimes: checkIns.waterTimes(for: member.id, day: day),
             hungerEntries: checkIns.hungerEntries(for: member.id, day: day),
-            moodEntries: checkIns.moodEntries(for: member.id, day: day)
+            moodEntries: checkIns.moodEntries(for: member.id, day: day),
+            weightEntries: checkIns.weightEntries(for: member.id, day: day),
+            sleepHours: tracking.isToday ? health.snapshot.sleepHoursLastNight : nil,
+            sleepAnchor: Calendar.current.startOfDay(for: day)
         )
     }
 
@@ -58,7 +62,7 @@ struct DayTimelineView: View {
                 Image(systemName: event.symbol)
                     .font(.caption).foregroundStyle(.white)
                     .frame(width: 26, height: 26)
-                    .background(color(event.tint), in: Circle())
+                    .background(event.tint.color, in: Circle())
                 if !isLast {
                     Rectangle().fill(Color.secondary.opacity(0.2)).frame(width: 2).frame(maxHeight: .infinity)
                 }
@@ -74,19 +78,6 @@ struct DayTimelineView: View {
             .padding(.bottom, 16)
 
             Spacer(minLength: 0)
-        }
-    }
-
-    private func color(_ token: TimelineEvent.ColorToken) -> Color {
-        switch token {
-        case .brand: Theme.brand
-        case .orange: .orange
-        case .blue: .blue
-        case .purple: .purple
-        case .pink: .pink
-        case .indigo: .indigo
-        case .red: .red
-        case .gray: .gray
         }
     }
 }

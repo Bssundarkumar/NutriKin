@@ -12,13 +12,14 @@ final class TodayLayoutTests: XCTestCase {
     }
 
     func testAdultsSeeCaloriesAndLimitsFirstAndMedicationsWhenTheyHaveThem() {
-        XCTAssertEqual(order(adult, meds: true), [.hero, .quickActions, .medications, .limits, .eaten, .workouts])
-        XCTAssertEqual(order(adult), [.hero, .quickActions, .limits, .eaten, .workouts, .medications])     // no medicines: just an Add prompt, last
+        // Eaten & burned always sits directly under Medications once there's a real one to sit under.
+        XCTAssertEqual(order(adult, meds: true), [.hero, .quickActions, .medications, .eaten, .limits, .workouts])
+        XCTAssertEqual(order(adult), [.hero, .quickActions, .limits, .eaten, .workouts, .medications])     // no medicines: just an Add prompt, last — eaten keeps its usual spot
     }
 
     func testOlderAdultsSeeMedicationsBeforeAnythingElse() {
         XCTAssertEqual(order(senior, meds: true).first, .medications)
-        XCTAssertEqual(order(senior, meds: true), [.medications, .hero, .quickActions, .limits, .eaten, .workouts])
+        XCTAssertEqual(order(senior, meds: true), [.medications, .eaten, .hero, .quickActions, .limits, .workouts])
         XCTAssertEqual(order(senior).first, .hero)
     }
 
@@ -37,7 +38,7 @@ final class TodayLayoutTests: XCTestCase {
     }
 
     func testPregnancyKeepsMedicationsRightAfterTheSummary() {
-        XCTAssertEqual(order(mum, meds: true), [.hero, .medications, .quickActions, .limits, .eaten, .workouts])
+        XCTAssertEqual(order(mum, meds: true), [.hero, .medications, .eaten, .quickActions, .limits, .workouts])
     }
 
     func testADueOrMissedDoseMovesMedicationsToTheTopForEveryone() {

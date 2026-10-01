@@ -80,7 +80,7 @@ struct CheckInsCard: View {
     }
 
     private var weightSheet: some View {
-        WeightQuickLogView(member: member) { sheet = nil }
+        WeightQuickLogView(member: member, day: day) { sheet = nil }
     }
 
     private var sleepSheet: some View {
@@ -125,13 +125,16 @@ struct CheckInsCard: View {
 /// A focused weight entry, separate from the full member-edit form, for a one-tap daily log.
 private struct WeightQuickLogView: View {
     let member: Member
+    let day: Date
     let onDone: () -> Void
     @Environment(FamilyStore.self) private var family
+    @Environment(DailyCheckInStore.self) private var checkIns
     @State private var text: String
     @State private var isSaving = false
 
-    init(member: Member, onDone: @escaping () -> Void) {
+    init(member: Member, day: Date, onDone: @escaping () -> Void) {
         self.member = member
+        self.day = day
         self.onDone = onDone
         _text = State(initialValue: member.weightKg.map { $0.truncatingRemainder(dividingBy: 1) == 0 ? String(Int($0)) : String(format: "%.1f", $0) } ?? "")
     }
@@ -163,6 +166,7 @@ private struct WeightQuickLogView: View {
         var updated = member
         updated.weightKg = value
         await family.updateMember(updated)
+        checkIns.logWeight(value, for: member.id, day: day)
         onDone()
     }
 }

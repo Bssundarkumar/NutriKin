@@ -41,6 +41,15 @@ enum TodayLayout {
         }
         // With no medications yet it is only an "Add" prompt, so it goes last.
         if !hasMedications { order.append(.medications) }
+
+        // "Eaten & burned" always sits directly under Medications, wherever that landed above — but only
+        // once there's a real medications card there; an empty "Add a medication" prompt at the bottom
+        // doesn't count, so .eaten keeps its usual spot in that case instead of trailing even further down.
+        if hasMedications, let medsIndex = order.firstIndex(of: .medications), let eatenIndex = order.firstIndex(of: .eaten),
+           eatenIndex != medsIndex + 1 {
+            order.remove(at: eatenIndex)
+            order.insert(.eaten, at: order.firstIndex(of: .medications)! + 1)
+        }
         return order
     }
 }

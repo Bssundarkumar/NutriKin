@@ -16,7 +16,8 @@ final class DailyCheckInStore {
     static let hungerLabels = ["Stuffed", "Full", "Satisfied", "Hungry", "Starving"]
 
     private struct RatingEntry: Codable, Hashable { var at: Date; var value: Int }
-    private struct DayEntry: Codable { var water: [Date] = []; var hunger: [RatingEntry] = []; var mood: [RatingEntry] = [] }
+    private struct WeightEntry: Codable, Hashable { var at: Date; var kg: Double }
+    private struct DayEntry: Codable { var water: [Date] = []; var hunger: [RatingEntry] = []; var mood: [RatingEntry] = []; var weight: [WeightEntry] = [] }
     /// "<memberId>_<yyyy-MM-dd>" -> that day's entries.
     private var byDay: [String: DayEntry]
 
@@ -45,6 +46,9 @@ final class DailyCheckInStore {
     func waterTimes(for memberId: UUID, day: Date) -> [Date] { byDay[keyFor(memberId, day)]?.water ?? [] }
     func hungerEntries(for memberId: UUID, day: Date) -> [(at: Date, value: Int)] { (byDay[keyFor(memberId, day)]?.hunger ?? []).map { ($0.at, $0.value) } }
     func moodEntries(for memberId: UUID, day: Date) -> [(at: Date, value: Int)] { (byDay[keyFor(memberId, day)]?.mood ?? []).map { ($0.at, $0.value) } }
+    /// Every time this person logged their weight that day — a timestamp alongside what's already
+    /// stored on `Member.weightKg` (which only ever holds the latest value, with no history of its own).
+    func weightEntries(for memberId: UUID, day: Date) -> [(at: Date, kg: Double)] { (byDay[keyFor(memberId, day)]?.weight ?? []).map { ($0.at, $0.kg) } }
 
     func addWater(_ delta: Int, for memberId: UUID, day: Date) {
         let key = keyFor(memberId, day)
@@ -70,6 +74,14 @@ final class DailyCheckInStore {
         let key = keyFor(memberId, day)
         var entry = byDay[key] ?? DayEntry()
         if let value { entry.mood.append(RatingEntry(at: .now, value: value)) }
+        byDay[key] = entry
+        persist()
+    }
+
+    func logWeight(_ kg: Double, for memberId: UUID, day: Date) {
+        let key = keyFor(memberId, day)
+        var entry = byDay[key] ?? DayEntry()
+        entry.weight.append(WeightEntry(at: .now, kg: kg))
         byDay[key] = entry
         persist()
     }

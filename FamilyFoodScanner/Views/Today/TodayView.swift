@@ -7,6 +7,7 @@ struct TodayView: View {
     @Environment(AIConnection.self) private var ai
     @Environment(MedicationStore.self) private var medications
     @Environment(HealthKitManager.self) private var health
+    @Environment(DailyCheckInStore.self) private var checkIns
     @AppStorage("healthMemberID") private var healthMemberID = ""
     @AppStorage("todayMemberID") private var selectedID = ""
     @State private var showFood = Demo.opensLogFood || Demo.opensPlate
@@ -281,37 +282,34 @@ struct TodayView: View {
 
     // MARK: Lists
 
-    /// What's eaten and what's burned, combined into one time-ordered ladder: a connecting line with a
-    /// colored ring per item, oldest at top. Food and activity used to be two separate cards; merged so
-    /// the whole day's "in and out" reads as a single story instead of two lists to cross-reference.
-    private enum LadderItem: Identifiable {
-        case food(FoodEntry)
-        case workout(Workout)
-        var id: String {
-            switch self {
-            case .food(let e): "food-\(e.id)"
-            case .workout(let w): "workout-\(w.id)"
-            }
-        }
-        var at: Date {
-            switch self {
-            case .food(let e): e.eatenAt
-            case .workout(let w): w.doneAt
-            }
-        }
-    }
-
+    /// Everything "in and out" for the day, as one connecting ladder: food, activity, and the quick
+    /// check-ins (water, weight, sleep, hunger, mood) in time order. Medication has its own card right
+    /// above this one, so doses aren't repeated here. Built on `DayTimeline.events`, the same builder the
+    /// full-day timeline sheet uses — one place that assembles the list, so the two never drift apart.
     private func ladderSection(_ member: Member) -> some View {
-        let items: [LadderItem] = tracking.entries(for: member).map(LadderItem.food) + tracking.workouts(for: member).map(LadderItem.workout)
-        let sorted = items.sorted { $0.at < $1.at }
+        let showsCalories = TodayLayout.showsCalorieSummary(for: member)
+        var events = DayTimeline.events(
+            foodEntries: tracking.entries(for: member),
+            workouts: tracking.workouts(for: member),
+            doses: [],
+            waterTimes: checkIns.waterTimes(for: member.id, day: tracking.day),
+            hungerEntries: checkIns.hungerEntries(for: member.id, day: tracking.day),
+            moodEntries: checkIns.moodEntries(for: member.id, day: tracking.day),
+            weightEntries: checkIns.weightEntries(for: member.id, day: tracking.day),
+            sleepHours: tracking.isToday ? health.snapshot.sleepHoursLastNight : nil,
+            sleepAnchor: Calendar.current.startOfDay(for: tracking.day)
+        )
+        if !showsCalories {
+            for i in events.indices where events[i].kind == .food { events[i].detail = "" }
+        }
         return VStack(alignment: .leading, spacing: 10) {
             SectionTitle(title: "Eaten & burned", actionTitle: "Add") { showFood = true }
-            if sorted.isEmpty {
+            if events.isEmpty {
                 EmptyState(symbol: "fork.knife", title: "Nothing logged", message: "Scan a product and tap \u{201C}Log as eaten\u{201D}, or add a meal or workout.")
             } else {
                 VStack(spacing: 0) {
-                    ForEach(Array(sorted.enumerated()), id: \.element.id) { index, item in
-                        ladderRow(item, member: member, isLast: index == sorted.count - 1)
+                    ForEach(Array(events.enumerated()), id: \.element.id) { index, event in
+                        ladderRow(event, member: member, isLast: index == events.count - 1)
                     }
                 }
             }
@@ -319,81 +317,60 @@ struct TodayView: View {
         .card()
     }
 
-    private func ladderRow(_ item: LadderItem, member: Member, isLast: Bool) -> some View {
-        let showsCalories = TodayLayout.showsCalorieSummary(for: member)
+    private func ladderRow(_ event: TimelineEvent, member: Member, isLast: Bool) -> some View {
+        let isEditable = event.foodEntryId != nil || event.workoutId != nil
         return HStack(alignment: .top, spacing: 12) {
             VStack(spacing: 0) {
-                Image(systemName: ladderSymbol(item))
-                    .font(.footnote).foregroundStyle(ladderTint(item))
+                Image(systemName: event.symbol)
+                    .font(.footnote).foregroundStyle(event.tint.color)
                     .frame(width: 34, height: 34)
-                    .background(Circle().strokeBorder(ladderTint(item), lineWidth: 2))
+                    .background(Circle().strokeBorder(event.tint.color, lineWidth: 2))
                 if !isLast {
-                    Rectangle().fill(ladderTint(item).opacity(0.3)).frame(width: 2).frame(minHeight: 20).frame(maxHeight: .infinity)
+                    Rectangle().fill(event.tint.color.opacity(0.3)).frame(width: 2).frame(minHeight: 20).frame(maxHeight: .infinity)
                 }
             }
             VStack(alignment: .leading, spacing: 1) {
-                Text(ladderTitle(item, showsCalories: showsCalories)).font(.subheadline.weight(.semibold))
-                Text(item.at.formatted(date: .omitted, time: .shortened)).font(.caption).foregroundStyle(.secondary)
+                Text(event.detail.isEmpty ? event.title : "\(event.title) \(event.detail)").font(.subheadline.weight(.semibold))
+                Text(event.at.formatted(date: .omitted, time: .shortened)).font(.caption).foregroundStyle(.secondary)
             }
             .padding(.top, 5).padding(.bottom, isLast ? 4 : 18)
             Spacer(minLength: 0)
-            Menu {
-                switch item {
-                case .food(let e): Button("Edit", systemImage: "pencil") { editingFood = e }
-                case .workout(let w): Button("Edit", systemImage: "pencil") { editingWorkout = w }
-                }
-                Button("Remove", systemImage: "trash", role: .destructive) {
-                    switch item {
-                    case .food(let e): Task { await tracking.delete(e) }
-                    case .workout(let w): Task { await tracking.delete(w) }
-                    }
-                }
-            } label: { Image(systemName: "ellipsis").foregroundStyle(.secondary).frame(width: 30, height: 34) }
+            if isEditable {
+                Menu {
+                    Button("Edit", systemImage: "pencil") { editLadderEvent(event, member: member) }
+                    Button("Remove", systemImage: "trash", role: .destructive) { Task { await removeLadderEvent(event, member: member) } }
+                } label: { Image(systemName: "ellipsis").foregroundStyle(.secondary).frame(width: 30, height: 34) }
+            }
         }
         .contentShape(Rectangle())
         .onTapGesture {
-            if case .workout(let w) = item { viewingWorkout = w }
-            else if case .food(let e) = item { editingFood = e }
+            if let w = ladderWorkout(event, member: member) { viewingWorkout = w }
+            else if let e = ladderFoodEntry(event, member: member) { editingFood = e }
         }
     }
 
-    private func ladderTitle(_ item: LadderItem, showsCalories: Bool) -> String {
-        switch item {
-        case .food(let e): showsCalories && e.calories > 0 ? "\(e.label) \(Int(e.calories.rounded())) cal" : e.label
-        case .workout(let w): "Burn \u{00B7} \(w.workoutKind.title) \(w.minutes) min, \(w.caloriesBurned) cal"
-        }
+    /// The overflow menu's "Edit" jumps straight to the edit form — unlike a tap on a workout row,
+    /// which opens its read-only detail first (the same as the Activity screen's own list does).
+    private func editLadderEvent(_ event: TimelineEvent, member: Member) {
+        if let w = ladderWorkout(event, member: member) { editingWorkout = w }
+        else if let e = ladderFoodEntry(event, member: member) { editingFood = e }
     }
 
-    private func ladderSymbol(_ item: LadderItem) -> String {
-        switch item {
-        case .food(let e): symbol(for: e.source)
-        case .workout: "flame.fill"
-        }
+    private func removeLadderEvent(_ event: TimelineEvent, member: Member) async {
+        if let w = ladderWorkout(event, member: member) { await tracking.delete(w) }
+        else if let e = ladderFoodEntry(event, member: member) { await tracking.delete(e) }
     }
 
-    /// Colors each ring by roughly when it happened, like a tracker's per-meal colored dots — purely
-    /// visual grouping, nothing is stored or computed from this. Activity is always green, matching
-    /// its "burn" meaning regardless of time of day.
-    private func ladderTint(_ item: LadderItem) -> Color {
-        if case .workout = item { return .green }
-        guard case .food(let e) = item else { return .secondary }
-        let color: Color
-        switch Calendar.current.component(.hour, from: e.eatenAt) {
-        case 4..<11: color = .green
-        case 11..<16: color = .orange
-        case 16..<21: color = Theme.brand
-        default: color = .purple
-        }
-        return color
+    /// One place that maps a ladder event back to the real `Workout`/`FoodEntry` it came from, so tap,
+    /// edit and remove don't each re-implement the same lookup.
+    private func ladderWorkout(_ event: TimelineEvent, member: Member) -> Workout? {
+        guard let id = event.workoutId else { return nil }
+        return tracking.workouts(for: member).first { $0.id == id }
     }
 
-    private func symbol(for source: FoodSource) -> String {
-        switch source {
-        case .scan: "barcode.viewfinder"
-        case .plate: "camera.viewfinder"
-        case .ai: "sparkles"
-        case .manual: "pencil"
-        }
+    private func ladderFoodEntry(_ event: TimelineEvent, member: Member) -> FoodEntry? {
+        guard let id = event.foodEntryId else { return nil }
+        return tracking.entries(for: member).first { $0.id == id }
     }
 }
 

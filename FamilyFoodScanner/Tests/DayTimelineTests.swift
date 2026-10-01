@@ -48,6 +48,33 @@ final class DayTimelineTests: XCTestCase {
     func testEmptyDayProducesNoEvents() {
         XCTAssertTrue(DayTimeline.events(foodEntries: [], workouts: [], doses: [], waterTimes: [], hungerEntries: [], moodEntries: []).isEmpty)
     }
+
+    func testWeightEntriesAndSleepBecomeTimelineEvents() {
+        let events = DayTimeline.events(
+            foodEntries: [], workouts: [], doses: [], waterTimes: [], hungerEntries: [], moodEntries: [],
+            weightEntries: [(at: date(7), kg: 72.5)], sleepHours: 7.3, sleepAnchor: date(0))
+        XCTAssertEqual(events.map(\.kind), [.sleep, .weight])     // sleep anchored to the day's start, so it sorts first
+        XCTAssertEqual(events[0].detail, "7.3 h")
+        XCTAssertEqual(events[1].detail, "72.5 kg")
+    }
+
+    func testNoSleepHoursMeansNoSleepEvent() {
+        let events = DayTimeline.events(foodEntries: [], workouts: [], doses: [], waterTimes: [], hungerEntries: [], moodEntries: [], sleepHours: nil)
+        XCTAssertTrue(events.isEmpty)
+    }
+
+    func testFoodEntryIdAndWorkoutIdAreCarriedForEditingButOtherKindsHaveNone() {
+        let food = FoodEntry(memberId: member, eatenAt: date(8), label: "Toast", calories: 200)
+        let workout = Workout(memberId: member, doneAt: date(7), kind: "running", minutes: 30, caloriesBurned: 250)
+        let events = DayTimeline.events(foodEntries: [food], workouts: [workout], doses: [], waterTimes: [date(9)], hungerEntries: [], moodEntries: [])
+        let byKind = Dictionary(uniqueKeysWithValues: events.map { ($0.kind, $0) })
+        XCTAssertEqual(byKind[.food]?.foodEntryId, food.id)
+        XCTAssertNil(byKind[.food]?.workoutId)
+        XCTAssertEqual(byKind[.workout]?.workoutId, workout.id)
+        XCTAssertNil(byKind[.workout]?.foodEntryId)
+        XCTAssertNil(byKind[.water]?.foodEntryId)
+        XCTAssertNil(byKind[.water]?.workoutId)
+    }
 }
 
 final class DailyCheckInStoreTests: XCTestCase {
@@ -86,5 +113,14 @@ final class DailyCheckInStoreTests: XCTestCase {
         let a = UUID(); let b = UUID()
         store.addWater(1, for: a, day: Date())
         XCTAssertEqual(store.waterGlasses(for: b, day: Date()), 0)
+    }
+
+    @MainActor func testWeightLogKeepsEveryEntryWithItsOwnTimestamp() {
+        let store = freshStore()
+        let member = UUID(); let day = Date()
+        store.logWeight(70, for: member, day: day)
+        store.logWeight(69.5, for: member, day: day)
+        let entries = store.weightEntries(for: member, day: day)
+        XCTAssertEqual(entries.map(\.kg), [70, 69.5])
     }
 }
