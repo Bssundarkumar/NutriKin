@@ -19,6 +19,8 @@ struct TodayView: View {
     @State private var activityStartsLogging = Demo.opensLogWorkout
     @State private var showMeds = Demo.opensMeds
     @State private var showTimeline = false
+    @State private var editingWorkout: Workout?
+    @State private var viewingWorkout: Workout?
 
     private var member: Member? {
         if Demo.isOn, let i = Demo.memberIndex, family.members.indices.contains(i) { return family.members[i] }
@@ -87,6 +89,12 @@ struct TodayView: View {
             }
             .sheet(isPresented: $showAsk) { AskAIView(product: nil) }
             .sheet(item: $editingFood) { EditFoodEntryView(entry: $0) }
+            .sheet(item: $viewingWorkout) { w in WorkoutDetailView(workout: w) { editingWorkout = w } }
+            .sheet(item: $editingWorkout) { w in
+                if let member {
+                    if w.workoutKind == .strength { StrengthSessionView(member: member, editing: w) } else { LogWorkoutSheet(member: member, editing: w) }
+                }
+            }
             .sheet(isPresented: $showPlan) { if let member { NutritionPlanView(member: member) } }
             .sheet(isPresented: $showMeds) { if let member { MedicationsManageView(member: member) } }
             .task(id: tracking.day) {
@@ -129,7 +137,7 @@ struct TodayView: View {
             }
         case .medications: MedicationsCard(member: member) { showMeds = true }.id("meds")
         case .limits: nutrients(budget)
-        case .eaten: foodSection(member)
+        case .eaten: ladderSection(member)
         case .workouts:
             if TodayLayout.isChild(member) {
                 VStack(alignment: .leading, spacing: 10) {
@@ -273,21 +281,37 @@ struct TodayView: View {
 
     // MARK: Lists
 
-    private func foodSection(_ member: Member) -> some View {
-        let list = tracking.entries(for: member)
+    /// What's eaten and what's burned, combined into one time-ordered ladder: a connecting line with a
+    /// colored ring per item, oldest at top. Food and activity used to be two separate cards; merged so
+    /// the whole day's "in and out" reads as a single story instead of two lists to cross-reference.
+    private enum LadderItem: Identifiable {
+        case food(FoodEntry)
+        case workout(Workout)
+        var id: String {
+            switch self {
+            case .food(let e): "food-\(e.id)"
+            case .workout(let w): "workout-\(w.id)"
+            }
+        }
+        var at: Date {
+            switch self {
+            case .food(let e): e.eatenAt
+            case .workout(let w): w.doneAt
+            }
+        }
+    }
+
+    private func ladderSection(_ member: Member) -> some View {
+        let items: [LadderItem] = tracking.entries(for: member).map(LadderItem.food) + tracking.workouts(for: member).map(LadderItem.workout)
+        let sorted = items.sorted { $0.at < $1.at }
         return VStack(alignment: .leading, spacing: 10) {
-            SectionTitle(title: "Eaten", actionTitle: "Add") { showFood = true }
-            if list.isEmpty {
-                EmptyState(symbol: "fork.knife", title: "Nothing logged", message: "Scan a product and tap \u{201C}Log as eaten\u{201D}, or add a meal.")
+            SectionTitle(title: "Eaten & burned", actionTitle: "Add") { showFood = true }
+            if sorted.isEmpty {
+                EmptyState(symbol: "fork.knife", title: "Nothing logged", message: "Scan a product and tap \u{201C}Log as eaten\u{201D}, or add a meal or workout.")
             } else {
                 VStack(spacing: 0) {
-                    ForEach(list) { e in
-                        LogRow(symbol: symbol(for: e.source), title: e.label, subtitle: e.eatenAt.formatted(date: .omitted, time: .shortened),
-                            trailing: TodayLayout.showsCalorieSummary(for: member) ? "\(Int(e.calories.rounded())) kcal" : "", tint: mealTint(e.eatenAt),
-                            onEdit: { editingFood = e }) {
-                            Task { await tracking.delete(e) }
-                        }
-                        if e.id != list.last?.id { Divider().padding(.leading, 48) }
+                    ForEach(Array(sorted.enumerated()), id: \.element.id) { index, item in
+                        ladderRow(item, member: member, isLast: index == sorted.count - 1)
                     }
                 }
             }
@@ -295,15 +319,72 @@ struct TodayView: View {
         .card()
     }
 
-    /// Colors each row's icon by roughly when it was eaten, like a tracker's per-meal colored dots —
-    /// purely visual grouping, nothing is stored or computed from this.
-    private func mealTint(_ at: Date) -> Color {
-        switch Calendar.current.component(.hour, from: at) {
-        case 4..<11: .green
-        case 11..<16: .orange
-        case 16..<21: Theme.brand
-        default: .purple
+    private func ladderRow(_ item: LadderItem, member: Member, isLast: Bool) -> some View {
+        let showsCalories = TodayLayout.showsCalorieSummary(for: member)
+        return HStack(alignment: .top, spacing: 12) {
+            VStack(spacing: 0) {
+                Image(systemName: ladderSymbol(item))
+                    .font(.footnote).foregroundStyle(ladderTint(item))
+                    .frame(width: 34, height: 34)
+                    .background(Circle().strokeBorder(ladderTint(item), lineWidth: 2))
+                if !isLast {
+                    Rectangle().fill(ladderTint(item).opacity(0.3)).frame(width: 2).frame(minHeight: 20).frame(maxHeight: .infinity)
+                }
+            }
+            VStack(alignment: .leading, spacing: 1) {
+                Text(ladderTitle(item, showsCalories: showsCalories)).font(.subheadline.weight(.semibold))
+                Text(item.at.formatted(date: .omitted, time: .shortened)).font(.caption).foregroundStyle(.secondary)
+            }
+            .padding(.top, 5).padding(.bottom, isLast ? 4 : 18)
+            Spacer(minLength: 0)
+            Menu {
+                switch item {
+                case .food(let e): Button("Edit", systemImage: "pencil") { editingFood = e }
+                case .workout(let w): Button("Edit", systemImage: "pencil") { editingWorkout = w }
+                }
+                Button("Remove", systemImage: "trash", role: .destructive) {
+                    switch item {
+                    case .food(let e): Task { await tracking.delete(e) }
+                    case .workout(let w): Task { await tracking.delete(w) }
+                    }
+                }
+            } label: { Image(systemName: "ellipsis").foregroundStyle(.secondary).frame(width: 30, height: 34) }
         }
+        .contentShape(Rectangle())
+        .onTapGesture {
+            if case .workout(let w) = item { viewingWorkout = w }
+            else if case .food(let e) = item { editingFood = e }
+        }
+    }
+
+    private func ladderTitle(_ item: LadderItem, showsCalories: Bool) -> String {
+        switch item {
+        case .food(let e): showsCalories && e.calories > 0 ? "\(e.label) \(Int(e.calories.rounded())) cal" : e.label
+        case .workout(let w): "Burn \u{00B7} \(w.workoutKind.title) \(w.minutes) min, \(w.caloriesBurned) cal"
+        }
+    }
+
+    private func ladderSymbol(_ item: LadderItem) -> String {
+        switch item {
+        case .food(let e): symbol(for: e.source)
+        case .workout: "flame.fill"
+        }
+    }
+
+    /// Colors each ring by roughly when it happened, like a tracker's per-meal colored dots — purely
+    /// visual grouping, nothing is stored or computed from this. Activity is always green, matching
+    /// its "burn" meaning regardless of time of day.
+    private func ladderTint(_ item: LadderItem) -> Color {
+        if case .workout = item { return .green }
+        guard case .food(let e) = item else { return .secondary }
+        let color: Color
+        switch Calendar.current.component(.hour, from: e.eatenAt) {
+        case 4..<11: color = .green
+        case 11..<16: color = .orange
+        case 16..<21: color = Theme.brand
+        default: color = .purple
+        }
+        return color
     }
 
     private func symbol(for source: FoodSource) -> String {
