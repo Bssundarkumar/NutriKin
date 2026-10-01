@@ -10,6 +10,7 @@ import Observation
 @MainActor
 @Observable
 final class DailyCheckInStore {
+    var healthSync: HealthKitManager?
     private static let key = "dailyCheckInsV2"
     static let waterGoalGlasses = 8
     static let moodLabels = ["😞", "🙁", "😐", "🙂", "😄"]
@@ -60,6 +61,7 @@ final class DailyCheckInStore {
         }
         byDay[key] = entry
         persist()
+        healthSync?.enqueue(HealthSync.water(memberID: memberId, day: day, glasses: entry.water.count))
     }
 
     func setHunger(_ value: Int?, for memberId: UUID, day: Date) {

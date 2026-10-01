@@ -6,6 +6,7 @@ import Supabase
 @MainActor
 @Observable
 final class GrowthStore {
+    var healthSync: HealthKitManager?
     private(set) var items: [BodyMeasurement] = []
     var isLoading = false
     var errorMessage: String?
@@ -48,6 +49,7 @@ final class GrowthStore {
                     .select().single().execute().value
             }
             items.removeAll { $0.measuredOn == day }; items.append(row)
+            healthSync?.enqueue(HealthSync.measurement(row))
             return row
         } catch {
             errorMessage = "Couldn't save that. \(error.localizedDescription)"
@@ -58,7 +60,10 @@ final class GrowthStore {
     func delete(_ m: BodyMeasurement) async {
         items.removeAll { $0.id == m.id }
         if Demo.isOn { return }
-        do { try await Backend.withRetry { try await client.from("body_measurements").delete().eq("id", value: m.id).execute() } }
+        do {
+            try await Backend.withRetry { try await client.from("body_measurements").delete().eq("id", value: m.id).execute() }
+            healthSync?.enqueue(HealthSync.measurement(m, deleted: true))
+        }
         catch { items.append(m); errorMessage = "Couldn't remove that. \(error.localizedDescription)" }
     }
 }

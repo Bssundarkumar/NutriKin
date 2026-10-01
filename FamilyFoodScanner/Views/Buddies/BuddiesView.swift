@@ -20,20 +20,21 @@ struct BuddiesView: View {
     var body: some View {
         NavigationStack {
             List {
-                if let error = store.errorMessage { Section { Text(error).font(.footnote).foregroundStyle(.red) } }
+                if let error = store.errorMessage { Section { Text(error).readableFont(16, weight: .regular, relativeTo: .footnote).foregroundStyle(.red) } }
                 if me == nil || (me?.age ?? 0) < 18 {
                     Section {
                         Text("Gym buddies are for adults. Open your profile in the Family tab, turn on \u{201C}This is me\u{201D} and add your age (18 or over).")
-                            .font(.subheadline)
+                            .readableFont(17, weight: .regular, relativeTo: .subheadline)
                     }
                 } else if store.groups.isEmpty {
                     startSection
                 } else if let group {
                     groupSections(group)
+                    startSection
                 }
                 Section {
                     Text("Buddies see only your workouts (type, time, effort, notes and strength sets). They never see your food, medicines, weight, health data or anyone else in your family. Only adults can join, and you can leave any time.")
-                        .font(.caption).foregroundStyle(.secondary)
+                        .readableFont(15, weight: .regular, relativeTo: .caption).foregroundStyle(.secondary)
                 }
             }
             .softList()
@@ -55,21 +56,21 @@ struct BuddiesView: View {
         Section {
             switch mode {
             case .none:
-                Button { mode = .create } label: { Label("Start a group", systemImage: "person.2.fill") }
-                Button { mode = .join } label: { Label("Join with a code", systemImage: "key.fill") }
+                Button { mode = .create } label: { Label("Start a group", systemImage: "person.2.fill") }.disabled(store.groups.count >= 5)
+                Button { mode = .join } label: { Label("Join with a code", systemImage: "key.fill") }.disabled(store.groups.count >= 5)
             case .create:
                 TextField("Group name, for example Gym crew", text: $text)
-                Button("Create group") { Task { if let me, await store.create(name: text, member: me, myUserId: family.myUserId) { mode = .none; text = "" } } }
+                Button("Create group") { Task { if let me, await store.create(name: text, member: me, myUserId: family.myUserId) { selected = store.groups.last?.id; mode = .none; text = "" } } }
                     .disabled(text.trimmingCharacters(in: .whitespaces).isEmpty)
                 Button("Back") { mode = .none }
             case .join:
                 TextField("Invite code", text: $text).textInputAutocapitalization(.characters).autocorrectionDisabled()
-                Button("Join") { Task { if let me, await store.join(code: text, member: me, myUserId: family.myUserId) { mode = .none; text = "" } } }
+                Button("Join") { Task { if let me, await store.join(code: text, member: me, myUserId: family.myUserId) { selected = store.groups.first { $0.inviteCode.uppercased() == text.trimmingCharacters(in: .whitespaces).uppercased() }?.id; mode = .none; text = "" } } }
                     .disabled(text.trimmingCharacters(in: .whitespaces).count < 4)
                 Button("Back") { mode = .none }
             }
         } header: { Text("Train together") } footer: {
-            Text("Start a group of up to \(BuddyMath.maxGroupSize) adults and share the code, or join a friend's group.")
+            Text("Join up to 5 groups. Each group can have up to \(BuddyMath.maxGroupSize) adults.")
         }
     }
 
@@ -83,14 +84,14 @@ struct BuddiesView: View {
         Section {
             HStack {
                 VStack(alignment: .leading, spacing: 2) {
-                    Text(group.name).font(.headline)
-                    Text("\(store.buddies(in: group).count) of \(BuddyMath.maxGroupSize) people \u{00B7} code \(group.inviteCode)").font(.caption).foregroundStyle(.secondary)
+                    Text(group.name).readableFont(19, weight: .semibold, relativeTo: .headline)
+                    Text("\(store.buddies(in: group).count) of \(BuddyMath.maxGroupSize) people \u{00B7} code \(group.inviteCode)").readableFont(15, weight: .regular, relativeTo: .caption).foregroundStyle(.secondary)
                 }
                 Spacer()
                 ShareLink(item: "Join my gym buddies group \u{201C}\(group.name)\u{201D} on NutriKin with the code \(group.inviteCode).") { Image(systemName: "square.and.arrow.up") }
                     .buttonStyle(.borderless)
             }
-            Text(store.buddies(in: group).map(\.displayName).joined(separator: ", ")).font(.footnote).foregroundStyle(.secondary)
+            Text(store.buddies(in: group).map(\.displayName).joined(separator: ", ")).readableFont(16, weight: .regular, relativeTo: .footnote).foregroundStyle(.secondary)
         } header: { Text("Your group") }
 
         let members = Set(store.buddies(in: group).map(\.memberId))
@@ -101,16 +102,16 @@ struct BuddiesView: View {
             Section("This week") {
                 ForEach(week) { line in
                     HStack {
-                        Text(line.name).font(.subheadline.weight(line.name == "You" ? .bold : .regular))
+                        Text(line.name).readableFont(17, weight: line.name == "You" ? .bold : .regular, relativeTo: .subheadline)
                         Spacer()
                         Text("\(line.sessions) workout\(line.sessions == 1 ? "" : "s") \u{00B7} \(line.minutes) min" + (line.volumeKg > 0 ? " \u{00B7} \(StrengthMath.display(kg: line.volumeKg, pounds: false)) kg lifted" : ""))
-                            .font(.caption).foregroundStyle(.secondary)
+                            .readableFont(15, weight: .regular, relativeTo: .caption).foregroundStyle(.secondary)
                     }
                 }
             }
         }
         Section("What your buddies did") {
-            if posts.isEmpty { Text("No workouts from your buddies in the last three weeks.").font(.footnote).foregroundStyle(.secondary) }
+            if posts.isEmpty { Text("No workouts from your buddies in the last three weeks.").readableFont(16, weight: .regular, relativeTo: .footnote).foregroundStyle(.secondary) }
             let myExercises = mine.flatMap { $0.exercises ?? [] }
             ForEach(posts.prefix(40)) { post in
                 VStack(alignment: .leading, spacing: 6) {
@@ -118,17 +119,17 @@ struct BuddiesView: View {
                         Image(systemName: post.workout.workoutKind.symbol).frame(width: 32, height: 32)
                             .background(Color.orange.opacity(0.14), in: Circle()).foregroundStyle(.orange)
                         VStack(alignment: .leading, spacing: 1) {
-                            Text("\(post.name) \u{00B7} \(post.workout.workoutKind.title)").font(.subheadline.weight(.semibold))
+                            Text("\(post.name) \u{00B7} \(post.workout.workoutKind.title)").readableFont(17, weight: .semibold, relativeTo: .subheadline)
                             Text("\(post.workout.doneAt.formatted(.dateTime.weekday(.abbreviated).day().month(.abbreviated))) \u{00B7} \(post.workout.minutes) min" + StrengthSummary.text(post.workout.exercises))
-                                .font(.caption).foregroundStyle(.secondary)
+                                .readableFont(15, weight: .regular, relativeTo: .caption).foregroundStyle(.secondary)
                         }
                         Spacer()
-                        if post.workout.exercises?.isEmpty == false { Image(systemName: "chevron.right").font(.caption2).foregroundStyle(.tertiary) }
+                        if post.workout.exercises?.isEmpty == false { Image(systemName: "chevron.right").readableFont(15, weight: .regular, relativeTo: .caption2).foregroundStyle(.tertiary) }
                     }
                     let shared = BuddyMath.sharedExercises(post, with: myExercises)
-                    if !shared.isEmpty { Text("You both did \(shared.prefix(3).joined(separator: ", "))").font(.caption).foregroundStyle(Theme.brand) }
+                    if !shared.isEmpty { Text("You both did \(shared.prefix(3).joined(separator: ", "))").readableFont(15, weight: .regular, relativeTo: .caption).foregroundStyle(Theme.brand) }
                     if post.workout.exercises?.isEmpty == false {
-                        Button { copying = post } label: { Label("Copy to my workout", systemImage: "square.on.square").font(.footnote.weight(.semibold)) }
+                        Button { copying = post } label: { Label("Copy to my workout", systemImage: "square.on.square").readableFont(16, weight: .semibold, relativeTo: .footnote) }
                             .buttonStyle(.borderless)
                     }
                 }

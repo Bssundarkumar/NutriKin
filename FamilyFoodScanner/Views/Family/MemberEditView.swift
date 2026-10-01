@@ -69,14 +69,25 @@ struct MemberEditView: View {
     var body: some View {
         NavigationStack {
             Form {
-                Section("Name") {
+                Section {
+                    HStack(spacing: 14) {
+                        Avatar(name: name.isEmpty ? "?" : name, size: 60)
+                        VStack(alignment: .leading, spacing: 5) {
+                            Text(name.isEmpty ? "New family member" : name).readableFont(25, weight: .bold)
+                            Text("Profile, health needs and daily goals").readableFont(17).foregroundStyle(.secondary)
+                        }
+                    }
+                    .padding(.vertical, 12)
+                    .listRowBackground(Theme.brand.opacity(0.08))
+                }
+                Section("Profile & care") {
                     TextField("Name", text: $name)
                     Toggle("Managed by a parent or carer", isOn: $isManagedByParent)
                     if canLinkToMe {
                         Toggle("This is me", isOn: $thisIsMe)
                             .onChange(of: thisIsMe) { _, on in if on { isManagedByParent = false } }
                     } else {
-                        Text(linkNote).font(.footnote).foregroundStyle(.secondary)
+                        Text(linkNote).readableFont(16, weight: .regular, relativeTo: .footnote).foregroundStyle(.secondary)
                     }
                 }
 
@@ -91,12 +102,12 @@ struct MemberEditView: View {
                     numericField("Height", suffix: "cm", text: $heightCm)
                     numericField("Weight", suffix: "kg", text: $weightKg, allowsDecimal: true)
                 } header: {
-                    Text("Vitals")
+                    Label("Body measurements", systemImage: "figure.stand")
                 } footer: {
                     Text("Sex is used only to pick a more accurate default daily target (calories, added sugar) when no goal is set below — it's optional.")
                 }
 
-                Section("Conditions") {
+                Section {
                     Toggle("Diabetes", isOn: $hasDiabetes)
                     Toggle("High blood pressure", isOn: $hasHypertension)
                     Toggle("High cholesterol", isOn: $hasHighCholesterol)
@@ -104,7 +115,7 @@ struct MemberEditView: View {
                         Toggle("Pregnant", isOn: $isPregnant)
                         if isPregnant {
                             Text("NutriKin will flag foods commonly advised against in pregnancy, such as alcohol, raw fish or eggs, unpasteurised dairy and liver, and won't suggest weight plans. It's general guidance, not medical advice: ask your midwife or doctor.")
-                                .font(.footnote).foregroundStyle(.secondary)
+                                .readableFont(16, weight: .regular, relativeTo: .footnote).foregroundStyle(.secondary)
                         }
                     }
 
@@ -124,7 +135,7 @@ struct MemberEditView: View {
                         Button("Add") { addCustomCondition() }
                             .disabled(newCustomCondition.trimmingCharacters(in: .whitespaces).isEmpty)
                     }
-                }
+                } header: { Label("Health conditions", systemImage: "heart.text.square") }
 
                 Section {
                     ForEach(Allergen.allCases) { allergen in
@@ -195,7 +206,7 @@ struct MemberEditView: View {
 
                 if let errorMessage = family.errorMessage {
                     Section {
-                        Text(errorMessage).foregroundStyle(.red).font(.footnote)
+                        Text(errorMessage).foregroundStyle(.red).readableFont(16, weight: .regular, relativeTo: .footnote)
                     }
                 }
             }
@@ -249,7 +260,7 @@ struct MemberEditView: View {
                 .keyboardType(allowsDecimal ? .decimalPad : .numberPad)
                 .multilineTextAlignment(.trailing)
                 .frame(width: 70)
-            Text(suffix).foregroundStyle(.secondary).font(.footnote)
+            Text(suffix).foregroundStyle(.secondary).readableFont(16, weight: .regular, relativeTo: .footnote)
         }
     }
 

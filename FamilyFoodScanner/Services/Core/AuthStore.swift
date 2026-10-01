@@ -168,6 +168,7 @@ final class AuthStore {
 
     func signOut() async {
         do {
+            await FamilyReminders.shared.disconnect()
             try await auth.signOut()
         } catch {
             errorMessage = "Couldn't sign out. \(error.localizedDescription)"

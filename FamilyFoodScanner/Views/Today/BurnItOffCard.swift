@@ -22,7 +22,7 @@ struct BurnItOffCard: View {
                 let e = BurnItOff.equivalents(kcal: kcal, weightKg: person.weightKg)
                 VStack(alignment: .leading, spacing: 12) {
                     HStack {
-                        Label("Walk it off? (for fun)", systemImage: "figure.walk.motion").font(.subheadline.weight(.bold)).foregroundStyle(Theme.brand)
+                        Label("Walk it off? (for fun)", systemImage: "figure.walk.motion").readableFont(17, weight: .bold, relativeTo: .subheadline).foregroundStyle(Theme.brand)
                         Spacer()
                         Menu {
                             Button("Another one", systemImage: "arrow.clockwise") { withAnimation(.snappy) { seed += 1 } }
@@ -32,12 +32,12 @@ struct BurnItOffCard: View {
                                 }
                             }
                             Button("Turn off fun ideas", systemImage: "hand.raised") { funOn = false }
-                        } label: { Image(systemName: "ellipsis.circle").font(.title3).foregroundStyle(.secondary) }
+                        } label: { Image(systemName: "ellipsis.circle").readableFont(22, weight: .regular, relativeTo: .title3).foregroundStyle(.secondary) }
                     }
                     HStack(alignment: .firstTextBaseline, spacing: 6) {
                         Text(e.steps.formatted()).font(.system(size: 36, weight: .bold, design: .rounded)).monospacedDigit()
                             .contentTransition(.numericText())
-                        Text("steps for \(person.name)").font(.subheadline).foregroundStyle(.secondary)
+                        Text("steps for \(person.name)").readableFont(17, weight: .regular, relativeTo: .subheadline).foregroundStyle(.secondary)
                     }
                     HStack(spacing: 8) {
                         chip("figure.walk", "\(e.walkMinutes) min")
@@ -45,19 +45,19 @@ struct BurnItOffCard: View {
                         chip("music.note", "\(max(e.danceMinutes / 4, 1)) songs")
                     }
                     Text(BurnItOff.message(kcal: kcal, foods: foods, equivalent: e, seed: seed))
-                        .font(.callout).fixedSize(horizontal: false, vertical: true)
+                        .readableFont(18, weight: .regular, relativeTo: .callout).fixedSize(horizontal: false, vertical: true)
                         .id(seed)
                         .transition(.opacity)
                 }
                 .padding(.vertical, 4)
             } else if !funOn {
-                Button { funOn = true } label: { Label("Show the fun \u{201C}walk it off\u{201D} ideas", systemImage: "figure.walk.motion").font(.footnote) }
+                Button { funOn = true } label: { Label("Show the fun \u{201C}walk it off\u{201D} ideas", systemImage: "figure.walk.motion").readableFont(16, weight: .regular, relativeTo: .footnote) }
             }
         }
     }
 
     private func chip(_ symbol: String, _ text: String) -> some View {
-        Label(text, systemImage: symbol).font(.caption.weight(.semibold))
+        Label(text, systemImage: symbol).readableFont(15, weight: .semibold, relativeTo: .caption)
             .padding(.horizontal, 9).padding(.vertical, 6)
             .background(Theme.brand.opacity(0.12), in: Capsule())
             .lineLimit(1).minimumScaleFactor(0.8)

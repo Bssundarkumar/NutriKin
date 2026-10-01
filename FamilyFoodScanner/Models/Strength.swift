@@ -4,6 +4,8 @@ import Foundation
 struct StrengthSet: Codable, Hashable {
     var reps: Int
     var weightKg: Double
+    /// nil for older workouts; saved sets can be unlocked and edited.
+    var isSaved: Bool? = nil
 }
 
 struct StrengthExercise: Identifiable, Codable, Hashable {
@@ -30,6 +32,19 @@ enum StrengthMath {
                                   "Lat pulldown", "Bicep curl", "Tricep extension", "Lunge", "Leg press", "Plank"]
     static let kgPerLb = 0.45359237
 
+    static func adjustedReps(_ value: Int, by delta: Int) -> Int { min(max(value + delta, 0), 999) }
+
+    static func adjustedWeight(_ value: Double, by delta: Double, pounds: Bool) -> Double {
+        min(max(((value + delta) * 100).rounded() / 100, 0), pounds ? 1000 / kgPerLb : 1000)
+    }
+
+    /// A new session uses the values from the source, with every set editable.
+    static func forReuse(_ exercises: [StrengthExercise]) -> [StrengthExercise] {
+        exercises.map { ex in
+            StrengthExercise(name: ex.name, sets: ex.sets.map { StrengthSet(reps: $0.reps, weightKg: $0.weightKg) })
+        }
+    }
+
     /// About 2.5 minutes a set counts the lift and the rest after it, rounded to 5 minutes, at least 5.
     static func estimatedMinutes(sets: Int) -> Int { max(5, Int((Double(sets) * 2.5 / 5).rounded()) * 5) }
 
@@ -42,7 +57,7 @@ enum StrengthMath {
         e.compactMap { ex in
             let name = AIGuardrails.sanitize(ex.name, max: 60)
             let sets = ex.sets.filter { $0.reps > 0 }.prefix(30).map {
-                StrengthSet(reps: min($0.reps, 999), weightKg: min(max($0.weightKg, 0), 1000))
+                StrengthSet(reps: min($0.reps, 999), weightKg: min(max($0.weightKg, 0), 1000), isSaved: $0.isSaved)
             }
             return name.isEmpty || sets.isEmpty ? nil : StrengthExercise(name: name, sets: Array(sets))
         }.prefix(30).map { $0 }
@@ -61,4 +76,31 @@ struct WorkoutTemplate: Identifiable, Codable, Hashable {
     var memberId: UUID
     var name: String
     var exercises: [StrengthExercise]
+}
+
+/// A protected, account-scoped local draft. Saving a set doesn't publish an unfinished workout.
+enum StrengthDraftStore {
+    struct Draft: Codable {
+        var exercises: [StrengthExercise]
+        var intensity: WorkoutIntensity
+        var note: String
+    }
+
+    static func url(user: UUID, member: UUID, workout: UUID?) -> URL {
+        let root = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
+            .appendingPathComponent("StrengthDrafts", isDirectory: true)
+        return root.appendingPathComponent("\(user)-\(member)-\(workout?.uuidString ?? "new").json")
+    }
+
+    static func load(from url: URL) -> Draft? {
+        guard let data = try? Data(contentsOf: url) else { return nil }
+        return try? JSONDecoder().decode(Draft.self, from: data)
+    }
+
+    static func save(_ draft: Draft, to url: URL) throws {
+        try FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
+        try JSONEncoder().encode(draft).write(to: url, options: [.atomic, .completeFileProtection])
+    }
+
+    static func remove(at url: URL) { try? FileManager.default.removeItem(at: url) }
 }

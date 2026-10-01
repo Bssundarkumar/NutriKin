@@ -33,14 +33,14 @@ struct HistoryView: View {
             List(selection: $selection) {
                 if history.showingSavedCopy && !history.isLoading {
                     Label("Showing the copy saved on this phone", systemImage: "icloud.slash")
-                        .font(.footnote).foregroundStyle(.secondary)
+                        .readableFont(16, weight: .regular, relativeTo: .footnote).foregroundStyle(.secondary)
                         .listRowBackground(Color.clear)
                 }
                 if history.records.isEmpty && !history.isLoading {
                     Text(history.hiddenCount > 0
                          ? "Everything is hidden on this phone. Use the menu to show it again."
                          : "Nothing scanned yet. Scan a product and it will show up here.")
-                        .font(.footnote)
+                        .readableFont(16, weight: .regular, relativeTo: .footnote)
                         .foregroundStyle(.secondary)
                 }
 
@@ -69,13 +69,13 @@ struct HistoryView: View {
                 }
 
                 if let message = openError ?? history.errorMessage {
-                    Section { Text(message).font(.footnote).foregroundStyle(.red) }
+                    Section { Text(message).readableFont(16, weight: .regular, relativeTo: .footnote).foregroundStyle(.red) }
                 }
 
                 if !history.records.isEmpty {
                     Section {
                         Text("Scans are shared with your family. \u{201C}This phone only\u{201D} hides a scan just here; \u{201C}Delete\u{201D} removes it for everyone.")
-                            .font(.caption).foregroundStyle(.secondary)
+                            .readableFont(15, weight: .regular, relativeTo: .caption).foregroundStyle(.secondary)
                     }
                     .listRowBackground(Color.clear)
                 }
@@ -201,8 +201,8 @@ private struct HistoryRow: View {
             .padding(.leading, 10)
 
             VStack(alignment: .leading, spacing: 4) {
-                Text(record.productName).font(.headline).lineLimit(2)
-                Text(subtitle).font(.caption).foregroundStyle(.secondary)
+                Text(record.productName).readableFont(19, weight: .semibold, relativeTo: .headline).lineLimit(2)
+                Text(subtitle).readableFont(15, weight: .regular, relativeTo: .caption).foregroundStyle(.secondary)
 
                 if !record.results.isEmpty {
                     FlowChips(results: record.results)
@@ -210,7 +210,7 @@ private struct HistoryRow: View {
                 if !record.alerts.isEmpty {
                     Label("\(record.alerts.count) ingredient alert\(record.alerts.count == 1 ? "" : "s")",
                           systemImage: "exclamationmark.triangle.fill")
-                        .font(.caption)
+                        .readableFont(15, weight: .regular, relativeTo: .caption)
                         .foregroundStyle(.orange)
                 }
             }
@@ -234,7 +234,7 @@ private struct FlowChips: View {
         HStack(spacing: 6) {
             ForEach(results, id: \.memberName) { r in
                 Text("\(r.memberName) \(r.score)")
-                    .font(.caption2.weight(.semibold))
+                    .readableFont(15, weight: .semibold, relativeTo: .caption2)
                     .padding(.horizontal, 7)
                     .padding(.vertical, 3)
                     .background(color(r.verdictValue).opacity(0.15), in: Capsule())

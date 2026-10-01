@@ -4,6 +4,7 @@ import Charts
 /// Height and weight over time for one person, with a chart, and a way to add a new reading.
 struct GrowthView: View {
     let member: Member
+    @Environment(HealthKitManager.self) private var health
     @Environment(FamilyStore.self) private var family
     @Environment(\.dismiss) private var dismiss
     @State private var store = GrowthStore()
@@ -41,11 +42,11 @@ struct GrowthView: View {
                         .accessibilityLabel("\(metric.rawValue) over time for \(member.name)")
                     } else {
                         Text(points.isEmpty ? "No \(metric.rawValue.lowercased()) readings yet." : "Add one more reading to see the chart.")
-                            .font(.footnote).foregroundStyle(.secondary)
+                            .readableFont(16, weight: .regular, relativeTo: .footnote).foregroundStyle(.secondary)
                     }
                     if let change = metric == .weight ? GrowthMath.weightChange(store.items) : GrowthMath.heightChange(store.items) {
                         Text("Change since the first reading: \(change >= 0 ? "+" : "")\(String(format: "%.1f", change)) \(metric.unit)")
-                            .font(.footnote).foregroundStyle(.secondary)
+                            .readableFont(16, weight: .regular, relativeTo: .footnote).foregroundStyle(.secondary)
                     }
                 } footer: {
                     if isChild { Text("Children grow at their own pace. To judge a child's growth, compare with the growth charts your doctor or clinic uses.") }
@@ -75,17 +76,17 @@ struct GrowthView: View {
                     if canEdit {
                         Button { adding = true } label: { Label("Add a reading", systemImage: "plus.circle.fill") }
                     } else {
-                        Text("Only \(member.name) or a parent can add readings.").font(.footnote).foregroundStyle(.secondary)
+                        Text("Only \(member.name) or a parent can add readings.").readableFont(16, weight: .regular, relativeTo: .footnote).foregroundStyle(.secondary)
                     }
                 }
-                if let message = store.errorMessage { Section { Text(message).font(.footnote).foregroundStyle(.red) } }
+                if let message = store.errorMessage { Section { Text(message).readableFont(16, weight: .regular, relativeTo: .footnote).foregroundStyle(.red) } }
             }
             .softList()
             .navigationTitle("\(member.name)'s growth")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Done") { dismiss() } } }
             .sheet(isPresented: $adding) { AddMeasurementSheet(member: member, store: store) }
-            .task { await store.load(for: member) }
+            .task { store.healthSync = health; await store.load(for: member) }
         }
     }
 
@@ -108,7 +109,7 @@ private struct AddMeasurementSheet: View {
                 DatePicker("Date", selection: $date, in: ...Date(), displayedComponents: .date)
                 HStack { Text("Height"); Spacer(); TextField("cm", text: $height).keyboardType(.decimalPad).multilineTextAlignment(.trailing).frame(width: 80); Text("cm").foregroundStyle(.secondary) }
                 HStack { Text("Weight"); Spacer(); TextField("kg", text: $weight).keyboardType(.decimalPad).multilineTextAlignment(.trailing).frame(width: 80); Text("kg").foregroundStyle(.secondary) }
-                if let message = store.errorMessage { Text(message).font(.footnote).foregroundStyle(.red) }
+                if let message = store.errorMessage { Text(message).readableFont(16, weight: .regular, relativeTo: .footnote).foregroundStyle(.red) }
             }
             .navigationTitle("Add a reading").navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -129,7 +130,7 @@ private struct AddMeasurementSheet: View {
                 var updated = member
                 if let h { updated.heightCm = h }
                 if let w { updated.weightKg = w }
-                await family.updateMember(updated)
+                await family.updateMember(updated, syncToHealth: false)
             }
             dismiss()
         }

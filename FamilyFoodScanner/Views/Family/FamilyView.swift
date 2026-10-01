@@ -6,6 +6,7 @@ struct FamilyView: View {
     @Environment(HealthKitManager.self) private var health
     @Environment(AIConnection.self) private var ai
     @Environment(HistoryStore.self) private var history
+    @AppStorage("healthMemberID") private var healthMemberID = ""
     @State private var showConnectAI = false
     @State private var showAskAI = false
     @State private var isAdding = false
@@ -16,61 +17,75 @@ struct FamilyView: View {
     var body: some View {
         NavigationStack {
             List {
+                Section {
+                    VStack(alignment: .leading, spacing: 12) {
+                        HStack(spacing: 12) {
+                            Image(systemName: "person.3.fill").readableFont(30, weight: .semibold).foregroundStyle(Theme.brand)
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text("Your family, together").readableFont(25, weight: .bold)
+                                Text("\(family.members.count) members · Shared care and daily goals")
+                                    .readableFont(16).foregroundStyle(.secondary)
+                            }
+                        }
+                        Button { isAdding = true } label: {
+                            Label("Add family member", systemImage: "plus.circle.fill")
+                                .readableFont(18, weight: .semibold).frame(maxWidth: .infinity, minHeight: 48)
+                        }
+                        .buttonStyle(.borderedProminent).buttonBorderShape(.capsule)
+                    }
+                    .padding(.vertical, 8)
+                    .listRowBackground(Theme.brand.opacity(0.08))
+                }
                 inviteSection
-
-                Section("Members & goals") {
+                Section {
                     if family.members.isEmpty && !family.isLoading {
-                        Text("No one's been added yet. Tap + to add your first family member.")
-                            .font(.footnote)
-                            .foregroundStyle(.secondary)
+                        Text("Add your first family member to start sharing daily goals.").foregroundStyle(.secondary)
                     }
                     ForEach(family.members) { m in
-                        HStack(alignment: .top, spacing: 12) {
-                        Avatar(name: m.name, size: 44)
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text(m.name).font(.headline)
-                            if let vitals = vitalsText(m) {
-                                Text(vitals)
-                                    .font(.caption)
-                                    .foregroundStyle(.secondary)
+                        Button { editingMember = m } label: { memberCard(m) }
+                            .buttonStyle(.plain)
+                            .listRowSeparator(.hidden)
+                            .listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 8, trailing: 16))
+                            .swipeActions {
+                                Button("Delete", role: .destructive) { Task { await family.deleteMember(m) } }
                             }
-                            if !m.conditions.isEmpty {
-                                Text(m.conditions.map(\.displayName).joined(separator: " · "))
-                                    .font(.subheadline)
-                                    .foregroundStyle(.secondary)
-                            }
-                            if let goal = goalText(m.goals) {
-                                Text("Goal: \(goal)").font(.subheadline)
-                            }
-                            Text(linkText(m))
-                                .font(.caption)
-                                .foregroundStyle(.green)
-                        }
-                        }
-                        .padding(.vertical, 2)
-                        .contentShape(Rectangle())
-                        .onTapGesture { editingMember = m }
-                        .swipeActions {
-                            Button("Delete", role: .destructive) {
-                                Task { await family.deleteMember(m) }
-                            }
-                        }
                     }
+                } header: {
+                    Text("Members & goals").readableFont(20, weight: .bold).textCase(nil)
+                } footer: {
+                    Text("Tap a member to manage their profile, health needs and nutrition goals.")
+                }
+
+                Section {
+                    Toggle(isOn: Binding(get: { FamilyReminders.shared.enabled }, set: { value in Task { await FamilyReminders.shared.setEnabled(value) } })) {
+                        Label("Receive family reminders", systemImage: "bell.badge.fill")
+                    }
+                    if let message = FamilyReminders.shared.message { Text(message).readableFont(16).foregroundStyle(.secondary) }
+                } header: { Text("Family reminders").textCase(nil) } footer: {
+                    Text("Let family members nudge you about a due or missed medicine. Medicine names stay hidden in notifications. You can turn this off anytime.")
                 }
 
                 Section("My Apple Health") {
-                    if health.hasRequestedAccess {
+                    if health.hasRequestedAccess && health.linkedMemberID != nil {
                         healthRow("Weight", health.snapshot.weightKg, unit: "kg")
+                        healthRow("Height", health.snapshot.heightCm, unit: "cm")
                         healthRow("Blood glucose", health.snapshot.bloodGlucoseMgDl, unit: "mg/dL")
                         healthRow("Systolic", health.snapshot.systolic, unit: "mmHg")
                         healthRow("Diastolic", health.snapshot.diastolic, unit: "mmHg")
                         healthRow("Calories today", health.snapshot.caloriesToday, unit: "kcal")
                         Button("Refresh") { Task { await health.refresh() } }
+                        Button("Update Health permissions") { Task { await health.requestAccess() } }
                     } else {
-                        Button("Connect Apple Health") { Task { await health.requestAccess() } }
+                        Button("Connect Apple Health") { Task {
+                            guard let me = family.members.first(where: { $0.userId == family.myUserId && family.myUserId != nil }) else { return }
+                            healthMemberID = me.id.uuidString
+                            await health.configure(userID: family.myUserId, memberID: me.id)
+                            await health.requestAccess()
+                        } }
+                        .disabled(!family.members.contains { $0.userId == family.myUserId && family.myUserId != nil })
                     }
                     if let err = health.errorMessage {
-                        Text(err).font(.footnote).foregroundStyle(.red)
+                        Text(err).readableFont(16, weight: .regular, relativeTo: .footnote).foregroundStyle(.red)
                     }
                 }
 
@@ -79,17 +94,17 @@ struct FamilyView: View {
                     case .available:
                         Label("Apple Intelligence on this iPhone", systemImage: "checkmark.seal.fill").foregroundStyle(Theme.brand)
                     case .unavailable(let reason):
-                        Label(reason, systemImage: "apple.intelligence").font(.footnote).foregroundStyle(.secondary)
+                        Label(reason, systemImage: "apple.intelligence").readableFont(16, weight: .regular, relativeTo: .footnote).foregroundStyle(.secondary)
                     case .unsupportedOS:
                         Label("Apple's on-device AI needs iOS 26 or later.", systemImage: "apple.intelligence")
-                            .font(.footnote).foregroundStyle(.secondary)
+                            .readableFont(16, weight: .regular, relativeTo: .footnote).foregroundStyle(.secondary)
                     }
                     ForEach(AIProvider.keyVendors) { vendor in
                         if ai.isLinked(vendor) {
                             HStack {
                                 Label("\(vendor.shortName) key linked", systemImage: "key.fill").foregroundStyle(Theme.brand)
                                 Spacer()
-                                Button("Remove", role: .destructive) { ai.disconnect(vendor) }.font(.footnote)
+                                Button("Remove", role: .destructive) { ai.disconnect(vendor) }.readableFont(16, weight: .regular, relativeTo: .footnote)
                             }
                         }
                     }
@@ -122,7 +137,7 @@ struct FamilyView: View {
 
                 Section {
                     Text("Product names, ingredients, nutrition facts and photos come from Open Food Facts, a free database built by volunteers around the world. The data is available under the Open Database License (ODbL) and product photos under CC BY-SA.")
-                        .font(.footnote)
+                        .readableFont(16, weight: .regular, relativeTo: .footnote)
                     Link("Open Food Facts", destination: URL(string: "https://world.openfoodfacts.org")!)
                     Link("About the licences", destination: URL(string: "https://world.openfoodfacts.org/terms-of-use")!)
                 } header: {
@@ -135,7 +150,7 @@ struct FamilyView: View {
                     if case .signedIn(let email) = auth.state {
                         LabeledContent("Signed in as", value: email)
                     }
-                    Button("Sign out") { ai.disconnect(); Task { await auth.signOut() } }
+                    Button("Sign out") { ai.disconnect(); Task { await FamilyReminders.shared.disconnect(); await auth.signOut() } }
                     Button("Delete account", role: .destructive) { confirmDelete = true }
                 } header: {
                     Text("Account")
@@ -144,7 +159,7 @@ struct FamilyView: View {
                 }
 
                 if let errorMessage = family.errorMessage ?? auth.errorMessage {
-                    Section { Text(errorMessage).font(.footnote).foregroundStyle(.red) }
+                    Section { Text(errorMessage).readableFont(16, weight: .regular, relativeTo: .footnote).foregroundStyle(.red) }
                 }
             }
             .animation(.snappy, value: family.members)
@@ -171,6 +186,38 @@ struct FamilyView: View {
         }
     }
 
+    private func memberCard(_ member: Member) -> some View {
+        HStack(alignment: .top, spacing: 14) {
+            VStack(alignment: .leading, spacing: 8) {
+                HStack {
+                    Text(member.name).readableFont(22, weight: .bold)
+                    Spacer(minLength: 4)
+                    Image(systemName: "chevron.right").readableFont(17, weight: .semibold).foregroundStyle(.secondary)
+                }
+                Label(linkText(member), systemImage: member.userId == nil ? "person.crop.circle" : "iphone")
+                    .readableFont(15, weight: .medium).foregroundStyle(Theme.brand)
+                if let vitals = vitalsText(member) {
+                    Text(vitals).readableFont(16).foregroundStyle(.secondary)
+                }
+                if !member.conditions.isEmpty {
+                    ReadableTagFlow {
+                        ForEach(member.conditions, id: \.self) { condition in
+                            Text(condition.displayName).readableFont(15, weight: .medium)
+                                .padding(.horizontal, 10).padding(.vertical, 5)
+                                .background(Theme.brand.opacity(0.08), in: Capsule())
+                        }
+                    }
+                }
+                if let goal = goalText(member.goals) {
+                    Text(goal).readableFont(16).foregroundStyle(.secondary)
+                }
+            }
+        }
+        .padding(.vertical, 8)
+        .accessibilityElement(children: .combine)
+        .accessibilityHint("Edit profile and goals")
+    }
+
     private func linkText(_ m: Member) -> String {
         if let me = family.myUserId, m.userId == me { return "This is you" }
         if m.userId != nil { return "Has NutriKin on their own phone" }
@@ -182,14 +229,14 @@ struct FamilyView: View {
             if !family.inviteCode.isEmpty && family.members.count > 1 {
                 // Once the family has grown, a slim row is enough: the big card is only useful when you're just starting.
                 HStack {
-                    Label("Invite code \(family.inviteCode)", systemImage: "person.badge.plus").font(.subheadline)
+                    Label("Invite code \(family.inviteCode)", systemImage: "person.badge.plus").readableFont(17, weight: .regular, relativeTo: .subheadline)
                     Spacer()
                     Button(didCopyCode ? "Copied" : "Copy") {
                         UIPasteboard.general.string = family.inviteCode
                         didCopyCode = true
                         Task { try? await Task.sleep(for: .seconds(1.5)); didCopyCode = false }
                     }
-                    .font(.subheadline.weight(.semibold)).buttonStyle(.borderless)
+                    .readableFont(17, weight: .semibold, relativeTo: .subheadline).buttonStyle(.borderless)
                     ShareLink(item: InviteLink.message(familyName: family.householdName, code: family.inviteCode), subject: Text("Join our family on NutriKin")) {
                         Image(systemName: "square.and.arrow.up")
                     }
@@ -198,7 +245,7 @@ struct FamilyView: View {
             } else if !family.inviteCode.isEmpty {
                 VStack(spacing: 12) {
                     Text("FAMILY INVITE CODE")
-                        .font(.caption.weight(.semibold))
+                        .readableFont(15, weight: .semibold, relativeTo: .caption)
                         .tracking(1.5)
                         .opacity(0.85)
                     Text(family.inviteCode)
@@ -216,7 +263,7 @@ struct FamilyView: View {
                         } label: {
                             Label(didCopyCode ? "Copied" : "Copy", systemImage: didCopyCode ? "checkmark" : "doc.on.doc")
                                 .contentTransition(.symbolEffect(.replace))
-                                .font(.subheadline.weight(.semibold))
+                                .readableFont(17, weight: .semibold, relativeTo: .subheadline)
                                 .padding(.horizontal, 16).padding(.vertical, 9)
                                 .background(.white.opacity(0.22), in: Capsule())
                         }
@@ -225,7 +272,7 @@ struct FamilyView: View {
                             subject: Text("Join our family on NutriKin")
                         ) {
                             Label("Invite", systemImage: "square.and.arrow.up")
-                                .font(.subheadline.weight(.semibold))
+                                .readableFont(17, weight: .semibold, relativeTo: .subheadline)
                                 .padding(.horizontal, 16).padding(.vertical, 9)
                                 .background(.white, in: Capsule())
                                 .foregroundStyle(Theme.brand)
@@ -242,7 +289,7 @@ struct FamilyView: View {
                         .shadow(color: Theme.brand.opacity(0.35), radius: 12, y: 6)
                 )
                 Text("Share this code so another family member can sign in on their own iPhone and join.")
-                    .font(.caption)
+                    .readableFont(15, weight: .regular, relativeTo: .caption)
                     .foregroundStyle(.secondary)
                     .listRowBackground(Color.clear)
             }

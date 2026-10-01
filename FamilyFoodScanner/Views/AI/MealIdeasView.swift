@@ -51,13 +51,13 @@ struct MealIdeasView: View {
                 switch phase {
                 case .idle, .loading: EmptyView()
                 case .failed(let message):
-                    Section { Text(message).font(.footnote).foregroundStyle(.red) }
+                    Section { Text(message).readableFont(16, weight: .regular, relativeTo: .footnote).foregroundStyle(.red) }
                 case .loaded(let ideas): results(ideas)
                 }
 
                 Section {
                     Text("AI suggestions can be wrong. Check every ingredient against allergies, and follow your doctor's or dietitian's advice. Guidance only, not medical advice.")
-                        .font(.footnote).foregroundStyle(.secondary)
+                        .readableFont(16, weight: .regular, relativeTo: .footnote).foregroundStyle(.secondary)
                 }
             }
             .softList()
@@ -82,9 +82,9 @@ struct MealIdeasView: View {
     private func results(_ ideas: MealIdeas) -> some View {
         Section {
             HStack {
-                Text("\(ideas.totalKcal) kcal planned").font(.headline)
+                Text("\(ideas.totalKcal) kcal planned").readableFont(19, weight: .semibold, relativeTo: .headline)
                 Spacer()
-                Text("goal \(target)").font(.subheadline).foregroundStyle(.secondary)
+                Text("goal \(target)").readableFont(17, weight: .regular, relativeTo: .subheadline).foregroundStyle(.secondary)
             }
             ProgressView(value: min(Double(ideas.totalKcal) / Double(max(target, 1)), 1.2), total: 1.2)
                 .tint(abs(ideas.totalKcal - target) <= target / 8 ? .green : .orange)
@@ -93,7 +93,7 @@ struct MealIdeasView: View {
             Section {
                 Label("Removed \(ideas.removedForAllergy) idea\(ideas.removedForAllergy == 1 ? "" : "s") that may not suit \(member.name) (an allergen or a pregnancy risk).",
                       systemImage: "shield.lefthalf.filled")
-                    .font(.footnote).foregroundStyle(.orange)
+                    .readableFont(16, weight: .regular, relativeTo: .footnote).foregroundStyle(.orange)
             }
         }
         ForEach(Array(ideas.slots.enumerated()), id: \.element.id) { i, slot in
@@ -101,13 +101,13 @@ struct MealIdeasView: View {
                 ForEach(slot.dishes) { dish in
                     VStack(alignment: .leading, spacing: 4) {
                         HStack(alignment: .firstTextBaseline) {
-                            Text(dish.name).font(.headline)
+                            Text(dish.name).readableFont(19, weight: .semibold, relativeTo: .headline)
                             Spacer()
-                            Text("\(dish.kcal) kcal").font(.subheadline.monospacedDigit()).foregroundStyle(.secondary)
+                            Text("\(dish.kcal) kcal").readableFont(17, weight: .regular, relativeTo: .subheadline).monospacedDigit().foregroundStyle(.secondary)
                         }
-                        if !dish.why.isEmpty { Text(dish.why).font(.footnote) }
+                        if !dish.why.isEmpty { Text(dish.why).readableFont(16, weight: .regular, relativeTo: .footnote) }
                         if !dish.ingredients.isEmpty {
-                            Text(dish.ingredients.joined(separator: " \u{00B7} ")).font(.caption).foregroundStyle(.secondary)
+                            Text(dish.ingredients.joined(separator: " \u{00B7} ")).readableFont(15, weight: .regular, relativeTo: .caption).foregroundStyle(.secondary)
                         }
                     }
                     .padding(.vertical, 2)
@@ -128,7 +128,7 @@ struct MealIdeasView: View {
             .disabled(groceryNote != nil)
         } footer: { Text("Skips anything already on the family's list.") }
         if !ideas.tips.isEmpty {
-            Section("Tips") { ForEach(ideas.tips, id: \.self) { Label($0, systemImage: "lightbulb.fill").font(.subheadline) } }
+            Section("Tips") { ForEach(ideas.tips, id: \.self) { Label($0, systemImage: "lightbulb.fill").readableFont(17, weight: .regular, relativeTo: .subheadline) } }
         }
     }
 

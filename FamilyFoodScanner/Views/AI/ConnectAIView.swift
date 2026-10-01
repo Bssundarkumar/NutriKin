@@ -81,10 +81,10 @@ struct ConnectAIView: View {
             Form {
                 Section {
                     Label("Link your own AI key", systemImage: "key.fill")
-                        .font(.headline)
+                        .readableFont(19, weight: .semibold, relativeTo: .headline)
                         .foregroundStyle(Theme.brand)
                     Text("A key is optional. It's needed to estimate calories from a plate photo and to read a product label from photos, and it can give longer chat answers and meal plans. Chat and meal ideas already work on Apple's on-device AI if your iPhone supports it. You use your own account, so there's no extra charge from NutriKin. Claude, OpenAI and Grok are usually a few cents a request; Gemini has a free tier.")
-                        .font(.subheadline)
+                        .readableFont(17, weight: .regular, relativeTo: .subheadline)
                 }
 
                 Section {
@@ -94,7 +94,7 @@ struct ConnectAIView: View {
                     .pickerStyle(.segmented)
                     if vendor == .gemini {
                         Label("Google gives Gemini keys a free tier \u{2014} no card needed to start.", systemImage: "gift.fill")
-                            .font(.caption).foregroundStyle(Theme.brand)
+                            .readableFont(15, weight: .regular, relativeTo: .caption).foregroundStyle(Theme.brand)
                     }
                     if vendor == .gemini && GoogleOAuthConfig.isConfigured {
                         Button { Task { await autoConnect() } } label: {
@@ -104,28 +104,28 @@ struct ConnectAIView: View {
                             }
                         }
                         .disabled(isAutoConnecting)
-                        if let autoConnectError { Text(autoConnectError).font(.caption).foregroundStyle(.red) }
+                        if let autoConnectError { Text(autoConnectError).readableFont(15, weight: .regular, relativeTo: .caption).foregroundStyle(.red) }
                         Text("Beta: this signs you into Google in a secure browser (NutriKin never sees your password) and creates a key on your own Google account automatically. Or use the manual steps below instead.")
-                            .font(.caption2).foregroundStyle(.secondary)
+                            .readableFont(15, weight: .regular, relativeTo: .caption2).foregroundStyle(.secondary)
                     }
                     VStack(alignment: .leading, spacing: 6) {
-                        Text("How to get one").font(.caption.weight(.semibold)).foregroundStyle(.secondary)
+                        Text("How to get one").readableFont(15, weight: .semibold, relativeTo: .caption).foregroundStyle(.secondary)
                         ForEach(Array(steps.enumerated()), id: \.offset) { i, step in
                             HStack(alignment: .top, spacing: 8) {
-                                Text("\(i + 1)").font(.caption.weight(.bold)).foregroundStyle(.white)
+                                Text("\(i + 1)").readableFont(15, weight: .bold, relativeTo: .caption).foregroundStyle(.white)
                                     .frame(width: 18, height: 18).background(Theme.brand, in: Circle())
-                                Text(step).font(.caption).foregroundStyle(.secondary)
+                                Text(step).readableFont(15, weight: .regular, relativeTo: .caption).foregroundStyle(.secondary)
                             }
                         }
                         Text("If this is for someone else in the family, it's easiest to do it on their iPhone, in person, once \u{2014} after that they never need to do it again.")
-                            .font(.caption2).foregroundStyle(.secondary).padding(.top, 2)
+                            .readableFont(15, weight: .regular, relativeTo: .caption2).foregroundStyle(.secondary).padding(.top, 2)
                     }
                     .padding(.vertical, 4)
                     if ai.isLinked(vendor) {
                         Label("\(vendor.shortName) key is linked", systemImage: "checkmark.seal.fill").foregroundStyle(Theme.brand)
                     }
                     Link("Get a key at \(keyHost)", destination: keyURL)
-                        .font(.subheadline.weight(.semibold))
+                        .readableFont(17, weight: .semibold, relativeTo: .subheadline)
                     HStack {
                         Group {
                             if revealKey {
@@ -144,7 +144,7 @@ struct ConnectAIView: View {
                         }
                     }
                     if revealKey && !key.isEmpty {
-                        Text("Starts with \u{201C}\(String(AIConnection.cleaned(key).prefix(6)))\u{201D}").font(.caption2).foregroundStyle(.secondary)
+                        Text("Starts with \u{201C}\(String(AIConnection.cleaned(key).prefix(6)))\u{201D}").readableFont(15, weight: .regular, relativeTo: .caption2).foregroundStyle(.secondary)
                     }
                     Button {
                         Task {
@@ -158,7 +158,7 @@ struct ConnectAIView: View {
                     }
                     .disabled(ai.isWorking || key.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
                     if let message = ai.errorMessage {
-                        Text(message).font(.footnote).foregroundStyle(.red)
+                        Text(message).readableFont(16, weight: .regular, relativeTo: .footnote).foregroundStyle(.red)
                     }
                 } footer: {
                     Text("Your key is stored only in this iPhone's secure Keychain. It is sent only to \(vendorName), never to NutriKin's servers, and it's removed when you remove it or sign out.")
@@ -167,7 +167,7 @@ struct ConnectAIView: View {
 
                 Section {
                     Text("When you use these features, your photo or question is sent from your iPhone to \(vendorName) under your account, together with the family details needed to answer (names, ages, conditions and allergies you entered). Don't include people or documents in photos.")
-                        .font(.footnote)
+                        .readableFont(16, weight: .regular, relativeTo: .footnote)
                         .foregroundStyle(.secondary)
                 }
             }

@@ -8,6 +8,13 @@ final class AppDelegate: NSObject, UIApplicationDelegate {
         MedicationReminders.registerCategories()
         return true
     }
+    func application(_ application: UIApplication, didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data) {
+        Task { await FamilyReminders.shared.receivedToken(deviceToken) }
+    }
+    func application(_ application: UIApplication, didFailToRegisterForRemoteNotificationsWithError error: Error) {
+        Task { FamilyReminders.shared.registrationFailed() }
+    }
+
 }
 
 @main

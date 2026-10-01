@@ -17,3 +17,4 @@ FamilyFoodScanner.zip
 # Tool state and stale generated files
 .claude/
 FamilyFoodScanner/Generated/
+supabase/.temp/

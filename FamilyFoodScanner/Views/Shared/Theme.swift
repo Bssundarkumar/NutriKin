@@ -16,52 +16,41 @@ enum Theme {
     static let brandGradient = LinearGradient(colors: [brandLight, brand], startPoint: .topLeading, endPoint: .bottomTrailing)
 }
 
-/// A soft green wash behind screens, so lists don't sit on flat grey.
+/// The same soft blue-green backdrop used by Today, with adaptive colors for dark mode.
 struct AppBackground: View {
     @Environment(\.colorScheme) private var scheme
 
     var body: some View {
-        ZStack {
+        ZStack(alignment: .top) {
             Color(.systemGroupedBackground)
-            LinearGradient(
-                colors: [Theme.brandLight.opacity(scheme == .dark ? 0.14 : 0.22), .clear],
-                startPoint: .top, endPoint: .center)
-        }
-        .ignoresSafeArea()
+            LinearGradient(colors: [.blue.opacity(scheme == .dark ? 0.10 : 0.06),
+                                    Theme.brandLight.opacity(scheme == .dark ? 0.12 : 0.11), .clear],
+                           startPoint: .top, endPoint: .bottom)
+                .frame(height: 420)
+        }.ignoresSafeArea()
     }
 }
 
 extension View {
-    /// A rounded, softly shadowed card. With a `tint`, it gets a faint gradient wash and a thin colored
-    /// top edge instead of the plain flat background — used where a screen has several cards and a touch
-    /// of color per card helps tell them apart at a glance.
-    func card(padding: CGFloat = 16, radius: CGFloat = 22, tint: Color? = nil) -> some View {
+    /// Shared white cards with a subtle category wash and the soft shadow used on Today.
+    func card(padding: CGFloat = 16, radius: CGFloat = 18, tint: Color? = nil) -> some View {
         self.padding(padding)
             .background {
                 RoundedRectangle(cornerRadius: radius, style: .continuous)
                     .fill(Color(.secondarySystemGroupedBackground))
                     .overlay {
-                        if let tint {
-                            RoundedRectangle(cornerRadius: radius, style: .continuous)
-                                .fill(LinearGradient(colors: [tint.opacity(0.12), .clear], startPoint: .topLeading, endPoint: .bottomTrailing))
-                        }
-                    }
-                    .overlay(alignment: .top) {
-                        if let tint {
-                            RoundedRectangle(cornerRadius: radius / 4)
-                                .fill(tint.gradient)
-                                .frame(height: 4)
-                                .padding(.horizontal, radius * 0.7)
-                                .offset(y: 1)
-                        }
+                        RoundedRectangle(cornerRadius: radius, style: .continuous)
+                            .fill((tint ?? .clear).opacity(0.055))
                     }
             }
-            .shadow(color: (tint ?? .black).opacity(tint == nil ? 0.07 : 0.12), radius: 14, y: 6)
+            .shadow(color: .black.opacity(0.045), radius: 8, y: 3)
     }
 
-    /// Screens built on `List`: soft background, no separators between cards.
+    /// Native lists and forms keep all their editing behavior, on the same dashboard background.
     func softList() -> some View {
-        self.scrollContentBackground(.hidden).background(AppBackground())
+        self.scrollContentBackground(.hidden)
+            .environment(\.defaultMinListRowHeight, 52)
+            .background(AppBackground())
     }
 }
 

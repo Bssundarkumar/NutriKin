@@ -13,6 +13,7 @@ struct HouseholdSetupView: View {
 
     var body: some View {
         NavigationStack {
+            ScrollView {
             VStack(spacing: 20) {
                 Spacer()
 
@@ -24,9 +25,9 @@ struct HouseholdSetupView: View {
                     .popIn()
                     .floating()
                 Text("Set up your family")
-                    .font(.title2.bold())
+                    .readableFont(24, weight: .bold, relativeTo: .title2)
                 Text("Create a new family, or join one with an invite code from another member's phone.")
-                    .font(.subheadline)
+                    .readableFont(17, weight: .regular, relativeTo: .subheadline)
                     .foregroundStyle(.secondary)
                     .multilineTextAlignment(.center)
                     .padding(.horizontal, 24)
@@ -49,7 +50,7 @@ struct HouseholdSetupView: View {
                                 .buttonStyle(.borderedProminent)
                                 .disabled(name.trimmingCharacters(in: .whitespaces).isEmpty || family.isLoading)
                             Button("Back") { mode = .choose }
-                                .font(.footnote)
+                                .readableFont(16, weight: .regular, relativeTo: .footnote)
                         }
                     case .join:
                         VStack(spacing: 12) {
@@ -61,7 +62,7 @@ struct HouseholdSetupView: View {
                                 .buttonStyle(.borderedProminent)
                                 .disabled(code.trimmingCharacters(in: .whitespaces).isEmpty || family.isLoading)
                             Button("Back") { mode = .choose }
-                                .font(.footnote)
+                                .readableFont(16, weight: .regular, relativeTo: .footnote)
                         }
                     }
                 }
@@ -70,7 +71,7 @@ struct HouseholdSetupView: View {
                 if family.isLoading { ProgressView() }
                 if let errorMessage = family.errorMessage {
                     Text(errorMessage)
-                        .font(.footnote)
+                        .readableFont(16, weight: .regular, relativeTo: .footnote)
                         .foregroundStyle(.red)
                         .multilineTextAlignment(.center)
                         .padding(.horizontal, 24)
@@ -78,11 +79,13 @@ struct HouseholdSetupView: View {
 
                 Spacer()
                 Button("Sign out") { Task { await auth.signOut() } }
-                    .font(.footnote)
+                    .readableFont(16, weight: .regular, relativeTo: .footnote)
                     .foregroundStyle(.secondary)
                 Spacer()
             }
             .padding()
+            }
+            .background(AppBackground())
             // An invite link was opened: jump straight to joining with its code.
             .task(id: family.pendingInviteCode) {
                 if let invite = family.pendingInviteCode {

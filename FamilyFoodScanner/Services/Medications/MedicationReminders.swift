@@ -102,6 +102,7 @@ struct DoseAction: Equatable {
 }
 
 extension Notification.Name {
+    static let nutrikinFamilyReminder = Notification.Name("nutrikin.familyReminder")
     static let nutrikinDoseAction = Notification.Name("nutrikin.doseAction")
 }
 
@@ -139,6 +140,14 @@ final class NotificationRouter: NSObject, UNUserNotificationCenterDelegate {
     }
 
     func userNotificationCenter(_ center: UNUserNotificationCenter, didReceive response: UNNotificationResponse) async {
+        if response.notification.request.content.userInfo["familyReminder"] as? Bool == true,
+           let memberID = response.notification.request.content.userInfo["memberID"] as? String {
+            await MainActor.run {
+                UserDefaults.standard.set(memberID, forKey: "todayMemberID")
+                NotificationCenter.default.post(name: .nutrikinFamilyReminder, object: memberID)
+            }
+            return
+        }
         if let went = Self.activityAction(from: response) {
             Self.pendingActivity.append(went)
             NotificationCenter.default.post(name: .nutrikinActivityAction, object: nil)

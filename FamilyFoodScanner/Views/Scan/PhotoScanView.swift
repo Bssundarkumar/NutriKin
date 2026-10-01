@@ -66,6 +66,7 @@ struct PhotoScanView: View {
                 case .failed(let message): failed(message)
                 }
             }
+            .background(AppBackground())
             .animation(.smooth(duration: 0.3), value: phase)
             .navigationTitle("Scan a label")
             .navigationBarTitleDisplayMode(.inline)
@@ -98,6 +99,7 @@ struct PhotoScanView: View {
     }
 
     private var chooser: some View {
+        ScrollView {
         VStack(spacing: 18) {
             Spacer()
             Image(systemName: "text.viewfinder")
@@ -105,10 +107,10 @@ struct PhotoScanView: View {
                 .foregroundStyle(Color.accentColor)
                 .popIn()
             Text("No barcode? Show us the product.")
-                .font(.title3.bold())
+                .readableFont(22, weight: .bold, relativeTo: .title3)
                 .multilineTextAlignment(.center)
             Text("Photograph the **front of the pack** and we'll find it by name, so you can confirm it and get its real ingredients. Or photograph the **ingredients list** and nutrition table. Use good light and keep the label flat.")
-                .font(.subheadline)
+                .readableFont(17, weight: .regular, relativeTo: .subheadline)
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
                 .padding(.horizontal, 24)
@@ -134,23 +136,25 @@ struct PhotoScanView: View {
 
             if ai.canUseAIForPhotos {
                 Toggle("Also read the label with AI", isOn: $useAI)
-                    .font(.subheadline)
+                    .readableFont(17, weight: .regular, relativeTo: .subheadline)
                     .padding(.horizontal, 32)
             }
             Text(chooserPrivacyLine)
-                .font(.caption)
+                .readableFont(15, weight: .regular, relativeTo: .caption)
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
                 .padding(.horizontal, 32)
             Spacer()
             Spacer()
         }
+        .padding(.vertical, 24)
+        }
     }
 
     private var reading: some View {
         VStack(spacing: 16) {
             ProgressView().controlSize(.large)
-            Text(aiReading ? "Asking your AI to read it\u{2026}" : "Reading the label\u{2026}").font(.headline)
+            Text(aiReading ? "Asking your AI to read it\u{2026}" : "Reading the label\u{2026}").readableFont(19, weight: .semibold, relativeTo: .headline)
         }
     }
 
@@ -161,16 +165,16 @@ struct PhotoScanView: View {
                     Label("We couldn't read an ingredient list.", systemImage: "exclamationmark.triangle.fill")
                         .foregroundStyle(.orange)
                     Text("Type it in below, or go back and try a sharper, closer photo.")
-                        .font(.footnote)
+                        .readableFont(16, weight: .regular, relativeTo: .footnote)
                 }
             } else {
                 Section {
                     Label(aiRead ? "Read by AI. Please confirm." : "Check what we read",
                           systemImage: aiRead ? "sparkles" : "checkmark.shield")
-                        .font(.subheadline.weight(.semibold))
+                        .readableFont(17, weight: .semibold, relativeTo: .subheadline)
                     Text("Photos can be misread, by AI as well. Compare with the package and fix anything wrong, because allergy checks use this text.")
-                        .font(.footnote)
-                    if let aiNote { Text(aiNote).font(.footnote).foregroundStyle(.secondary) }
+                        .readableFont(16, weight: .regular, relativeTo: .footnote)
+                    if let aiNote { Text(aiNote).readableFont(16, weight: .regular, relativeTo: .footnote).foregroundStyle(.secondary) }
                 }
                 if let code = spottedBarcode {
                     Section {
@@ -197,7 +201,7 @@ struct PhotoScanView: View {
             Section("Ingredients") {
                 TextEditor(text: $ingredients)
                     .frame(minHeight: 150)
-                    .font(.callout)
+                    .readableFont(18, weight: .regular, relativeTo: .callout)
             }
 
             Section {
@@ -256,7 +260,7 @@ struct PhotoScanView: View {
                     FlowLayout(spacing: 6) {
                         ForEach(nameGuesses, id: \.self) { guess in
                             Button(guess) { query = guess; runSearch() }
-                                .font(.footnote)
+                                .readableFont(16, weight: .regular, relativeTo: .footnote)
                                 .padding(.horizontal, 10).padding(.vertical, 5)
                                 .background(Color.accentColor.opacity(0.12), in: Capsule())
                                 .buttonStyle(.plain)
@@ -269,10 +273,10 @@ struct PhotoScanView: View {
                 if isSearching {
                     HStack(spacing: 10) { ProgressView(); Text("Searching\u{2026}").foregroundStyle(.secondary) }
                 } else if let searchError {
-                    Text(searchError).font(.footnote).foregroundStyle(.red)
+                    Text(searchError).readableFont(16, weight: .regular, relativeTo: .footnote).foregroundStyle(.red)
                 } else if didSearch && candidates.isEmpty {
                     Text("No match found. Try fewer words, or photograph the ingredients instead.")
-                        .font(.footnote).foregroundStyle(.secondary)
+                        .readableFont(16, weight: .regular, relativeTo: .footnote).foregroundStyle(.secondary)
                 }
                 ForEach(candidates) { candidate in
                     Button { withAnimation(.snappy) { selected = candidate } } label: {
@@ -302,9 +306,9 @@ struct PhotoScanView: View {
 
     private func failed(_ message: String) -> some View {
         VStack(spacing: 14) {
-            Image(systemName: "exclamationmark.triangle").font(.largeTitle).foregroundStyle(.orange)
-            Text("Couldn't read that photo").font(.headline)
-            Text(message).font(.footnote).foregroundStyle(.secondary).multilineTextAlignment(.center)
+            Image(systemName: "exclamationmark.triangle").readableFont(36, weight: .regular, relativeTo: .largeTitle).foregroundStyle(.orange)
+            Text("Couldn't read that photo").readableFont(19, weight: .semibold, relativeTo: .headline)
+            Text(message).readableFont(16, weight: .regular, relativeTo: .footnote).foregroundStyle(.secondary).multilineTextAlignment(.center)
             Button("Try again") { picked = []; phase = .choose }.buttonStyle(.borderedProminent)
         }
         .padding(32)
@@ -318,7 +322,7 @@ struct PhotoScanView: View {
                 .keyboardType(.decimalPad)
                 .multilineTextAlignment(.trailing)
                 .frame(width: 80)
-            Text(unit).font(.footnote).foregroundStyle(.secondary).frame(width: 34, alignment: .leading)
+            Text(unit).readableFont(16, weight: .regular, relativeTo: .footnote).foregroundStyle(.secondary).frame(width: 34, alignment: .leading)
         }
     }
 
@@ -493,14 +497,14 @@ private struct CandidateRow: View {
             .clipShape(RoundedRectangle(cornerRadius: 10))
 
             VStack(alignment: .leading, spacing: 2) {
-                Text(candidate.name).font(.subheadline.weight(.semibold)).lineLimit(2)
+                Text(candidate.name).readableFont(17, weight: .semibold, relativeTo: .subheadline).lineLimit(2)
                 Text([candidate.brand, candidate.quantity].compactMap { $0 }.joined(separator: " \u{00B7} "))
-                    .font(.caption)
+                    .readableFont(15, weight: .regular, relativeTo: .caption)
                     .foregroundStyle(.secondary)
             }
             Spacer(minLength: 8)
             Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
-                .font(.title3)
+                .readableFont(22, weight: .regular, relativeTo: .title3)
                 .foregroundStyle(isSelected ? Color.accentColor : Color.secondary.opacity(0.4))
                 .scaleEffect(isSelected ? 1.1 : 1)
         }

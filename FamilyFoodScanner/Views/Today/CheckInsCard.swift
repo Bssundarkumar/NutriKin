@@ -1,8 +1,6 @@
 import SwiftUI
 
-/// Quick daily check-ins — water, weight, sleep, hunger — as a single row of four tiles, each with a
-/// thin progress bar. Mood is still logged and shown on the day's timeline (DailyCheckInStore keeps full
-/// history for it), it just doesn't get its own tile here — a fifth would crowd this row too much.
+/// The three daily essentials. Hunger stays available through Today's optional check-ins menu.
 struct CheckInsCard: View {
     let member: Member
     let day: Date
@@ -10,10 +8,21 @@ struct CheckInsCard: View {
     @Environment(FamilyStore.self) private var family
     @Environment(HealthKitManager.self) private var health
     @State private var sheet: Sheet?
+    @Environment(\.dynamicTypeSize) private var textSize
+    @ScaledMetric(relativeTo: .body) private var largeTileWidth: CGFloat = 90
+    @ScaledMetric(relativeTo: .body) private var iconHeight: CGFloat = 24
+    @State private var availableWidth: CGFloat = 360
+    private var tileWidth: CGFloat { textSize.isAccessibilitySize ? largeTileWidth : max((availableWidth - 16) / 3, 1) }
 
-    private enum Sheet: String, Identifiable { case water, weight, sleep, hunger
+    private enum Sheet: String, Identifiable { case water, weight, sleep
         var id: String { rawValue }
     }
+
+    private var usesHealth: Bool { Demo.isOn ? member.id == Demo.members.first?.id : health.linkedMemberID == member.id }
+    private var sleepHours: Double? { usesHealth && Calendar.current.isDateInToday(day) ? health.snapshot.sleepHoursLastNight : nil }
+    private var externalGlasses: Int { usesHealth && health.dataDay == Calendar.current.startOfDay(for: day) ? Int(health.externalWaterMl / HealthSync.waterMlPerGlass) : 0 }
+    private var waterCount: Int { checkIns.waterGlasses(for: member.id, day: day) + externalGlasses }
+    private var currentWeight: Double? { usesHealth ? health.snapshot.weightKg ?? member.weightKg : member.weightKg }
 
     private var weightProgress: Double {
         guard let target = member.goals.targetWeightKg, let current = member.weightKg, current > 0 else { return 0 }
@@ -21,49 +30,64 @@ struct CheckInsCard: View {
     }
 
     var body: some View {
-        HStack(spacing: 8) {
-            tile("Water", "drop.fill", .blue, value: "\(checkIns.waterGlasses(for: member.id, day: day))",
+        ScrollView(.horizontal, showsIndicators: false) {
+        HStack(alignment: .top, spacing: 8) {
+            tile("Water", "drop.fill", .blue, value: "\(waterCount)",
                  unit: "/ \(DailyCheckInStore.waterGoalGlasses)",
-                 progress: Double(checkIns.waterGlasses(for: member.id, day: day)) / Double(DailyCheckInStore.waterGoalGlasses)) { sheet = .water }
-            tile("Weight", "scalemass.fill", .purple, value: member.weightKg.map { StrengthMath.display(kg: $0, pounds: false) } ?? "—",
+                 progress: Double(waterCount) / Double(DailyCheckInStore.waterGoalGlasses)) { sheet = .water }
+            tile("Sleep", "moon.fill", .indigo, value: sleepHours.map { "\(Int($0))h \(Int(($0 - floor($0)) * 60))m" } ?? "—",
+                 unit: "", progress: (sleepHours ?? 0) / 8) { sheet = .sleep }
+            tile("Weight", "scalemass.fill", .pink, value: currentWeight.map { StrengthMath.display(kg: $0, pounds: false) } ?? "—",
                  unit: "kg", progress: weightProgress) { sheet = .weight }
-            tile("Sleep", "moon.fill", .indigo, value: health.snapshot.sleepHoursLastNight.map { String(format: "%.1f", $0) } ?? "—",
-                 unit: "h", progress: (health.snapshot.sleepHoursLastNight ?? 0) / 8) { sheet = .sleep }
-            tile("Hunger", "fork.knife", .orange,
-                 value: checkIns.hunger(for: member.id, day: day).map { DailyCheckInStore.hungerLabels[$0] } ?? "—", unit: "",
-                 progress: checkIns.hunger(for: member.id, day: day).map { Double($0) / Double(DailyCheckInStore.hungerLabels.count - 1) } ?? 0) { sheet = .hunger }
+
         }
+        }
+        .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { availableWidth = $0 }
         .sheet(item: $sheet) { s in
             NavigationStack { sheetContent(s) }
-                .presentationDetents([.height(280)])
+                .presentationDetents([.medium, .large])
         }
     }
 
-    /// Sized for four side by side on one phone-width row: a small icon badge, a short label, the value
+    /// Sized to wrap as text grows: a small icon badge, a short label, the value
     /// (unit beneath it rather than alongside, since there's no horizontal room for both on one line),
     /// and a thin progress bar.
     private func tile(_ title: String, _ symbol: String, _ tint: Color, value: String, unit: String, progress: Double, action: @escaping () -> Void) -> some View {
         Button(action: action) {
-            VStack(alignment: .leading, spacing: 6) {
-                Image(systemName: symbol).font(.caption).foregroundStyle(tint)
-                    .frame(width: 24, height: 24).background(tint.opacity(0.15), in: Circle())
-                Text(title).font(.system(size: 10)).foregroundStyle(.secondary).lineLimit(1)
-                HStack(alignment: .firstTextBaseline, spacing: 2) {
-                    Text(value).font(.subheadline.bold())
-                    if !unit.isEmpty { Text(unit).font(.system(size: 9)).foregroundStyle(.secondary) }
+            VStack(alignment: .leading, spacing: 4) {
+                HStack(spacing: 5) {
+                    Image(systemName: symbol).readableFont(18, weight: .semibold).foregroundStyle(tint.gradient)
+                        .frame(width: iconHeight + 4, height: iconHeight + 4)
+                        .background(tint.opacity(0.1), in: Circle())
+                    Text(title).readableFont(15, weight: .semibold).foregroundStyle(.primary)
+                        .fixedSize(horizontal: false, vertical: true)
+                    Spacer(minLength: 0)
                 }
-                .lineLimit(1).minimumScaleFactor(0.7)
-                Capsule().fill(tint.opacity(0.18)).frame(height: 4)
+                HStack(alignment: .firstTextBaseline, spacing: 2) {
+                    Text(value).readableFont(17, weight: .semibold, design: .default)
+                    if !unit.isEmpty { Text(unit).readableFont(15, weight: .regular, design: .default).foregroundStyle(.secondary) }
+                }
+                .fixedSize(horizontal: false, vertical: true)
+                Capsule().fill(tint.opacity(0.18)).frame(height: 5)
                     .overlay(alignment: .leading) {
                         GeometryReader { geo in
                             Capsule().fill(tint).frame(width: geo.size.width * min(max(progress, 0), 1))
                         }
                     }
-                    .frame(height: 4)
+                    .frame(height: 5)
             }
-            .padding(10)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .background(RoundedRectangle(cornerRadius: 16, style: .continuous).fill(tint.opacity(0.08)))
+            .padding(8)
+            .frame(width: tileWidth, alignment: .leading)
+            .background {
+                RoundedRectangle(cornerRadius: 16, style: .continuous)
+                    .fill(Color(.secondarySystemGroupedBackground))
+                    .overlay {
+                        RoundedRectangle(cornerRadius: 16, style: .continuous).fill(LinearGradient(colors: [tint.opacity(0.09), tint.opacity(0.04)], startPoint: .topLeading, endPoint: .bottomTrailing))
+                    }
+            }
+            .overlay {
+                RoundedRectangle(cornerRadius: 16, style: .continuous).strokeBorder(tint.opacity(0.12), lineWidth: 1)
+            }
         }
         .buttonStyle(.plain)
     }
@@ -74,22 +98,23 @@ struct CheckInsCard: View {
         case .water: waterSheet
         case .weight: weightSheet
         case .sleep: sleepSheet
-        case .hunger: scaleSheet(title: "How hungry are you?", labels: DailyCheckInStore.hungerLabels,
-                                  current: checkIns.hunger(for: member.id, day: day)) { checkIns.setHunger($0, for: member.id, day: day) }
+
         }
     }
 
     private var waterSheet: some View {
-        let glasses = checkIns.waterGlasses(for: member.id, day: day)
+        let glasses = waterCount
         return VStack(spacing: 20) {
             Image(systemName: "drop.fill").font(.system(size: 40)).foregroundStyle(.blue)
-            Text("\(glasses) of \(DailyCheckInStore.waterGoalGlasses) glasses").font(.title2.bold())
+            Text("\(glasses) of \(DailyCheckInStore.waterGoalGlasses) glasses").readableFont(24, weight: .bold, relativeTo: .title2)
             HStack(spacing: 24) {
                 Button { checkIns.addWater(-1, for: member.id, day: day) } label: { Image(systemName: "minus.circle.fill").font(.system(size: 36)) }
-                    .disabled(glasses == 0)
+                    .disabled(checkIns.waterGlasses(for: member.id, day: day) == 0)
                 Button { checkIns.addWater(1, for: member.id, day: day) } label: { Image(systemName: "plus.circle.fill").font(.system(size: 36)) }
             }
             .tint(.blue)
+            Text("Each glass is 250 mL. Water from Health is included; remove water logged in other apps from Health.")
+                .readableFont(16).foregroundStyle(.secondary).multilineTextAlignment(.center).padding(.horizontal, 24)
             Spacer()
         }
         .padding(.top, 24)
@@ -104,13 +129,13 @@ struct CheckInsCard: View {
     private var sleepSheet: some View {
         VStack(spacing: 16) {
             Image(systemName: "bed.double.fill").font(.system(size: 40)).foregroundStyle(.indigo)
-            if let hours = health.snapshot.sleepHoursLastNight {
-                Text(String(format: "%.1f hours", hours)).font(.title2.bold())
-                Text("From Apple Health, the last 24 hours.").font(.footnote).foregroundStyle(.secondary)
+            if let hours = sleepHours {
+                Text(String(format: "%.1f hours", hours)).readableFont(24, weight: .bold, relativeTo: .title2)
+                Text("From Apple Health, the last 24 hours.").readableFont(16, weight: .regular, relativeTo: .footnote).foregroundStyle(.secondary)
             } else {
-                Text("No sleep data yet").font(.title3.bold())
+                Text("No sleep data yet").readableFont(22, weight: .bold, relativeTo: .title3)
                 Text(health.hasRequestedAccess ? "Nothing logged in Apple Health for last night." : "Connect Apple Health from Activity to see sleep here.")
-                    .font(.footnote).foregroundStyle(.secondary).multilineTextAlignment(.center).padding(.horizontal, 32)
+                    .readableFont(16, weight: .regular, relativeTo: .footnote).foregroundStyle(.secondary).multilineTextAlignment(.center).padding(.horizontal, 32)
             }
             Spacer()
         }
@@ -119,24 +144,42 @@ struct CheckInsCard: View {
         .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Done") { sheet = nil } } }
     }
 
-    private func scaleSheet(title: String, labels: [String], current: Int?, onPick: @escaping (Int?) -> Void) -> some View {
-        VStack(spacing: 24) {
-            Text(title).font(.title3.bold()).padding(.top, 16)
-            HStack(spacing: 14) {
-                ForEach(labels.indices, id: \.self) { i in
-                    Button { onPick(current == i ? nil : i); sheet = nil } label: {
-                        VStack(spacing: 4) {
-                            Text(labels[i]).font(.system(size: 32))
-                            Circle().fill(current == i ? Theme.brand : .clear).frame(width: 6, height: 6)
+
+}
+
+/// Optional hunger logging retains the existing per-person, per-day history.
+struct HungerCheckInView: View {
+    let member: Member
+    let day: Date
+    @Environment(DailyCheckInStore.self) private var checkIns
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        NavigationStack {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 16) {
+                    Text("How hungry are you?").readableFont(24, weight: .bold)
+                    Text("Optional check-in for \(member.name)").readableFont(17).foregroundStyle(.secondary)
+                    LazyVGrid(columns: [GridItem(.adaptive(minimum: 120))], spacing: 12) {
+                        ForEach(DailyCheckInStore.hungerLabels.indices, id: \.self) { index in
+                            let selected = checkIns.hunger(for: member.id, day: day) == index
+                            Button {
+                                checkIns.setHunger(selected ? nil : index, for: member.id, day: day)
+                                dismiss()
+                            } label: {
+                                Text(DailyCheckInStore.hungerLabels[index]).readableFont(18, weight: .semibold)
+                                    .frame(maxWidth: .infinity, minHeight: 48).padding(8)
+                                    .background(Theme.brand.opacity(selected ? 0.15 : 0.06), in: RoundedRectangle(cornerRadius: 16))
+                            }
+                            .buttonStyle(.plain).accessibilityAddTraits(selected ? .isSelected : [])
                         }
                     }
-                    .buttonStyle(.plain)
-                }
+                }.padding(20)
             }
-            Spacer()
+            .background(AppBackground())
+            .navigationTitle("Hunger").navigationBarTitleDisplayMode(.inline)
+            .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Done") { dismiss() } } }
         }
-        .navigationBarTitleDisplayMode(.inline)
-        .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Done") { sheet = nil } } }
     }
 }
 
@@ -165,7 +208,7 @@ private struct WeightQuickLogView: View {
                     .keyboardType(.decimalPad).multilineTextAlignment(.center)
                     .font(.system(size: 34, weight: .bold, design: .rounded))
                     .frame(width: 120)
-                Text("kg").font(.title3).foregroundStyle(.secondary)
+                Text("kg").readableFont(22, weight: .regular, relativeTo: .title3).foregroundStyle(.secondary)
             }
             Button("Save") { Task { await save() } }
                 .buttonStyle(.borderedProminent)

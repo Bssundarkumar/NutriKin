@@ -46,14 +46,14 @@ struct InlineWorkoutLogger: View {
     private var form: some View {
         VStack(alignment: .leading, spacing: 16) {
             HStack {
-                Text(TodayLayout.isChild(member) ? "Log play" : "Log a workout").font(.headline)
+                Text(TodayLayout.isChild(member) ? "Log play" : "Log a workout").readableFont(19, weight: .semibold, relativeTo: .headline)
                 Spacer()
-                Button("Cancel", action: onClose).font(.subheadline).foregroundStyle(.secondary)
+                Button("Cancel", action: onClose).readableFont(17, weight: .regular, relativeTo: .subheadline).foregroundStyle(.secondary)
             }
 
             if ai.textProvider != nil {
                 VStack(alignment: .leading, spacing: 6) {
-                    if let idea { Text(idea).font(.subheadline) }
+                    if let idea { Text(idea).readableFont(17, weight: .regular, relativeTo: .subheadline) }
                     Button {
                         ideaLoading = true
                         Task {
@@ -65,18 +65,18 @@ struct InlineWorkoutLogger: View {
                         }
                     } label: {
                         Label(ideaLoading ? "Thinking\u{2026}" : (idea == nil ? "Not sure what to do? Get an idea" : "Another idea"), systemImage: "sparkles")
-                            .font(.footnote.weight(.semibold))
+                            .readableFont(16, weight: .semibold, relativeTo: .footnote)
                     }
                     .disabled(ideaLoading)
                 }
             }
 
-            LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 8), count: 4), spacing: 10) {
+            LazyVGrid(columns: [GridItem(.adaptive(minimum: 90), spacing: 8)], spacing: 10) {
                 ForEach(WorkoutKind.choices(for: member)) { k in
                     Button { kind = k; override = nil; if k == .strength { showStrength = true } } label: {
                         VStack(spacing: 5) {
-                            Image(systemName: k.symbol).font(.title3).frame(height: 24)
-                            Text(k.title).font(.caption2).lineLimit(1).minimumScaleFactor(0.7)
+                            Image(systemName: k.symbol).readableFont(22, weight: .regular, relativeTo: .title3).frame(minHeight: 24)
+                            Text(k.title).readableFont(15, weight: .regular, relativeTo: .caption2).lineLimit(2).fixedSize(horizontal: false, vertical: true)
                         }
                         .frame(maxWidth: .infinity).padding(.vertical, 9)
                         .background(kind == k ? Color.orange.opacity(0.22) : Color(.tertiarySystemFill), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
@@ -90,7 +90,7 @@ struct InlineWorkoutLogger: View {
             if kind == .strength {
                 Button { showStrength = true } label: { Label("Open the strength log", systemImage: "dumbbell.fill") }
                 Text("Choose exercises by muscle group, use a template or copy a past session, and enter sets, reps and weight.")
-                    .font(.caption).foregroundStyle(.secondary)
+                    .readableFont(15, weight: .regular, relativeTo: .caption).foregroundStyle(.secondary)
             } else {
                 VStack(alignment: .leading, spacing: 10) {
                     Stepper("\(minutes) minutes", value: $minutes, in: 5...300, step: 5).onChange(of: minutes) { _, _ in override = nil }
@@ -106,12 +106,12 @@ struct InlineWorkoutLogger: View {
                         Text(member.weightKg == nil
                              ? "An estimate for a 70 kg adult. Add \(member.name)'s weight in the Family tab for a better one."
                              : "An estimate for \(Int(member.weightKg ?? 0)) kg. Change it if your watch says otherwise.")
-                            .font(.caption).foregroundStyle(.secondary)
+                            .readableFont(15, weight: .regular, relativeTo: .caption).foregroundStyle(.secondary)
                     }
                 }
                 TextField("Note (optional), e.g. Morning walk in the park", text: $note)
                     .textFieldStyle(.roundedBorder)
-                if let message { Text(message).font(.footnote).foregroundStyle(.red) }
+                if let message { Text(message).readableFont(16, weight: .regular, relativeTo: .footnote).foregroundStyle(.red) }
                 Button(isSaving ? "Saving\u{2026}" : "Log") { save() }
                     .buttonStyle(.borderedProminent).controlSize(.large).frame(maxWidth: .infinity)
                     .disabled(isSaving)
@@ -144,9 +144,9 @@ struct InlineWorkoutLogger: View {
     private func cheerCard(_ workout: Workout) -> some View {
         VStack(spacing: 10) {
             Image(systemName: "party.popper.fill").font(.system(size: 32)).foregroundStyle(.orange).popIn()
-            Text("Workout saved").font(.headline)
-            Text(cheer).font(.subheadline).multilineTextAlignment(.center).contentTransition(.opacity)
-            if cheerIsAI { Label("Written by AI", systemImage: "sparkles").font(.caption2).foregroundStyle(.secondary) }
+            Text("Workout saved").readableFont(19, weight: .semibold, relativeTo: .headline)
+            Text(cheer).readableFont(17, weight: .regular, relativeTo: .subheadline).multilineTextAlignment(.center).contentTransition(.opacity)
+            if cheerIsAI { Label("Written by AI", systemImage: "sparkles").readableFont(15, weight: .regular, relativeTo: .caption2).foregroundStyle(.secondary) }
             Button("Done", action: onClose).buttonStyle(.borderedProminent).padding(.top, 4)
         }
         .frame(maxWidth: .infinity)

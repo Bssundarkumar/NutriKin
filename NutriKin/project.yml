@@ -40,12 +40,14 @@ targets:
           - CFBundleURLName: com.sundarBandiguptapu.NutriKin
             CFBundleURLSchemes: [nutrikin]
         NSCameraUsageDescription: Scan product barcodes, photograph labels, and photograph your meals to check them for your family.
-        NSHealthShareUsageDescription: Read your weight, body fat, height, waist, blood sugar, blood pressure, date of birth, sex, water, sleep, steps, calories burned and workouts to personalise food and activity tracking.
+        NSHealthShareUsageDescription: Read your weight, body fat, height, waist, blood sugar, blood pressure, date of birth, sex, nutrition, water, sleep, steps, calories burned and workouts to personalise food and activity tracking.
         NSHealthUpdateUsageDescription: To allow your other health apps to utilize information you log here, such as calories burned, workouts, body measurements, nutrition and water.
     entitlements:
       path: Generated/NutriKin.entitlements
       properties:
         com.apple.developer.healthkit: true
+        com.apple.developer.healthkit.background-delivery: true
+        aps-environment: development
         com.apple.developer.applesignin: [Default]
         # No "com.apple.developer.healthkit.access" key here on purpose:
         # that entitlement is specifically for Clinical Health Records

@@ -45,8 +45,8 @@ struct NutritionPlanView: View {
     private func message(_ title: String, _ text: String, symbol: String) -> some View {
         VStack(spacing: 12) {
             Image(systemName: symbol).font(.system(size: 48)).foregroundStyle(Theme.brandGradient)
-            Text(title).font(.headline).multilineTextAlignment(.center)
-            Text(text).font(.subheadline).foregroundStyle(.secondary).multilineTextAlignment(.center)
+            Text(title).readableFont(19, weight: .semibold, relativeTo: .headline).multilineTextAlignment(.center)
+            Text(text).readableFont(17, weight: .regular, relativeTo: .subheadline).foregroundStyle(.secondary).multilineTextAlignment(.center)
         }
         .padding(32)
     }
@@ -60,7 +60,7 @@ struct NutritionPlanView: View {
                     ForEach(ActivityLevel.allCases) { Text($0.shortTitle).tag($0.rawValue) }
                 }
                 .pickerStyle(.segmented)
-                Text(activity.title).font(.footnote).foregroundStyle(.secondary)
+                Text(activity.title).readableFont(16, weight: .regular, relativeTo: .footnote).foregroundStyle(.secondary)
             } header: { Text("How active are they?") }
 
             Section {
@@ -71,7 +71,7 @@ struct NutritionPlanView: View {
                     Text("kcal a day").foregroundStyle(.secondary)
                     Spacer()
                 }
-                Text(paceText(plan)).font(.footnote).foregroundStyle(.secondary)
+                Text(paceText(plan)).readableFont(16, weight: .regular, relativeTo: .footnote).foregroundStyle(.secondary)
                 HStack {
                     macro("Protein", "\(plan.proteinG) g"); macro("Carbs", "\(plan.carbsG) g")
                     macro("Fat", "\(plan.fatG) g"); macro("Fibre", "\(plan.fiberG) g")
@@ -108,13 +108,13 @@ struct NutritionPlanView: View {
             } header: { Text("Daily limits") }
 
             Section {
-                ForEach(foodIdeas(plan), id: \.self) { Label($0, systemImage: "leaf.fill").font(.subheadline) }
+                ForEach(foodIdeas(plan), id: \.self) { Label($0, systemImage: "leaf.fill").readableFont(17, weight: .regular, relativeTo: .subheadline) }
             } header: { Text("What to fill the plate with") }
 
             Section {
-                ForEach(plan.notes, id: \.self) { Text($0).font(.footnote).foregroundStyle(.secondary) }
+                ForEach(plan.notes, id: \.self) { Text($0).readableFont(16, weight: .regular, relativeTo: .footnote).foregroundStyle(.secondary) }
                 Text("Guidance only, not medical advice. Reviewing it with a doctor or dietitian is wise.")
-                    .font(.footnote.weight(.semibold))
+                    .readableFont(16, weight: .semibold, relativeTo: .footnote)
             }
         }
         .softList()
@@ -124,8 +124,8 @@ struct NutritionPlanView: View {
 
     private func macro(_ title: String, _ value: String) -> some View {
         VStack(spacing: 2) {
-            Text(value).font(.subheadline.weight(.semibold))
-            Text(title).font(.caption2).foregroundStyle(.secondary)
+            Text(value).readableFont(17, weight: .semibold, relativeTo: .subheadline)
+            Text(title).readableFont(15, weight: .regular, relativeTo: .caption2).foregroundStyle(.secondary)
         }
         .frame(maxWidth: .infinity)
     }
@@ -161,8 +161,8 @@ struct NutritionPlanView: View {
         VStack(alignment: .leading, spacing: 14) {
             HStack {
                 VStack(alignment: .leading, spacing: 2) {
-                    Text(String(format: "BMI %.1f", plan.bmi)).font(.title2.bold())
-                    Text(plan.category.label).font(.subheadline.weight(.semibold)).foregroundStyle(color(plan.category))
+                    Text(String(format: "BMI %.1f", plan.bmi)).readableFont(24, weight: .bold, relativeTo: .title2)
+                    Text(plan.category.label).readableFont(17, weight: .semibold, relativeTo: .subheadline).foregroundStyle(color(plan.category))
                 }
                 Spacer()
                 Avatar(name: member.name, size: 44)
@@ -182,8 +182,8 @@ struct NutritionPlanView: View {
 
     private func weightBlock(_ title: String, _ value: String) -> some View {
         VStack(alignment: .leading, spacing: 1) {
-            Text(title).font(.caption2).foregroundStyle(.secondary)
-            Text(value).font(.subheadline.weight(.semibold))
+            Text(title).readableFont(15, weight: .regular, relativeTo: .caption2).foregroundStyle(.secondary)
+            Text(value).readableFont(17, weight: .semibold, relativeTo: .subheadline)
         }
     }
 

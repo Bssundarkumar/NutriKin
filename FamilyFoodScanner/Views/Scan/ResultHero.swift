@@ -42,11 +42,11 @@ struct ResultHero: View {
 
     var body: some View {
         VStack(spacing: 18) {
-            HStack(spacing: 14) {
+            ReadableStack(spacing: 14) {
                 AsyncImage(url: product.imageURL) { img in
                     img.resizable().scaledToFit()
                 } placeholder: {
-                    Image(systemName: "fork.knife").font(.title2).foregroundStyle(.secondary)
+                    Image(systemName: "fork.knife").readableFont(24, weight: .regular, relativeTo: .title2).foregroundStyle(.secondary)
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
                         .background(Color.secondary.opacity(0.12))
                 }
@@ -58,27 +58,27 @@ struct ResultHero: View {
                 .opacity(imageShown ? 1 : 0)
 
                 VStack(alignment: .leading, spacing: 3) {
-                    Text(product.name).font(.title3.weight(.bold)).lineLimit(3)
+                    Text(product.name).readableFont(22, weight: .bold, relativeTo: .title3).lineLimit(3)
                     if let brand = product.brand {
-                        Text(brand).font(.subheadline).foregroundStyle(.secondary)
+                        Text(brand).readableFont(17, weight: .regular, relativeTo: .subheadline).foregroundStyle(.secondary)
                     }
                 }
                 Spacer(minLength: 0)
             }
 
             if let lowest {
-                HStack(spacing: 16) {
+                ReadableStack(spacing: 16) {
                     ScoreRing(score: lowest, color: tint, size: 72, lineWidth: 8)
                     VStack(alignment: .leading, spacing: 4) {
                         Label {
-                            Text(headline).font(.headline)
+                            Text(headline).readableFont(19, weight: .semibold, relativeTo: .headline)
                         } icon: {
                             Image(systemName: symbol)
                                 .symbolEffect(.bounce, options: .nonRepeating, value: imageShown)
                         }
                         .foregroundStyle(tint)
-                        Text(subline).font(.footnote).foregroundStyle(.secondary)
-                        Text("Lowest score in the family").font(.caption2).foregroundStyle(.tertiary)
+                        Text(subline).readableFont(16, weight: .regular, relativeTo: .footnote).foregroundStyle(.secondary)
+                        Text("Lowest score in the family").readableFont(15, weight: .regular, relativeTo: .caption2).foregroundStyle(.tertiary)
                     }
                     Spacer(minLength: 0)
                 }
@@ -86,12 +86,7 @@ struct ResultHero: View {
                 .background(tint.opacity(0.12), in: RoundedRectangle(cornerRadius: 18, style: .continuous))
             }
         }
-        .padding(16)
-        .background(
-            RoundedRectangle(cornerRadius: 26, style: .continuous)
-                .fill(Color(.secondarySystemGroupedBackground))
-                .shadow(color: tint.opacity(0.25), radius: 16, y: 8)
-        )
+        .card(tint: tint)
         .onAppear {
             if reduceMotion { imageShown = true }
             else { withAnimation(.spring(response: 0.55, dampingFraction: 0.65)) { imageShown = true } }

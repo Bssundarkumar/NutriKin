@@ -34,11 +34,11 @@ struct MoreForMemberView: View {
         HStack(spacing: 12) {
             Image(systemName: symbol).frame(width: 30, height: 30).foregroundStyle(Theme.brand)
             VStack(alignment: .leading, spacing: 1) {
-                Text(title).font(.subheadline.weight(.semibold)).foregroundStyle(.primary)
-                Text(subtitle).font(.caption).foregroundStyle(.secondary)
+                Text(title).readableFont(17, weight: .semibold, relativeTo: .subheadline).foregroundStyle(.primary)
+                Text(subtitle).readableFont(15, weight: .regular, relativeTo: .caption).foregroundStyle(.secondary)
             }
             Spacer()
-            Image(systemName: "chevron.right").font(.caption).foregroundStyle(.tertiary)
+            Image(systemName: "chevron.right").readableFont(15, weight: .regular, relativeTo: .caption).foregroundStyle(.tertiary)
         }
         .contentShape(Rectangle())
     }

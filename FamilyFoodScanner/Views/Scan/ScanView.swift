@@ -29,10 +29,11 @@ struct ScanView: View {
 
     var body: some View {
         NavigationStack {
+            ScrollView {
             VStack(spacing: 16) {
-                scannerArea
+                scannerArea.frame(minHeight: 280)
 
-                HStack(spacing: 10) {
+                ReadableStack(spacing: 10) {
                     Image(systemName: "number").foregroundStyle(.secondary)
                     TextField("Or type a barcode", text: $manualCode)
                         .keyboardType(.numberPad)
@@ -47,7 +48,7 @@ struct ScanView: View {
 
                 Button { showPhoto = true } label: {
                     Label("No barcode? Take a photo or upload one", systemImage: "camera.viewfinder")
-                        .font(.subheadline.weight(.semibold))
+                        .readableFont(17, weight: .semibold, relativeTo: .subheadline)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 13)
                         .foregroundStyle(.white)
@@ -59,15 +60,15 @@ struct ScanView: View {
                 if let errorMessage {
                     VStack(spacing: 6) {
                         Text(errorMessage)
-                            .font(.footnote)
+                            .readableFont(16, weight: .regular, relativeTo: .footnote)
                             .foregroundStyle(.red)
                             .multilineTextAlignment(.center)
                         if lookupWasNotFound {
                             Button("Photograph the label instead") { showPhoto = true }
-                                .font(.footnote.weight(.semibold))
+                                .readableFont(16, weight: .semibold, relativeTo: .footnote)
                             if let url = URL(string: "https://world.openfoodfacts.org/cgi/product.pl?type=add&code=\(lastCode)") {
                                 Link("Add it to Open Food Facts", destination: url)
-                                    .font(.footnote)
+                                    .readableFont(16, weight: .regular, relativeTo: .footnote)
                             }
                         }
                     }
@@ -75,6 +76,7 @@ struct ScanView: View {
                 }
             }
             .padding()
+            }
             .background(AppBackground())
             .animation(.smooth(duration: 0.25), value: errorMessage)
             .navigationTitle("Scan a product")
@@ -149,7 +151,7 @@ struct ScanView: View {
                         Button("Photograph the label") { showPhoto = true }
                         Text("or type the number below").foregroundStyle(.white.opacity(0.85))
                     }
-                    .font(.caption.weight(.semibold))
+                    .readableFont(15, weight: .semibold, relativeTo: .caption)
                     .foregroundStyle(.white)
                 }
                 .transition(.move(edge: .bottom).combined(with: .opacity))
@@ -162,7 +164,7 @@ struct ScanView: View {
 
     private func hintPill(_ text: String, symbol: String) -> some View {
         Label(text, systemImage: symbol)
-            .font(.caption.weight(.medium))
+            .readableFont(15, weight: .medium, relativeTo: .caption)
             .padding(.horizontal, 12).padding(.vertical, 7)
             .background(.black.opacity(0.65), in: Capsule())
             .foregroundStyle(.white)
@@ -180,7 +182,7 @@ struct ScanView: View {
     private var scannerControls: some View {
         VStack {
             Text(hasRegion ? "Scanning inside the box" : "Tap the barcode to focus \u{00B7} pinch or use \u{00D7} to zoom")
-                .font(.caption.weight(.medium))
+                .readableFont(15, weight: .medium, relativeTo: .caption)
                 .padding(.horizontal, 10).padding(.vertical, 5)
                 .background(.black.opacity(0.55), in: Capsule())
                 .foregroundStyle(.white)
@@ -189,16 +191,16 @@ struct ScanView: View {
             HStack(spacing: 8) {
                 Button { autoZoom.toggle() } label: {
                     Text("Auto")
-                        .font(.footnote.weight(.semibold))
-                        .padding(.horizontal, 10).frame(height: 30)
+                        .readableFont(16, weight: .semibold, relativeTo: .footnote)
+                        .padding(.horizontal, 10).frame(minHeight: 44)
                         .background(autoZoom ? Color.white : Color.black.opacity(0.55), in: Capsule())
                         .foregroundStyle(autoZoom ? Color.black : Color.white)
                 }
                 ForEach([1.0, 2.0, 3.0], id: \.self) { level in
                     Button { autoZoom = false; zoom = level } label: {
                         Text("\(Int(level))\u{00D7}")
-                            .font(.footnote.weight(.semibold))
-                            .frame(width: 40, height: 30)
+                            .readableFont(16, weight: .semibold, relativeTo: .footnote)
+                            .frame(width: 44, height: 44)
                             .background(zoom == level ? Color.white : Color.black.opacity(0.55), in: Capsule())
                             .foregroundStyle(zoom == level ? Color.black : Color.white)
                     }
@@ -207,8 +209,8 @@ struct ScanView: View {
                 if hasRegion {
                     Button { resetRegionToken += 1 } label: {
                         Label("Scan whole view", systemImage: "viewfinder")
-                            .font(.footnote.weight(.semibold))
-                            .padding(.horizontal, 10).frame(height: 30)
+                            .readableFont(16, weight: .semibold, relativeTo: .footnote)
+                            .padding(.horizontal, 10).frame(minHeight: 44)
                             .background(Color.black.opacity(0.55), in: Capsule())
                             .foregroundStyle(.white)
                     }

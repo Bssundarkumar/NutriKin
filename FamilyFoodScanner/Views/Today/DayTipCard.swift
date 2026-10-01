@@ -22,15 +22,15 @@ struct DayTipCard: View {
             VStack(alignment: .leading, spacing: 10) {
                 Button { tap() } label: {
                     HStack(spacing: 10) {
-                        Image(systemName: "sparkles").foregroundStyle(Theme.brand)
+                        Image(systemName: "sparkles").foregroundStyle(.purple)
                         Text(loading ? "Thinking\u{2026}" : (tip == nil ? "Get a tip for today" : "Today's tip"))
-                            .font(.subheadline.weight(.semibold)).foregroundStyle(.primary)
+                            .readableFont(17, weight: .semibold, relativeTo: .subheadline).foregroundStyle(.primary)
                         Spacer()
-                        Image(systemName: "chevron.right").font(.caption.weight(.semibold)).foregroundStyle(.tertiary)
+                        Image(systemName: "chevron.right").readableFont(15, weight: .semibold, relativeTo: .caption).foregroundStyle(.tertiary)
                             .rotationEffect(.degrees(expanded ? 90 : 0))
                     }
-                    .padding(14)
-                    .background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+                    .padding(18)
+                    .background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 30, style: .continuous))
                     .shadow(color: .black.opacity(0.06), radius: 10, y: 4)
                 }
                 .buttonStyle(.plain)
@@ -39,21 +39,21 @@ struct DayTipCard: View {
                 if expanded {
                     VStack(alignment: .leading, spacing: 10) {
                         if let tip {
-                            Text(tip).font(.subheadline)
-                            Text("Written by AI. General food ideas, not medical advice.").font(.caption2).foregroundStyle(.secondary)
+                            Text(tip).readableFont(17, weight: .regular, relativeTo: .subheadline)
+                            Text("Written by AI. General food ideas, not medical advice.").readableFont(15, weight: .regular, relativeTo: .caption2).foregroundStyle(.secondary)
                         }
                         if TodayLayout.isChild(member) {
-                            if let snacks { Text(snacks).font(.subheadline) }
-                            Button { fetchSnacks() } label: { Label(snacks == nil ? "Snack and lunchbox ideas" : "Another idea", systemImage: "sparkles").font(.footnote.weight(.semibold)) }
+                            if let snacks { Text(snacks).readableFont(17, weight: .regular, relativeTo: .subheadline) }
+                            Button { fetchSnacks() } label: { Label(snacks == nil ? "Snack and lunchbox ideas" : "Another idea", systemImage: "sparkles").readableFont(16, weight: .semibold, relativeTo: .footnote) }
                                 .disabled(loading)
                         }
                         if TodayLayout.isOlderAdult(member) {
-                            if let carerNote { Text(carerNote).font(.subheadline) }
-                            Button { fetchCarerNote() } label: { Label(carerNote == nil ? "Weekly note for the family" : "Another note", systemImage: "sparkles").font(.footnote.weight(.semibold)) }
+                            if let carerNote { Text(carerNote).readableFont(17, weight: .regular, relativeTo: .subheadline) }
+                            Button { fetchCarerNote() } label: { Label(carerNote == nil ? "Weekly note for the family" : "Another note", systemImage: "sparkles").readableFont(16, weight: .semibold, relativeTo: .footnote) }
                                 .disabled(loading)
                         }
                         if tip != nil {
-                            Button("Another tip") { fetch() }.font(.footnote.weight(.semibold)).disabled(loading)
+                            Button("Another tip") { fetch() }.readableFont(16, weight: .semibold, relativeTo: .footnote).disabled(loading)
                         }
                     }
                     .padding(.horizontal, 4)

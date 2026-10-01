@@ -37,7 +37,7 @@ struct WelcomeCarouselView: View {
 
             Button { finish() } label: {
                 Image(systemName: "xmark.circle.fill")
-                    .font(.title2)
+                    .readableFont(24, weight: .regular, relativeTo: .title2)
                     .foregroundStyle(.secondary, Color(.tertiarySystemFill))
             }
             .padding(20)
@@ -57,16 +57,17 @@ struct WelcomeCarouselView: View {
     }
 
     private func slide(_ s: Slide) -> some View {
+        ScrollView {
         VStack(spacing: 28) {
             Spacer()
             Image(systemName: s.symbol)
                 .font(.system(size: 64))
                 .foregroundStyle(Theme.brandGradient)
             Text(s.title)
-                .font(.title.bold())
+                .readableFont(30, weight: .bold, relativeTo: .title)
                 .multilineTextAlignment(.center)
             Text(s.body)
-                .font(.subheadline)
+                .readableFont(17, weight: .regular, relativeTo: .subheadline)
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
                 .padding(.horizontal, 32)
@@ -74,6 +75,9 @@ struct WelcomeCarouselView: View {
             Spacer()
         }
         .padding(.horizontal, 24)
+        .padding(.top, 70)
+        .padding(.bottom, 100)
+        }
     }
 
     private func finish() {

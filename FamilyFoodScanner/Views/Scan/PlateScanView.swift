@@ -89,9 +89,9 @@ struct PlateScanView: View {
                     .foregroundStyle(Theme.brandGradient)
                     .padding(.top, 8)
                 Text("Estimate a meal's calories")
-                    .font(.title2.bold())
+                    .readableFont(24, weight: .bold, relativeTo: .title2)
                 Text("Take a photo of your plate from directly above. NutriKin's AI spots each food, estimates the portions and works out what it means for everyone in your family.")
-                    .font(.subheadline)
+                    .readableFont(17, weight: .regular, relativeTo: .subheadline)
                     .foregroundStyle(.secondary)
                     .multilineTextAlignment(.center)
 
@@ -104,35 +104,35 @@ struct PlateScanView: View {
                         Text(plateCm == 0
                              ? "The AI works out the plate's size from the photo. Pick a width in cm only if you know it: it makes portions more accurate."
                              : "Across the flat plate, edge to edge, in cm.")
-                            .font(.caption).foregroundStyle(.secondary)
+                            .readableFont(15, weight: .regular, relativeTo: .caption).foregroundStyle(.secondary)
                         if PlateMeasureView.isSupported {
                             Button { showMeasure = true } label: { Label("Measure it with the camera", systemImage: "ruler") }
-                                .font(.subheadline.weight(.semibold))
+                                .readableFont(17, weight: .semibold, relativeTo: .subheadline)
                         }
                     }
                     .padding(.top, 8)
                 } label: {
                     HStack {
-                        Label("Plate size", systemImage: "ruler").font(.subheadline.weight(.semibold))
+                        Label("Plate size", systemImage: "ruler").readableFont(17, weight: .semibold, relativeTo: .subheadline)
                         Spacer()
-                        Text(plateCm == 0 ? "Auto" : "\(plateCm) cm").font(.subheadline).foregroundStyle(.secondary)
+                        Text(plateCm == 0 ? "Auto" : "\(plateCm) cm").readableFont(17, weight: .regular, relativeTo: .subheadline).foregroundStyle(.secondary)
                     }
                 }
                 .card()
 
                 if let notice = proxyNotice {
                     Label(notice, systemImage: "exclamationmark.triangle.fill")
-                        .font(.caption).foregroundStyle(.orange).multilineTextAlignment(.center)
+                        .readableFont(15, weight: .regular, relativeTo: .caption).foregroundStyle(.orange).multilineTextAlignment(.center)
                 }
                 if let left = freeScansLeftToday {
                     Label(left > 0 ? "\(left) free AI scan\(left == 1 ? "" : "s") left today" : "Today's free AI scans are used up \u{2014} using the basic guess for now",
                           systemImage: left > 0 ? "sparkles" : "hourglass")
-                        .font(.footnote.weight(.semibold)).foregroundStyle(left > 0 ? Theme.brand : .secondary)
+                        .readableFont(16, weight: .semibold, relativeTo: .footnote).foregroundStyle(left > 0 ? Theme.brand : .secondary)
                 }
                 if ai.keyClient != nil || ai.appleStatus.isAvailable {
                     if ai.keyClient == nil {
                         Label("Uses Apple Intelligence on your iPhone. Nothing is uploaded.", systemImage: "apple.intelligence")
-                            .font(.footnote).foregroundStyle(Theme.brand).multilineTextAlignment(.center)
+                            .readableFont(16, weight: .regular, relativeTo: .footnote).foregroundStyle(Theme.brand).multilineTextAlignment(.center)
                     }
                     if CameraPicker.isAvailable {
                         Button { showCamera = true } label: { bigButton("Take a photo", "camera.fill", filled: true) }
@@ -144,18 +144,18 @@ struct PlateScanView: View {
                     .buttonStyle(PressableStyle())
                     if ai.keyClient == nil {
                         Button { image = nil; lastFoods = nil; foodsText = ""; phase = .describe } label: {
-                            Label("Describe what you ate instead", systemImage: "text.cursor").font(.subheadline.weight(.semibold))
+                            Label("Describe what you ate instead", systemImage: "text.cursor").readableFont(17, weight: .semibold, relativeTo: .subheadline)
                         }
                         Text("Apple's on-device AI can't see photos. It recognises what's on the plate on your phone, you confirm the foods, then it estimates the portions. A linked AI key can read the photo directly for better accuracy \u{2014} Gemini has a free tier if you'd rather not pay per request.")
-                            .font(.caption).foregroundStyle(.secondary).multilineTextAlignment(.center)
+                            .readableFont(15, weight: .regular, relativeTo: .caption).foregroundStyle(.secondary).multilineTextAlignment(.center)
                     }
                 } else {
                     VStack(spacing: 10) {
-                        Label("Link an AI to scan plates", systemImage: "key.fill").font(.headline).foregroundStyle(Theme.brand)
+                        Label("Link an AI to scan plates", systemImage: "key.fill").readableFont(19, weight: .semibold, relativeTo: .headline).foregroundStyle(Theme.brand)
                         Text("Apple Intelligence isn't available on this iPhone, so plate scanning needs your own AI account (Claude, OpenAI, Grok or Gemini). Gemini has a free tier, no card needed. It takes a minute to set up.")
-                            .font(.footnote).foregroundStyle(.secondary).multilineTextAlignment(.center)
+                            .readableFont(16, weight: .regular, relativeTo: .footnote).foregroundStyle(.secondary).multilineTextAlignment(.center)
                         if case .unavailable(let reason) = ai.appleStatus {
-                            Text(reason).font(.caption).foregroundStyle(.secondary).multilineTextAlignment(.center)
+                            Text(reason).readableFont(15, weight: .regular, relativeTo: .caption).foregroundStyle(.secondary).multilineTextAlignment(.center)
                         }
                         Button { showConnect = true } label: { bigButton("Link your key", "key", filled: true) }
                             .buttonStyle(PressableStyle())
@@ -164,7 +164,7 @@ struct PlateScanView: View {
                 }
 
                 Text("Estimates can be off by 20 to 30 percent. Not for insulin dosing or medical decisions.")
-                    .font(.caption).foregroundStyle(.secondary).multilineTextAlignment(.center)
+                    .readableFont(15, weight: .regular, relativeTo: .caption).foregroundStyle(.secondary).multilineTextAlignment(.center)
             }
             .padding()
         }
@@ -172,7 +172,7 @@ struct PlateScanView: View {
 
     private func bigButton(_ title: String, _ symbol: String, filled: Bool) -> some View {
         Label(title, systemImage: symbol)
-            .font(.headline)
+            .readableFont(19, weight: .semibold, relativeTo: .headline)
             .frame(maxWidth: .infinity)
             .padding(.vertical, 15)
             .foregroundStyle(filled ? Color.white : Theme.brand)
@@ -195,11 +195,11 @@ struct PlateScanView: View {
                         .overlay(Circle().strokeBorder(.white, lineWidth: 3))
                         .shadow(color: Theme.brand.opacity(0.3), radius: 10, y: 5)
                 }
-                Text("What's on the plate?").font(.title3.bold())
+                Text("What's on the plate?").readableFont(22, weight: .bold, relativeTo: .title3)
                 Text(image == nil
                      ? "List the foods, with amounts if you know them: \"2 rotis, a bowl of dal, mixed vegetable curry\"."
                      : "Your iPhone recognised these from the photo. Fix anything wrong and add amounts, for example \"2 rotis\" or \"a small bowl of dal\".")
-                    .font(.subheadline).foregroundStyle(.secondary).multilineTextAlignment(.center)
+                    .readableFont(17, weight: .regular, relativeTo: .subheadline).foregroundStyle(.secondary).multilineTextAlignment(.center)
                 TextField("e.g. rice, dal, chicken curry", text: $foodsText, axis: .vertical)
                     .lineLimit(3...8)
                     .focused($foodsFocused)
@@ -268,9 +268,9 @@ struct PlateScanView: View {
                     .shadow(color: Theme.brand.opacity(0.35), radius: 16, y: 8)
                     .overlay { PulsingRing() }
             }
-            Text("Looking at your plate\u{2026}").font(.headline)
+            Text("Looking at your plate\u{2026}").readableFont(19, weight: .semibold, relativeTo: .headline)
             Text("Spotting foods and estimating portions. This takes a few seconds.")
-                .font(.footnote).foregroundStyle(.secondary).multilineTextAlignment(.center)
+                .readableFont(16, weight: .regular, relativeTo: .footnote).foregroundStyle(.secondary).multilineTextAlignment(.center)
             Spacer()
         }
         .padding()
@@ -279,9 +279,9 @@ struct PlateScanView: View {
     private func failed(_ message: String) -> some View {
         VStack(spacing: 14) {
             Spacer()
-            Image(systemName: "exclamationmark.triangle.fill").font(.largeTitle).foregroundStyle(.orange)
-            Text("Couldn't analyse the plate").font(.headline)
-            Text(message).font(.footnote).foregroundStyle(.secondary).multilineTextAlignment(.center)
+            Image(systemName: "exclamationmark.triangle.fill").readableFont(36, weight: .regular, relativeTo: .largeTitle).foregroundStyle(.orange)
+            Text("Couldn't analyse the plate").readableFont(19, weight: .semibold, relativeTo: .headline)
+            Text(message).readableFont(16, weight: .regular, relativeTo: .footnote).foregroundStyle(.secondary).multilineTextAlignment(.center)
             Button("Try again") { phase = .setup }.buttonStyle(.borderedProminent).buttonBorderShape(.capsule)
             Spacer()
         }
@@ -305,10 +305,10 @@ struct PlateScanView: View {
                         Text("\(Int(totals.calories.rounded()))")
                             .font(.system(size: 40, weight: .bold, design: .rounded))
                             .contentTransition(.numericText(value: totals.calories))
-                        Text("estimated calories").font(.caption).foregroundStyle(.secondary)
+                        Text("estimated calories").readableFont(15, weight: .regular, relativeTo: .caption).foregroundStyle(.secondary)
                     }
                     Spacer()
-                    Text("ESTIMATE").font(.caption2.weight(.bold)).tracking(1)
+                    Text("ESTIMATE").readableFont(15, weight: .bold, relativeTo: .caption2).tracking(1)
                         .padding(.horizontal, 8).padding(.vertical, 4)
                         .background(Color.orange.opacity(0.18), in: Capsule()).foregroundStyle(.orange)
                 }
@@ -334,15 +334,15 @@ struct PlateScanView: View {
                         } label: { Label("Re-estimate with a \(editedCm) cm plate", systemImage: "arrow.clockwise") }
                     }
                     Text("Portions are judged against the plate's size. Only change this if it looks wrong.")
-                        .font(.footnote).foregroundStyle(.secondary)
+                        .readableFont(16, weight: .regular, relativeTo: .footnote).foregroundStyle(.secondary)
                 } label: {
                     Text("Plate size: \(usedCm) cm" + (usedWasEstimated ? " (AI estimate)" : ""))
-                        .font(.subheadline).foregroundStyle(.secondary)
+                        .readableFont(17, weight: .regular, relativeTo: .subheadline).foregroundStyle(.secondary)
                 }
             }
 
             if items.isEmpty {
-                Section { Text(note ?? "No food found in the photo. Try again from directly above, with good light.").font(.subheadline) }
+                Section { Text(note ?? "No food found in the photo. Try again from directly above, with good light.").readableFont(17, weight: .regular, relativeTo: .subheadline) }
             } else {
                 Section {
                     ForEach($items) { $item in PlateItemRow(item: $item) }
@@ -367,7 +367,7 @@ struct PlateScanView: View {
             }
 
             if let note, !items.isEmpty {
-                Section { Label(note, systemImage: "info.circle").font(.footnote) }
+                Section { Label(note, systemImage: "info.circle").readableFont(16, weight: .regular, relativeTo: .footnote) }
             }
 
             if !items.isEmpty {
@@ -375,7 +375,7 @@ struct PlateScanView: View {
                     if let person = logFor {
                         Button { logMeal(for: person) } label: {
                             Label(loggedNote ?? "Log this meal for \(person.name)", systemImage: loggedNote == nil ? "plus.circle.fill" : "checkmark.circle.fill")
-                                .font(.headline).frame(maxWidth: .infinity)
+                                .readableFont(19, weight: .semibold, relativeTo: .headline).frame(maxWidth: .infinity)
                         }
                         .buttonStyle(.borderedProminent).buttonBorderShape(.capsule).controlSize(.large)
                         .disabled(loggedNote != nil)
@@ -395,7 +395,7 @@ struct PlateScanView: View {
             Section {
                 Button { phase = .setup; image = nil; lastFoods = nil; loggedNote = nil } label: { Label("Scan another plate", systemImage: "camera.viewfinder") }
                 Text("Guidance only, not medical advice. Portions are estimated from a photo and can be significantly off.")
-                    .font(.footnote).foregroundStyle(.secondary)
+                    .readableFont(16, weight: .regular, relativeTo: .footnote).foregroundStyle(.secondary)
             }
         }
         .softList()
@@ -415,8 +415,8 @@ struct PlateScanView: View {
 
     private func macro(_ title: String, _ value: String) -> some View {
         VStack(spacing: 2) {
-            Text(value).font(.subheadline.weight(.semibold))
-            Text(title).font(.caption2).foregroundStyle(.secondary)
+            Text(value).readableFont(17, weight: .semibold, relativeTo: .subheadline)
+            Text(title).readableFont(15, weight: .regular, relativeTo: .caption2).foregroundStyle(.secondary)
         }
         .frame(maxWidth: .infinity)
     }
@@ -503,29 +503,29 @@ private struct PlateItemRow: View {
         VStack(alignment: .leading, spacing: 6) {
             HStack {
                 TextField("Food name", text: $item.name)
-                    .font(.headline)
+                    .readableFont(19, weight: .semibold, relativeTo: .headline)
                     .focused($editingName)
                     .submitLabel(.done)
                 if item.confidence != .high {
-                    Text(item.confidence == .low ? "not sure" : "check this").font(.caption2.weight(.semibold)).foregroundStyle(.orange)
+                    Text(item.confidence == .low ? "not sure" : "check this").readableFont(15, weight: .semibold, relativeTo: .caption2).foregroundStyle(.orange)
                         .padding(.horizontal, 6).padding(.vertical, 2)
                         .background(Color.orange.opacity(0.15), in: Capsule())
                         .fixedSize()
                 }
                 Spacer()
-                Text("\(Int(item.calories.rounded())) kcal").font(.subheadline.monospacedDigit()).foregroundStyle(.secondary)
+                Text("\(Int(item.calories.rounded())) kcal").readableFont(17, weight: .regular, relativeTo: .subheadline).monospacedDigit().foregroundStyle(.secondary)
             }
             if !item.alternatives.isEmpty {
                 HStack(spacing: 6) {
-                    Text("Did you mean:").font(.caption).foregroundStyle(.secondary)
+                    Text("Did you mean:").readableFont(15, weight: .regular, relativeTo: .caption).foregroundStyle(.secondary)
                     ForEach(item.alternatives, id: \.self) { guess in
                         Button(guess) { item.name = guess; item.alternatives = [] }
-                            .font(.caption.weight(.semibold)).buttonStyle(.bordered).buttonBorderShape(.capsule).controlSize(.mini)
+                            .readableFont(15, weight: .semibold, relativeTo: .caption).buttonStyle(.bordered).buttonBorderShape(.capsule).controlSize(.regular)
                     }
                 }
             }
             Stepper(value: $item.grams, in: 5...1500, step: 10) {
-                Text("\(Int(item.grams.rounded())) g").font(.subheadline.monospacedDigit())
+                Text("\(Int(item.grams.rounded())) g").readableFont(17, weight: .regular, relativeTo: .subheadline).monospacedDigit()
             }
         }
         .padding(.vertical, 2)
@@ -539,15 +539,15 @@ private struct MemberImpactRow: View {
         VStack(alignment: .leading, spacing: 8) {
             HStack(spacing: 10) {
                 Avatar(name: impact.member.name, size: 34)
-                Text(impact.member.name).font(.headline)
+                Text(impact.member.name).readableFont(19, weight: .semibold, relativeTo: .headline)
                 Spacer()
                 Text("\(Int((impact.caloriePct * 100).rounded()))% of daily calories")
-                    .font(.caption).foregroundStyle(.secondary)
+                    .readableFont(15, weight: .regular, relativeTo: .caption).foregroundStyle(.secondary)
             }
             if !impact.allergyHits.isEmpty {
                 Label("Possible \(impact.allergyHits.map { $0.rawValue }.joined(separator: ", ")). Check the ingredients.",
                       systemImage: "exclamationmark.triangle.fill")
-                    .font(.footnote.weight(.semibold)).foregroundStyle(.red)
+                    .readableFont(16, weight: .semibold, relativeTo: .footnote).foregroundStyle(.red)
             }
             bar("Sugar", impact.sugarPct)
             bar("Sodium", impact.sodiumPct)
@@ -559,7 +559,7 @@ private struct MemberImpactRow: View {
     private func bar(_ title: String, _ share: Double) -> some View {
         let color: Color = share >= 0.6 ? .red : share >= 0.35 ? .orange : .green
         return HStack(spacing: 8) {
-            Text(title).font(.caption).frame(width: 52, alignment: .leading)
+            Text(title).readableFont(15, weight: .regular, relativeTo: .caption).frame(width: 52, alignment: .leading)
             GeometryReader { geo in
                 ZStack(alignment: .leading) {
                     Capsule().fill(color.opacity(0.15))
@@ -567,7 +567,7 @@ private struct MemberImpactRow: View {
                 }
             }
             .frame(height: 8)
-            Text("\(Int((share * 100).rounded()))%").font(.caption.monospacedDigit()).frame(width: 40, alignment: .trailing)
+            Text("\(Int((share * 100).rounded()))%").readableFont(15, weight: .regular, relativeTo: .caption).monospacedDigit().frame(width: 40, alignment: .trailing)
         }
     }
 }

@@ -72,13 +72,13 @@ struct LogFoodSheet: View {
     private func choiceRow(symbol: String, title: String, subtitle: String, action: @escaping () -> Void) -> some View {
         Button(action: action) {
             HStack(spacing: 12) {
-                Image(systemName: symbol).font(.title2).foregroundStyle(Theme.brand).frame(width: 28)
+                Image(systemName: symbol).readableFont(24, weight: .regular, relativeTo: .title2).foregroundStyle(Theme.brand).frame(width: 28)
                 VStack(alignment: .leading, spacing: 2) {
-                    Text(title).font(.headline).foregroundStyle(.primary)
-                    Text(subtitle).font(.caption).foregroundStyle(.secondary)
+                    Text(title).readableFont(19, weight: .semibold, relativeTo: .headline).foregroundStyle(.primary)
+                    Text(subtitle).readableFont(15, weight: .regular, relativeTo: .caption).foregroundStyle(.secondary)
                 }
                 Spacer()
-                Image(systemName: "chevron.right").font(.footnote.weight(.semibold)).foregroundStyle(.tertiary)
+                Image(systemName: "chevron.right").readableFont(16, weight: .semibold, relativeTo: .footnote).foregroundStyle(.tertiary)
             }
         }
         .buttonStyle(.plain)
@@ -89,7 +89,7 @@ struct LogFoodSheet: View {
         Form {
             Section { backRow } .listRowBackground(Color.clear).listRowInsets(EdgeInsets())
             if choice == .describe { describeSection } else { manualSection }
-            if let message { Section { Text(message).font(.footnote).foregroundStyle(.red) } }
+            if let message { Section { Text(message).readableFont(16, weight: .regular, relativeTo: .footnote).foregroundStyle(.red) } }
         }
         .softList()
         .onAppear { mode = choice == .describe ? .describe : .manual }
@@ -97,7 +97,7 @@ struct LogFoodSheet: View {
 
     private var backRow: some View {
         Button { self.choice = nil; message = nil } label: {
-            Label("Choose a different way", systemImage: "chevron.left").font(.footnote.weight(.semibold))
+            Label("Choose a different way", systemImage: "chevron.left").readableFont(16, weight: .semibold, relativeTo: .footnote)
         }
     }
 
@@ -119,11 +119,11 @@ struct LogFoodSheet: View {
                 Section("Estimate") {
                     ForEach(estimate.items) { item in
                         HStack { Text("\(item.name) \u{00B7} \(Int(item.grams)) g"); Spacer(); Text("\(Int(item.calories.rounded())) kcal").foregroundStyle(.secondary) }
-                            .font(.subheadline)
+                            .readableFont(17, weight: .regular, relativeTo: .subheadline)
                     }
                     let total = MealTotals.of(estimate.items)
                     HStack { Text("Total").fontWeight(.semibold); Spacer(); Text("\(Int(total.calories.rounded())) kcal").fontWeight(.semibold) }
-                    if let note = estimate.note { Text(note).font(.footnote).foregroundStyle(.secondary) }
+                    if let note = estimate.note { Text(note).readableFont(16, weight: .regular, relativeTo: .footnote).foregroundStyle(.secondary) }
                 }
             }
         }
@@ -239,7 +239,7 @@ struct LogWorkoutSheet: View {
             Form {
                 if ai.textProvider != nil {
                     Section {
-                        if let idea { Text(idea).font(.subheadline) }
+                        if let idea { Text(idea).readableFont(17, weight: .regular, relativeTo: .subheadline) }
                         Button {
                             ideaLoading = true
                             Task {
@@ -256,12 +256,12 @@ struct LogWorkoutSheet: View {
                     } footer: { if idea != nil { Text("Written by AI. A general idea, not medical advice.") } }
                 }
                 Section("Activity") {
-                    LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 8), count: 4), spacing: 10) {
+                    LazyVGrid(columns: [GridItem(.adaptive(minimum: 90), spacing: 8)], spacing: 10) {
                         ForEach(WorkoutKind.choices(for: member)) { k in
                             Button { kind = k; override = nil; if k == .strength { showStrength = true } } label: {
                                 VStack(spacing: 5) {
-                                    Image(systemName: k.symbol).font(.title3).frame(height: 24)
-                                    Text(k.title).font(.caption2).lineLimit(1).minimumScaleFactor(0.7)
+                                    Image(systemName: k.symbol).readableFont(22, weight: .regular, relativeTo: .title3).frame(minHeight: 24)
+                                    Text(k.title).readableFont(15, weight: .regular, relativeTo: .caption2).lineLimit(2).fixedSize(horizontal: false, vertical: true)
                                 }
                                 .frame(maxWidth: .infinity).padding(.vertical, 9)
                                 .background(kind == k ? Color.orange.opacity(0.22) : Color(.tertiarySystemFill), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
@@ -296,7 +296,7 @@ struct LogWorkoutSheet: View {
                 }
                 }
                 Section("Note (optional)") { TextField("e.g. Morning walk in the park", text: $note) }
-                if let message { Section { Text(message).font(.footnote).foregroundStyle(.red) } }
+                if let message { Section { Text(message).readableFont(16, weight: .regular, relativeTo: .footnote).foregroundStyle(.red) } }
             }
             .softList()
             .fullScreenCover(isPresented: $showStrength) {
@@ -348,12 +348,12 @@ struct LogWorkoutSheet: View {
             VStack(spacing: 18) {
                 Spacer()
                 Image(systemName: "party.popper.fill").font(.system(size: 54)).foregroundStyle(.orange).popIn()
-                Text("Workout saved").font(.title2.bold())
+                Text("Workout saved").readableFont(24, weight: .bold, relativeTo: .title2)
                 Text(cheer)
-                    .font(.body).multilineTextAlignment(.center).padding(.horizontal, 24)
+                    .readableFont(18, weight: .regular, relativeTo: .body).multilineTextAlignment(.center).padding(.horizontal, 24)
                     .contentTransition(.opacity)
                 if cheerIsAI {
-                    Label("Written by AI", systemImage: "sparkles").font(.caption).foregroundStyle(.secondary)
+                    Label("Written by AI", systemImage: "sparkles").readableFont(15, weight: .regular, relativeTo: .caption).foregroundStyle(.secondary)
                 }
                 Spacer()
                 Button("Done") { dismiss() }.buttonStyle(.borderedProminent).controlSize(.large).padding(.bottom, 24)
@@ -406,15 +406,15 @@ struct LogProductSheet: View {
                     }
                     if let preview {
                         Text("About \(Int(preview.calories.rounded())) kcal \u{00B7} \(Int(preview.sugarG.rounded())) g sugar \u{00B7} \(Int(preview.sodiumMg.rounded())) mg sodium")
-                            .font(.footnote).foregroundStyle(.secondary)
+                            .readableFont(16, weight: .regular, relativeTo: .footnote).foregroundStyle(.secondary)
                     } else {
                         Text("This product's figures can't be worked out for an amount. Use Log food to type it in.")
-                            .font(.footnote).foregroundStyle(.orange)
+                            .readableFont(16, weight: .regular, relativeTo: .footnote).foregroundStyle(.orange)
                     }
                 } header: { Text(product.name) } footer: {
                     if !product.hasAnyNutrition { Text("This product has no nutrition information, so it will be logged with zero calories.") }
                 }
-                if let message { Section { Text(message).font(.footnote).foregroundStyle(.red) } }
+                if let message { Section { Text(message).readableFont(16, weight: .regular, relativeTo: .footnote).foregroundStyle(.red) } }
             }
             .softList()
             .navigationTitle("Log as eaten")

@@ -36,7 +36,7 @@ struct IngredientListView: View {
                 Button(showAll ? "Show fewer" : "Show all \(rows.count) ingredients") {
                     withAnimation(reduceMotion ? nil : .snappy) { showAll.toggle() }
                 }
-                .font(.footnote.weight(.semibold))
+                .readableFont(16, weight: .semibold, relativeTo: .footnote)
             }
 
             HStack(spacing: 12) {
@@ -47,7 +47,7 @@ struct IngredientListView: View {
             Text(hasAmounts
                  ? "In label order. \u{201C}~\u{201D} amounts are estimates; the rest are printed on the label."
                  : "Listed from largest to smallest amount.")
-                .font(.caption2)
+                .readableFont(15, weight: .regular, relativeTo: .caption2)
                 .foregroundStyle(.secondary)
         }
         .padding(.vertical, 4)
@@ -56,7 +56,7 @@ struct IngredientListView: View {
     private func legend(_ color: Color, _ text: String) -> some View {
         HStack(spacing: 4) {
             Circle().fill(color).frame(width: 8, height: 8)
-            Text(text).font(.caption2).foregroundStyle(.secondary)
+            Text(text).readableFont(15, weight: .regular, relativeTo: .caption2).foregroundStyle(.secondary)
         }
     }
 }
@@ -116,7 +116,7 @@ private struct CompositionBar: View {
 
             if let share = IngredientRows.flaggedShare(rows), share >= 1 {
                 Text("About \(Int(share.rounded()))% of this product is made of ingredients worth limiting or allergens.")
-                    .font(.footnote)
+                    .readableFont(16, weight: .regular, relativeTo: .footnote)
                     .foregroundStyle(share >= 50 ? Color.orange : Color.secondary)
             }
         }
@@ -150,16 +150,16 @@ private struct AmountRow: View {
             HStack(spacing: 8) {
                 Circle().fill(row.kind == .plain ? Color.secondary.opacity(0.35) : tint).frame(width: 8, height: 8)
                 Text(row.text)
-                    .font(.subheadline)
+                    .readableFont(17, weight: .regular, relativeTo: .subheadline)
                     .foregroundStyle(row.kind == .plain ? Color.primary : tint)
                     .lineLimit(2)
                 Spacer(minLength: 8)
                 if let label = row.amountLabel {
-                    Text(label).font(.subheadline.monospacedDigit()).foregroundStyle(.secondary)
+                    Text(label).readableFont(17, weight: .regular, relativeTo: .subheadline).monospacedDigit().foregroundStyle(.secondary)
                 }
                 if row.note != nil {
                     Image(systemName: "chevron.down")
-                        .font(.caption2.weight(.bold))
+                        .readableFont(15, weight: .bold, relativeTo: .caption2)
                         .foregroundStyle(tint)
                         .rotationEffect(.degrees(expanded ? 180 : 0))
                 }
@@ -178,7 +178,7 @@ private struct AmountRow: View {
 
             if expanded, let note = row.note {
                 Text(note)
-                    .font(.footnote)
+                    .readableFont(16, weight: .regular, relativeTo: .footnote)
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
                     .transition(.opacity.combined(with: .move(edge: .top)))
@@ -204,7 +204,7 @@ private struct ChipView: View {
 
     var body: some View {
         Text(row.text)
-            .font(.footnote)
+            .readableFont(16, weight: .regular, relativeTo: .footnote)
             .lineLimit(4)
             .multilineTextAlignment(.leading)
             .padding(.horizontal, 10)

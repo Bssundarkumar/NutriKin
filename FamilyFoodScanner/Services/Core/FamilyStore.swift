@@ -10,6 +10,7 @@ import Supabase
 @MainActor
 @Observable
 final class FamilyStore {
+    var healthSync: HealthKitManager?
     /// Where the "which family am I in?" lookup stands.
     enum Phase: Equatable {
         case idle
@@ -74,8 +75,16 @@ final class FamilyStore {
                     .value
             }
             if let row = rows.first { adopt(row) } else { clearHousehold() }
+            if hasHousehold {
+                await loadMyRole()
+                await refresh()
+                // An empty family is only actionable after the member lookup succeeds.
+                if let errorMessage {
+                    phase = .failed(errorMessage)
+                    return
+                }
+            }
             phase = .loaded
-            if hasHousehold { await loadMyRole(); await refresh() }
         } catch {
             phase = .failed(error.localizedDescription)
         }
@@ -273,7 +282,8 @@ final class FamilyStore {
         }
     }
 
-    func updateMember(_ member: Member) async {
+    func updateMember(_ member: Member, syncToHealth: Bool = true) async {
+        let previous = members.first { $0.id == member.id }
         errorMessage = nil
         do {
             struct Patch: Encodable {
@@ -303,6 +313,12 @@ final class FamilyStore {
             }
             if let index = members.firstIndex(where: { $0.id == member.id }) {
                 members[index] = member
+            }
+            if syncToHealth && (previous?.weightKg != member.weightKg || previous?.heightCm != member.heightCm) {
+                let row = BodyMeasurement(memberId: member.id, measuredOn: BodyMeasurement.day(.now),
+                                          heightCm: previous?.heightCm != member.heightCm ? member.heightCm : nil,
+                                          weightKg: previous?.weightKg != member.weightKg ? member.weightKg : nil)
+                healthSync?.enqueue(HealthSync.measurement(row, at: .now))
             }
         } catch {
             errorMessage = "Couldn't save changes. \(error.localizedDescription)"

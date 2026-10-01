@@ -33,7 +33,7 @@ struct GroceriesView: View {
                         Text("Tap the circle when you've bought it. It's removed for everyone.")
                     }
                 }
-                if let message = groceries.errorMessage { Section { Text(message).font(.footnote).foregroundStyle(.red) } }
+                if let message = groceries.errorMessage { Section { Text(message).readableFont(16, weight: .regular, relativeTo: .footnote).foregroundStyle(.red) } }
             }
             .softList()
             .navigationTitle("Groceries")
@@ -53,15 +53,15 @@ struct GroceriesView: View {
 
     private var addCard: some View {
         VStack(spacing: 10) {
-            HStack(spacing: 10) {
-                Image(systemName: "plus.circle.fill").foregroundStyle(Theme.brand).font(.title3)
+            ReadableStack(spacing: 10) {
+                Image(systemName: "plus.circle.fill").foregroundStyle(Theme.brand).readableFont(22, weight: .regular, relativeTo: .title3)
                 TextField("Add an item", text: $name).focused($focused).submitLabel(.done).onSubmit { add() }
                 TextField("Qty", text: $quantity).frame(width: 64).multilineTextAlignment(.trailing).foregroundStyle(.secondary)
                 Button("Add") { add() }
                     .buttonStyle(.borderedProminent).buttonBorderShape(.capsule)
                     .disabled(name.trimmingCharacters(in: .whitespaces).isEmpty)
             }
-            if let notice { Text(notice).font(.caption).foregroundStyle(.orange).frame(maxWidth: .infinity, alignment: .leading) }
+            if let notice { Text(notice).readableFont(15, weight: .regular, relativeTo: .caption).foregroundStyle(.orange).frame(maxWidth: .infinity, alignment: .leading) }
         }
         .padding(.horizontal, 14).padding(.vertical, 10)
         .background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 18, style: .continuous))
@@ -74,14 +74,14 @@ struct GroceriesView: View {
             Button { buy(item) } label: {
                 HStack(spacing: 12) {
                     Image(systemName: bought ? "checkmark.circle.fill" : "circle")
-                        .font(.title2).foregroundStyle(bought ? Theme.brand : .secondary)
+                        .readableFont(24, weight: .regular, relativeTo: .title2).foregroundStyle(bought ? Theme.brand : .secondary)
                         .symbolEffect(.bounce, value: bought)
                     VStack(alignment: .leading, spacing: 1) {
-                        Text(item.name).font(.body.weight(.medium)).strikethrough(bought).foregroundStyle(bought ? .secondary : .primary)
-                        if let note = item.note, !note.isEmpty { Text(note).font(.caption).foregroundStyle(.secondary) }
+                        Text(item.name).readableFont(18, weight: .medium, relativeTo: .body).strikethrough(bought).foregroundStyle(bought ? .secondary : .primary)
+                        if let note = item.note, !note.isEmpty { Text(note).readableFont(15, weight: .regular, relativeTo: .caption).foregroundStyle(.secondary) }
                     }
                     Spacer()
-                    if let q = item.quantity { Text(q).font(.subheadline).foregroundStyle(.secondary) }
+                    if let q = item.quantity { Text(q).readableFont(17, weight: .regular, relativeTo: .subheadline).foregroundStyle(.secondary) }
                 }
                 .contentShape(Rectangle())
             }
@@ -126,9 +126,9 @@ struct GroceriesView: View {
     private var undoBanner: some View {
         if let last = groceries.lastRemoved.first {
             HStack {
-                Text("Removed \u{201C}\(last.name)\u{201D}").font(.subheadline).lineLimit(1)
+                Text("Removed \u{201C}\(last.name)\u{201D}").readableFont(17, weight: .regular, relativeTo: .subheadline).lineLimit(1)
                 Spacer()
-                Button("Undo") { Task { await groceries.undoLastRemoval() } }.font(.subheadline.weight(.bold))
+                Button("Undo") { Task { await groceries.undoLastRemoval() } }.readableFont(17, weight: .bold, relativeTo: .subheadline)
             }
             .padding(.horizontal, 16).padding(.vertical, 12)
             .background(.regularMaterial, in: Capsule())

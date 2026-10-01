@@ -35,7 +35,7 @@ struct PlateMeasureView: View {
 
             VStack {
                 Text(status)
-                    .font(.footnote.weight(.medium))
+                    .readableFont(16, weight: .medium, relativeTo: .footnote)
                     .multilineTextAlignment(.center)
                     .padding(.horizontal, 14).padding(.vertical, 9)
                     .background(.black.opacity(0.65), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
@@ -63,7 +63,7 @@ struct PlateMeasureView: View {
                         }
                         .disabled(usable == nil)
                     }
-                    .font(.subheadline.weight(.semibold))
+                    .readableFont(17, weight: .semibold, relativeTo: .subheadline)
                     .foregroundStyle(.white)
                 }
                 .padding(.bottom, 28)

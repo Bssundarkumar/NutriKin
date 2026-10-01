@@ -39,8 +39,8 @@ struct QualityBadges: View {
                         }
                     }
                     VStack(alignment: .leading, spacing: 0) {
-                        Text("Nutri-Score \(grade.uppercased())").font(.subheadline.weight(.semibold))
-                        Text("Overall nutrition quality").font(.caption).foregroundStyle(.secondary)
+                        Text("Nutri-Score \(grade.uppercased())").readableFont(17, weight: .semibold, relativeTo: .subheadline)
+                        Text("Overall nutrition quality").readableFont(15, weight: .regular, relativeTo: .caption).foregroundStyle(.secondary)
                     }
                 }
                 .accessibilityElement(children: .ignore)
@@ -50,13 +50,13 @@ struct QualityBadges: View {
             if let group = novaGroup, let color = Self.novaColors[group] {
                 HStack(spacing: 10) {
                     Text("\(group)")
-                        .font(.headline)
+                        .readableFont(19, weight: .semibold, relativeTo: .headline)
                         .frame(width: 34, height: 34)
                         .background(color, in: Circle())
                         .foregroundStyle(.white)
                     VStack(alignment: .leading, spacing: 0) {
-                        Text("NOVA \(group)").font(.subheadline.weight(.semibold))
-                        Text(Self.novaName(group)).font(.caption).foregroundStyle(.secondary)
+                        Text("NOVA \(group)").readableFont(17, weight: .semibold, relativeTo: .subheadline)
+                        Text(Self.novaName(group)).readableFont(15, weight: .regular, relativeTo: .caption).foregroundStyle(.secondary)
                     }
                 }
                 .accessibilityElement(children: .combine)
@@ -101,12 +101,12 @@ struct AlternativesSection: View {
                     HStack(spacing: 10) {
                         ProgressView()
                         Text(aiIsLoading ? "Asking your AI, then checking real products\u{2026}" : "Looking for better options\u{2026}")
-                            .font(.footnote).foregroundStyle(.secondary)
+                            .readableFont(16, weight: .regular, relativeTo: .footnote).foregroundStyle(.secondary)
                     }
                 } else if merged.isEmpty {
-                    Label("No clearly better match found", systemImage: "magnifyingglass").font(.subheadline)
+                    Label("No clearly better match found", systemImage: "magnifyingglass").readableFont(17, weight: .regular, relativeTo: .subheadline)
                     Text("Nothing that's safe for everyone in your family scored meaningfully better.")
-                        .font(.footnote).foregroundStyle(.secondary)
+                        .readableFont(16, weight: .regular, relativeTo: .footnote).foregroundStyle(.secondary)
                     if canAskAI, case .failed = ideas {
                         Button(action: onRetry) { Label("Try the AI again", systemImage: "arrow.clockwise") }
                     }
@@ -136,27 +136,27 @@ private struct AlternativeRow: View {
 
             VStack(alignment: .leading, spacing: 2) {
                 if isBest {
-                    Label("Best pick", systemImage: "star.fill").font(.caption2.weight(.bold)).foregroundStyle(.orange)
+                    Label("Best pick", systemImage: "star.fill").readableFont(15, weight: .bold, relativeTo: .caption2).foregroundStyle(.orange)
                 }
-                Text(item.product.name).font(.subheadline.weight(.semibold)).lineLimit(2)
+                Text(item.product.name).readableFont(17, weight: .semibold, relativeTo: .subheadline).lineLimit(2)
                 if let brand = item.product.brand {
-                    Text(brand).font(.caption).foregroundStyle(.secondary)
+                    Text(brand).readableFont(15, weight: .regular, relativeTo: .caption).foregroundStyle(.secondary)
                 }
                 if let why = item.why, !why.isEmpty {
-                    Text(why).font(.caption2).foregroundStyle(Theme.brand).lineLimit(2)
+                    Text(why).readableFont(15, weight: .regular, relativeTo: .caption2).foregroundStyle(Theme.brand).lineLimit(2)
                 }
             }
             Spacer()
             if let grade = item.product.nutriScore, let color = QualityBadges.nutriColors[grade] {
                 Text(grade.uppercased())
-                    .font(.footnote.weight(.bold))
+                    .readableFont(16, weight: .bold, relativeTo: .footnote)
                     .frame(width: 26, height: 26)
                     .background(color, in: RoundedRectangle(cornerRadius: 6))
                     .foregroundStyle(.white)
             }
             VStack(spacing: 0) {
-                Text("\(item.worstScore)").font(.headline.monospacedDigit())
-                Text("lowest").font(.caption2)
+                Text("\(item.worstScore)").readableFont(19, weight: .semibold, relativeTo: .headline).monospacedDigit()
+                Text("lowest").readableFont(15, weight: .regular, relativeTo: .caption2)
             }
             .foregroundStyle(.green)
         }
@@ -179,10 +179,10 @@ struct GradesInfoSheet: View {
             List {
                 Section {
                     Text("A to E, from best to worst. It looks at what's in 100 g: calories, sugar, saturated fat and salt count against a product; fibre, protein and fruit or vegetables count for it.")
-                        .font(.subheadline)
+                        .readableFont(17, weight: .regular, relativeTo: .subheadline)
                     HStack(spacing: 4) {
                         ForEach(["a", "b", "c", "d", "e"], id: \.self) { letter in
-                            Text(letter.uppercased()).font(.footnote.weight(.bold))
+                            Text(letter.uppercased()).readableFont(16, weight: .bold, relativeTo: .footnote)
                                 .frame(maxWidth: .infinity, minHeight: 30)
                                 .background(QualityBadges.nutriColors[letter]!, in: RoundedRectangle(cornerRadius: 8))
                                 .foregroundStyle(.white)
@@ -192,16 +192,16 @@ struct GradesInfoSheet: View {
 
                 Section {
                     Text("NOVA sorts food by how much it has been industrially processed, not by its nutrients. Group 4 usually means added flavours, sweeteners or emulsifiers you wouldn't use at home. Studies link eating a lot of these with weight gain and heart disease.")
-                        .font(.subheadline)
+                        .readableFont(17, weight: .regular, relativeTo: .subheadline)
                     ForEach(novaRows, id: \.0) { group, title, examples in
                         HStack(alignment: .top, spacing: 12) {
-                            Text("\(group)").font(.headline)
+                            Text("\(group)").readableFont(19, weight: .semibold, relativeTo: .headline)
                                 .frame(width: 32, height: 32)
                                 .background(QualityBadges.novaColors[group]!, in: Circle())
                                 .foregroundStyle(.white)
                             VStack(alignment: .leading, spacing: 2) {
-                                Text(title).font(.subheadline.weight(.semibold))
-                                Text(examples).font(.caption).foregroundStyle(.secondary)
+                                Text(title).readableFont(17, weight: .semibold, relativeTo: .subheadline)
+                                Text(examples).readableFont(15, weight: .regular, relativeTo: .caption).foregroundStyle(.secondary)
                             }
                         }
                     }
@@ -209,7 +209,7 @@ struct GradesInfoSheet: View {
 
                 Section {
                     Text("Both grades come from Open Food Facts and are general: they don't know your family's health needs. That's what the family scores are for. They aren't shown for dietary supplements.")
-                        .font(.footnote)
+                        .readableFont(16, weight: .regular, relativeTo: .footnote)
                         .foregroundStyle(.secondary)
                 }
             }

@@ -9,6 +9,7 @@ struct HealthWorkout: Identifiable, Hashable {
     let minutes: Int
     let activeKcal: Int?
     let sourceName: String?
+    var isFromNutriKin = false
 }
 
 /// A day's activity as Health has it. Steps and calories are the totals from every source Health knows about.
@@ -17,8 +18,13 @@ struct HealthActivity: Equatable {
     var activeKcal: Double?
     var exerciseMinutes: Int?
     var workouts: [HealthWorkout] = []
+    var totalEnergyKcal: Double?
+    var averageHeartRateBpm: Double?
+    var restingHeartRateBpm: Double?
+    var walkingRunningDistanceMeters: Double?
+    var flightsClimbed: Int?
 
-    var isEmpty: Bool { steps == nil && activeKcal == nil && exerciseMinutes == nil && workouts.isEmpty }
+    var isEmpty: Bool { steps == nil && activeKcal == nil && exerciseMinutes == nil && workouts.isEmpty && totalEnergyKcal == nil && averageHeartRateBpm == nil && restingHeartRateBpm == nil && walkingRunningDistanceMeters == nil && flightsClimbed == nil }
 }
 
 enum HealthImport {
@@ -44,6 +50,7 @@ enum HealthImport {
     static func newWorkouts(from found: [HealthWorkout], existing: [Workout]) -> [HealthWorkout] {
         let imported = Set(existing.compactMap(\.externalId))
         return found.filter { hw in
+            if hw.isFromNutriKin { return false }
             if imported.contains(hw.id.uuidString) { return false }
             return !existing.contains { $0.workoutKind == hw.kind && abs($0.doneAt.timeIntervalSince(hw.start)) < 10 * 60 }
         }

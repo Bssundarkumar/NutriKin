@@ -196,6 +196,30 @@ final class MedicationStore {
         }
     }
 
+    var reminderResult: String?
+    private(set) var sendingReminder: String?
+    private struct PokeRequest: Encodable { var medicationID: String; var dueAt: String; var timezone: String }
+    private struct PokeResponse: Decodable { var accepted: Bool; var message: String }
+
+    static func canRemind(_ dose: ScheduledDose, member: Member, userID: UUID?, now: Date = .now) -> Bool {
+        guard let userID, let recipient = member.userId, recipient != userID else { return false }
+        return (dose.state == .due || dose.state == .missed) && dose.record == nil
+            && dose.dueAt <= now && now.timeIntervalSince(dose.dueAt) < 86_400
+    }
+
+    func remind(_ dose: ScheduledDose, member: Member, userID: UUID?) async {
+        guard Self.canRemind(dose, member: member, userID: userID), sendingReminder == nil else { return }
+        sendingReminder = dose.id
+        defer { sendingReminder = nil }
+        if Demo.isOn { reminderResult = "Demo reminder only. No notification was sent."; return }
+        do {
+            // A single request: retrying a push could notify someone twice.
+            let result: PokeResponse = try await client.functions.invoke("medication-poke", options: .init(body:
+                PokeRequest(medicationID: dose.medication.id.uuidString, dueAt: ISO8601DateFormatter().string(from: dose.dueAt), timezone: TimeZone.current.identifier)))
+            reminderResult = result.message
+        } catch { reminderResult = "Couldn't send the reminder. Family notifications may need server setup." }
+    }
+
     // MARK: Reminders
 
     func setReminder(_ med: Medication, on: Bool) async {

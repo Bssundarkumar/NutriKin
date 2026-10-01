@@ -25,32 +25,32 @@ struct KidActivityCard: View {
                         .stroke(todayMinutes >= KidActivity.dailyGoalMinutes ? Color.green : Color.orange, style: StrokeStyle(lineWidth: 10, lineCap: .round))
                         .rotationEffect(.degrees(-90)).animation(.smooth, value: todayMinutes)
                     VStack(spacing: 0) {
-                        Text("\(todayMinutes)").font(.title3.bold().monospacedDigit())
-                        Text("of \(KidActivity.dailyGoalMinutes) min").font(.caption2).foregroundStyle(.secondary)
+                        Text("\(todayMinutes)").readableFont(22, weight: .bold, relativeTo: .title3).monospacedDigit()
+                        Text("of \(KidActivity.dailyGoalMinutes) min").readableFont(15, weight: .regular, relativeTo: .caption2).foregroundStyle(.secondary)
                     }
                 }
                 .frame(width: 92, height: 92)
                 .accessibilityElement(children: .ignore)
                 .accessibilityLabel("\(todayMinutes) of \(KidActivity.dailyGoalMinutes) minutes of active play today")
                 VStack(alignment: .leading, spacing: 6) {
-                    Text(KidActivity.message(name: member.name, todayMinutes: todayMinutes)).font(.subheadline.weight(.semibold))
+                    Text(KidActivity.message(name: member.name, todayMinutes: todayMinutes)).readableFont(17, weight: .semibold, relativeTo: .subheadline)
                     if canEdit && tracking.isToday {
-                        Button { Task { await logPlay(30) } } label: { Label("Log 30 min of play", systemImage: "plus.circle.fill").font(.footnote.weight(.semibold)) }
+                        Button { Task { await logPlay(30) } } label: { Label("Log 30 min of play", systemImage: "plus.circle.fill").readableFont(16, weight: .semibold, relativeTo: .footnote) }
                     }
                 }
             }
             VStack(alignment: .leading, spacing: 6) {
                 HStack {
-                    Text("This week").font(.subheadline.weight(.semibold))
+                    Text("This week").readableFont(17, weight: .semibold, relativeTo: .subheadline)
                     Spacer()
-                    Text("\(KidActivity.stars(week)) star\(KidActivity.stars(week) == 1 ? "" : "s")").font(.caption).foregroundStyle(.secondary)
+                    Text("\(KidActivity.stars(week)) star\(KidActivity.stars(week) == 1 ? "" : "s")").readableFont(15, weight: .regular, relativeTo: .caption).foregroundStyle(.secondary)
                 }
                 HStack(spacing: 6) {
                     ForEach(week) { d in
                         VStack(spacing: 3) {
                             Image(systemName: d.earnedStar ? "star.fill" : "star")
                                 .foregroundStyle(d.earnedStar ? Color.yellow : Color.secondary.opacity(0.4))
-                            Text(d.date.formatted(.dateTime.weekday(.narrow))).font(.caption2).foregroundStyle(.secondary)
+                            Text(d.date.formatted(.dateTime.weekday(.narrow))).readableFont(15, weight: .regular, relativeTo: .caption2).foregroundStyle(.secondary)
                         }
                         .frame(maxWidth: .infinity)
                         .accessibilityElement(children: .combine)
@@ -60,12 +60,12 @@ struct KidActivityCard: View {
             }
             if ai.textProvider != nil {
                 if let summary {
-                    Text(summary).font(.subheadline)
-                    Text("Written by AI. General encouragement, not medical advice.").font(.caption2).foregroundStyle(.secondary)
+                    Text(summary).readableFont(17, weight: .regular, relativeTo: .subheadline)
+                    Text("Written by AI. General encouragement, not medical advice.").readableFont(15, weight: .regular, relativeTo: .caption2).foregroundStyle(.secondary)
                 }
                 Button { fetchSummary() } label: {
                     Label(loading ? "Thinking\u{2026}" : (summary == nil ? "Weekly summary for parents" : "Another summary"), systemImage: "sparkles")
-                        .font(.footnote.weight(.semibold))
+                        .readableFont(16, weight: .semibold, relativeTo: .footnote)
                 }.disabled(loading)
             }
         }

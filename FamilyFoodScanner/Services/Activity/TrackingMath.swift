@@ -36,6 +36,12 @@ struct DayTotals: Equatable {
     var calories = 0.0, sugarG = 0.0, carbsG = 0.0, sodiumMg = 0.0, satFatG = 0.0, proteinG = 0.0
     var fiberG = 0.0, fatG = 0.0
 
+    static func + (lhs: DayTotals, rhs: DayTotals) -> DayTotals {
+        DayTotals(calories: lhs.calories + rhs.calories, sugarG: lhs.sugarG + rhs.sugarG, carbsG: lhs.carbsG + rhs.carbsG,
+                  sodiumMg: lhs.sodiumMg + rhs.sodiumMg, satFatG: lhs.satFatG + rhs.satFatG, proteinG: lhs.proteinG + rhs.proteinG,
+                  fiberG: lhs.fiberG + rhs.fiberG, fatG: lhs.fatG + rhs.fatG)
+    }
+
     static func of(_ entries: [FoodEntry]) -> DayTotals {
         entries.reduce(into: DayTotals()) {
             $0.calories += $1.calories; $0.sugarG += $1.sugarG; $0.carbsG += $1.carbsG
@@ -61,9 +67,9 @@ struct DayBudget {
     let healthBurned: Int
 
     /// Health's active calories include the workouts, so the larger of the two is used, never their sum.
-    init(member: Member, entries: [FoodEntry], workouts: [Workout], healthActiveKcal: Double? = nil) {
+    init(member: Member, entries: [FoodEntry], workouts: [Workout], healthActiveKcal: Double? = nil, healthNutrition: DayTotals = DayTotals()) {
         limits = DailyLimits.for(member)
-        eaten = DayTotals.of(entries)
+        eaten = DayTotals.of(entries) + healthNutrition
         loggedBurned = workouts.reduce(0) { $0 + $1.caloriesBurned }
         healthBurned = max(Int((healthActiveKcal ?? 0).rounded()), 0)
         burned = max(loggedBurned, healthBurned)

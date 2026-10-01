@@ -18,6 +18,7 @@ final class TrackingStore {
     var isLoading = false
     var errorMessage: String?
 
+    var healthSync: HealthKitManager?
     var householdId: UUID?
     var client: SupabaseClient { Backend.client }
 
@@ -27,7 +28,8 @@ final class TrackingStore {
     func workouts(for member: Member) -> [Workout] { workouts.filter { $0.memberId == member.id }.sorted { $0.doneAt < $1.doneAt } }
 
     func budget(for member: Member, healthActiveKcal: Double? = nil) -> DayBudget {
-        DayBudget(member: member, entries: entries(for: member), workouts: workouts(for: member), healthActiveKcal: healthActiveKcal)
+        let nutrition = healthSync?.linkedMemberID == member.id && healthSync?.dataDay == day ? (healthSync?.externalNutrition ?? DayTotals()) : DayTotals()
+        return DayBudget(member: member, entries: entries(for: member), workouts: workouts(for: member), healthActiveKcal: healthActiveKcal, healthNutrition: nutrition)
     }
 
     // MARK: Loading
@@ -107,6 +109,7 @@ final class TrackingStore {
                 try await client.from("food_log").insert(payload).select().single().execute().value
             }
             if Calendar.current.isDate(saved.eatenAt, inSameDayAs: day) { entries.append(saved) }
+            healthSync?.enqueue(HealthSync.food(saved))
             return true
         } catch {
             errorMessage = "Couldn't save that. \(error.localizedDescription)"
@@ -137,6 +140,7 @@ final class TrackingStore {
                                   sodiumMg: fixed.sodiumMg, satFatG: fixed.satFatG, proteinG: fixed.proteinG, fiberG: fixed.fiberG, fatG: fixed.fatG))
                     .eq("id", value: fixed.id).execute()
             }
+            healthSync?.enqueue(HealthSync.food(fixed))
             return true
         } catch {
             entries = before
@@ -151,6 +155,7 @@ final class TrackingStore {
         if Demo.isOn { return }
         do {
             try await Backend.withRetry { try await client.from("food_log").delete().eq("id", value: entry.id).execute() }
+            healthSync?.enqueue(HealthSync.food(entry, deleted: true))
         } catch {
             entries.append(entry)
             errorMessage = "Couldn't remove that. \(error.localizedDescription)"

@@ -2,6 +2,7 @@ import SwiftUI
 
 struct ResultView: View {
     let product: Product
+    @ScaledMetric(relativeTo: .body) private var nutritionTileWidth = 96.0
     @Environment(FamilyStore.self) private var family
     @Environment(HistoryStore.self) private var history
     @Environment(AIConnection.self) private var ai
@@ -32,11 +33,11 @@ struct ResultView: View {
             if !product.dataWarnings.isEmpty {
                 Section {
                     Label("Some information is missing", systemImage: "questionmark.diamond.fill")
-                        .font(.subheadline.weight(.semibold))
+                        .readableFont(17, weight: .semibold, relativeTo: .subheadline)
                         .foregroundStyle(.orange)
-                    ForEach(product.dataWarnings, id: \.self) { Text($0).font(.footnote) }
+                    ForEach(product.dataWarnings, id: \.self) { Text($0).readableFont(16, weight: .regular, relativeTo: .footnote) }
                     Text("Scores can't be fully trusted without it. Check the package, or go back and photograph the label.")
-                        .font(.footnote).foregroundStyle(.secondary)
+                        .readableFont(16, weight: .regular, relativeTo: .footnote).foregroundStyle(.secondary)
                 }
                 .listRowBackground(Color.orange.opacity(0.12))
             }
@@ -44,9 +45,9 @@ struct ResultView: View {
             if product.barcode.hasPrefix("photo-") {
                 Section {
                     Label("Read from a photo", systemImage: "camera.viewfinder")
-                        .font(.subheadline.weight(.semibold))
+                        .readableFont(17, weight: .semibold, relativeTo: .subheadline)
                     Text("This uses the text you confirmed, not a database. Compare it with the package, especially for allergies.")
-                        .font(.footnote)
+                        .readableFont(16, weight: .regular, relativeTo: .footnote)
                         .foregroundStyle(.secondary)
                 }
             }
@@ -54,9 +55,9 @@ struct ResultView: View {
             if let failed = history.failedSave, failed.barcode == product.barcode {
                 Section {
                     Label("Not saved to History", systemImage: "exclamationmark.icloud.fill")
-                        .font(.subheadline.weight(.semibold))
+                        .readableFont(17, weight: .semibold, relativeTo: .subheadline)
                         .foregroundStyle(.orange)
-                    Text(failed.message).font(.footnote).foregroundStyle(.secondary)
+                    Text(failed.message).readableFont(16, weight: .regular, relativeTo: .footnote).foregroundStyle(.secondary)
                     Button(history.isRetrying ? "Trying\u{2026}" : "Try again") {
                         Task { await history.retryFailedSave() }
                     }
@@ -67,9 +68,9 @@ struct ResultView: View {
             if product.isSupplement {
                 Section {
                     Label("Dietary supplement", systemImage: "pills.fill")
-                        .font(.subheadline.weight(.semibold))
+                        .readableFont(17, weight: .semibold, relativeTo: .subheadline)
                     Text("Nutri-Score and NOVA grades are designed for everyday foods, so they're not shown for supplements. Follow the dose on the label and ask a doctor or pharmacist if you're unsure.")
-                        .font(.footnote)
+                        .readableFont(16, weight: .regular, relativeTo: .footnote)
                         .foregroundStyle(.secondary)
                 }
             } else if product.nutriScore != nil || product.novaGroup != nil {
@@ -82,7 +83,7 @@ struct ResultView: View {
                         Spacer()
                         Button { showGradesInfo = true } label: {
                             Label("What do these mean?", systemImage: "info.circle")
-                                .font(.caption.weight(.semibold))
+                                .readableFont(15, weight: .semibold, relativeTo: .caption)
                                 .textCase(nil)
                         }
                     }
@@ -130,7 +131,7 @@ struct ResultView: View {
             Section("Who can eat this") {
                 ForEach(Array(results.enumerated()), id: \.element.id) { i, s in
                     DisclosureGroup {
-                        ForEach(s.reasons, id: \.self) { Text($0).font(.subheadline) }
+                        ForEach(s.reasons, id: \.self) { Text($0).readableFont(17, weight: .regular, relativeTo: .subheadline) }
                     } label: {
                         MemberScoreRow(score: s)
                     }
@@ -144,7 +145,7 @@ struct ResultView: View {
             Section {
                 Button { showAsk = true } label: {
                     Label("Ask AI about this product", systemImage: "sparkles")
-                        .font(.subheadline.weight(.semibold))
+                        .readableFont(17, weight: .semibold, relativeTo: .subheadline)
                 }
             } footer: {
                 Text("Chat with your linked AI. It knows this product and your family's needs.")
@@ -154,15 +155,15 @@ struct ResultView: View {
             if !ingredientRows.isEmpty {
                 Section("Ingredients") { IngredientListView(rows: ingredientRows) }
             } else if let raw = product.ingredientsText, !raw.isEmpty {
-                Section("Ingredients") { Text(raw).font(.footnote) }
+                Section("Ingredients") { Text(raw).readableFont(16, weight: .regular, relativeTo: .footnote) }
             }
 
             Section {
                 Text("Guidance only, not medical advice.")
-                    .font(.footnote)
+                    .readableFont(16, weight: .regular, relativeTo: .footnote)
                     .foregroundStyle(.secondary)
                 Text("Product data from [Open Food Facts](https://world.openfoodfacts.org/product/\(product.barcode)) (ODbL). Photos CC BY-SA.")
-                    .font(.caption)
+                    .readableFont(15, weight: .regular, relativeTo: .caption)
                     .foregroundStyle(.secondary)
             }
         }
@@ -254,11 +255,11 @@ struct ResultView: View {
             ("Sat. fat", n.satFatG.map { String(format: "%.1f g", $0) } ?? "–"),
             ("Protein", n.proteinG.map { String(format: "%.1f g", $0) } ?? "–"),
         ]
-        return LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 3), spacing: 12) {
+        return LazyVGrid(columns: [GridItem(.adaptive(minimum: nutritionTileWidth), spacing: 12)], spacing: 12) {
             ForEach(items, id: \.0) { item in
                 VStack(alignment: .leading, spacing: 2) {
-                    Text(item.0).font(.caption).foregroundStyle(.secondary)
-                    Text(item.1).font(.headline)
+                    Text(item.0).readableFont(15, weight: .regular, relativeTo: .caption).foregroundStyle(.secondary)
+                    Text(item.1).readableFont(19, weight: .semibold, relativeTo: .headline)
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
             }
@@ -273,15 +274,15 @@ struct MemberScoreRow: View {
         HStack(spacing: 12) {
             Avatar(name: score.member.name, size: 40)
             VStack(alignment: .leading, spacing: 2) {
-                Text(score.member.name).font(.headline)
+                Text(score.member.name).readableFont(19, weight: .semibold, relativeTo: .headline)
                 Text(conditionsText)
-                    .font(.caption)
+                    .readableFont(15, weight: .regular, relativeTo: .caption)
                     .foregroundStyle(.secondary)
             }
             Spacer()
             VStack(spacing: 2) {
                 ScoreRing(score: score.score, color: color, size: 46, lineWidth: 5)
-                Text(score.verdict.label).font(.caption2.weight(.semibold)).foregroundStyle(color)
+                Text(score.verdict.label).readableFont(15, weight: .semibold, relativeTo: .caption2).foregroundStyle(color)
             }
         }
     }
@@ -301,12 +302,12 @@ struct IngredientAlertRow: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
             Label(alert.flag.title, systemImage: icon)
-                .font(.subheadline.weight(.semibold))
+                .readableFont(17, weight: .semibold, relativeTo: .subheadline)
                 .foregroundStyle(color)
             Text(alert.flag.reason)
-                .font(.footnote)
+                .readableFont(16, weight: .regular, relativeTo: .footnote)
             Text(alert.members.isEmpty ? "Relevant to everyone" : "Matters most for \(alert.members.joined(separator: ", "))")
-                .font(.caption)
+                .readableFont(15, weight: .regular, relativeTo: .caption)
                 .foregroundStyle(.secondary)
         }
         .padding(.vertical, 2)

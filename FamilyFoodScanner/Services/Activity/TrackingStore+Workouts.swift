@@ -123,6 +123,7 @@ extension TrackingStore {
             }
             if Calendar.current.isDate(saved.doneAt, inSameDayAs: day) { workouts.append(saved) }
             if saved.doneAt >= Self.recentCutoff { recentWorkouts.append(saved) }
+            healthSync?.enqueue(HealthSync.workout(saved))
             return true
         } catch {
             errorMessage = "Couldn't save that workout. \(error.localizedDescription)"
@@ -162,6 +163,7 @@ extension TrackingStore {
                                   note: fixed.note, exercises: fixed.exercises))
                     .eq("id", value: fixed.id).execute()
             }
+            healthSync?.enqueue(HealthSync.workout(fixed))
             return true
         } catch {
             (workouts, recentWorkouts) = before
@@ -178,6 +180,7 @@ extension TrackingStore {
         if Demo.isOn { return }
         do {
             try await Backend.withRetry { try await client.from("workouts").delete().eq("id", value: workout.id).execute() }
+            healthSync?.enqueue(HealthSync.workout(workout, deleted: true))
         } catch {
             workouts.append(workout); recentWorkouts = weekBefore
             errorMessage = "Couldn't remove that workout. \(error.localizedDescription)"

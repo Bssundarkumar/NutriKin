@@ -35,6 +35,7 @@ enum Demo {
         }
     }
     static var opensGrowth: Bool { CommandLine.arguments.contains("-demoGrowth") }
+    static var opensActivity: Bool { CommandLine.arguments.contains("-demoActivity") }
     static var opensLogWorkout: Bool { CommandLine.arguments.contains("-demoLogWorkout") }
     /// Opens Log workout already on Strength with a couple of sample exercises (for screenshots).
     static var strengthSample: [StrengthExercise]? {
@@ -169,6 +170,7 @@ enum Demo {
     static let medications: [Medication] = []
     static var doseRecords: [DoseRecord] { [] }
     static let opensLogFood = false
+    static let opensActivity = false
     static let opensLogWorkout = false
     static func measurements(for member: Member) -> [BodyMeasurement] { [] }
     static let opensGrowth = false

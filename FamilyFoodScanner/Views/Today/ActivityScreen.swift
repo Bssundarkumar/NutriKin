@@ -51,6 +51,7 @@ struct ActivityScreen: View {
                                            onEdit: w.source == "health" ? nil : { editingWorkout = w }) {
                                         Task { await tracking.delete(w) }
                                     }
+                                    .slideToDelete { Task { await tracking.delete(w) } }
                                     if w.id != list.last?.id { Divider().padding(.leading, 48) }
                                 }
                             }
@@ -62,17 +63,17 @@ struct ActivityScreen: View {
                             Image(systemName: "ellipsis.circle.fill").frame(width: 34, height: 34)
                                 .background(Theme.brand.opacity(0.12), in: Circle()).foregroundStyle(Theme.brand)
                             VStack(alignment: .leading, spacing: 1) {
-                                Text("More for \(member.name)").font(.subheadline.weight(.semibold))
-                                Text(TodayLayout.isChild(member) ? "Growth chart" : "Growth chart, gym buddies").font(.caption).foregroundStyle(.secondary)
+                                Text("More for \(member.name)").readableFont(17, weight: .semibold, relativeTo: .subheadline)
+                                Text(TodayLayout.isChild(member) ? "Growth chart" : "Growth chart, gym buddies").readableFont(15, weight: .regular, relativeTo: .caption).foregroundStyle(.secondary)
                             }
                             Spacer()
-                            Image(systemName: "chevron.right").font(.caption).foregroundStyle(.tertiary)
+                            Image(systemName: "chevron.right").readableFont(15, weight: .regular, relativeTo: .caption).foregroundStyle(.tertiary)
                         }
                         .contentShape(Rectangle())
                     }
                     .buttonStyle(.plain)
                     .card()
-                    if let message = tracking.errorMessage { Text(message).font(.footnote).foregroundStyle(.red) }
+                    if let message = tracking.errorMessage { Text(message).readableFont(16, weight: .regular, relativeTo: .footnote).foregroundStyle(.red) }
                 }
                 .padding(.horizontal, 16).padding(.bottom, 32)
             }
@@ -108,7 +109,7 @@ struct ScheduledTodayList: View {
                 ForEach(pending) { s in
                     HStack(spacing: 10) {
                         Image(systemName: s.workoutKind.symbol).foregroundStyle(.orange)
-                        Text("\(s.title) at \(ScheduleMath.timeText(s.time))").font(.subheadline)
+                        Text("\(s.title) at \(ScheduleMath.timeText(s.time))").readableFont(17, weight: .regular, relativeTo: .subheadline)
                         Spacer()
                         if family.canManage(member) {
                             Button("Went") {
@@ -118,14 +119,14 @@ struct ScheduledTodayList: View {
                                     }
                                 }
                             }
-                            .buttonStyle(.borderedProminent).buttonBorderShape(.capsule).controlSize(.small).tint(.orange)
+                            .buttonStyle(.borderedProminent).buttonBorderShape(.capsule).controlSize(.regular).tint(.orange)
                         }
                     }
                 }
                 if showsScheduleLink {
                     Button(action: onSchedule) {
                         Label(tracking.schedules(for: member).isEmpty ? "Set up a weekly schedule" : "Weekly schedule", systemImage: "calendar")
-                            .font(.footnote.weight(.semibold))
+                            .readableFont(16, weight: .semibold, relativeTo: .footnote)
                     }
                 }
             }
@@ -157,7 +158,7 @@ struct ActivityGoalBars: View {
 
     private func bar(_ title: String, _ detail: String, _ fraction: Double, _ tint: Color) -> some View {
         VStack(alignment: .leading, spacing: 4) {
-            HStack { Text(title).font(.subheadline.weight(.semibold)); Spacer(); Text(detail).font(.caption.monospacedDigit()).foregroundStyle(.secondary) }
+            HStack { Text(title).readableFont(17, weight: .semibold, relativeTo: .subheadline); Spacer(); Text(detail).readableFont(15, weight: .regular, relativeTo: .caption).monospacedDigit().foregroundStyle(.secondary) }
             ProgressView(value: fraction).tint(fraction >= 1 ? .green : tint)
         }
         .accessibilityElement(children: .combine)
@@ -178,8 +179,8 @@ struct ActivitySummaryCard: View {
         let minutes = max(logged.reduce(0) { $0 + $1.minutes }, showsHealth ? (health.activity.exerciseMinutes ?? 0) : 0)
         VStack(alignment: .leading, spacing: 12) {
             SectionTitle(title: "Activity", actionTitle: "Open", action: onOpen, symbol: "figure.run", tint: .orange)
-            HStack(spacing: 10) {
-                StatTile(title: "Active min", value: "\(minutes)", symbol: "timer", tint: Theme.brand)
+            SingleRow(spacing: 10) {
+                StatTile(title: "Exercise min", value: "\(minutes)", symbol: "timer", tint: Theme.brand)
                 if showsHealth { StatTile(title: "Steps", value: health.activity.steps.map { $0.formatted() } ?? "\u{2013}", symbol: "figure.walk", tint: .blue) }
                 StatTile(title: "Workouts", value: "\(logged.count)", symbol: "figure.run", tint: .orange)
             }

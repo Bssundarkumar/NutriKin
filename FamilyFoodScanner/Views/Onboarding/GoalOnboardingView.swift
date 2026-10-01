@@ -22,6 +22,7 @@ struct GoalOnboardingView: View {
     var body: some View {
         NavigationStack {
             VStack(spacing: 0) {
+                ScrollView {
                 header
                 Group {
                     switch step {
@@ -31,7 +32,7 @@ struct GoalOnboardingView: View {
                     }
                 }
                 .padding(.horizontal, 24)
-                Spacer()
+                }
                 footer
             }
             .background(AppBackground())
@@ -39,7 +40,7 @@ struct GoalOnboardingView: View {
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
                     Button("Skip") { Task { await finish(skipped: true) } }
-                        .font(.footnote)
+                        .readableFont(16, weight: .regular, relativeTo: .footnote)
                 }
             }
         }
@@ -58,7 +59,7 @@ struct GoalOnboardingView: View {
             .padding(.horizontal, 24)
             .padding(.top, 8)
             Text("\(step)/\(totalSteps)")
-                .font(.caption)
+                .readableFont(15, weight: .regular, relativeTo: .caption)
                 .foregroundStyle(.secondary)
         }
         .padding(.bottom, 12)
@@ -68,7 +69,7 @@ struct GoalOnboardingView: View {
         VStack(spacing: 20) {
             Spacer().frame(height: 12)
             Text("Welcome! What should we call you?")
-                .font(.title2.bold())
+                .readableFont(24, weight: .bold, relativeTo: .title2)
                 .multilineTextAlignment(.center)
             TextField("Your name", text: $name)
                 .textFieldStyle(.roundedBorder)
@@ -79,7 +80,7 @@ struct GoalOnboardingView: View {
             }
             .pickerStyle(.segmented)
             Text("Used only to pick a more accurate default calorie goal — optional.")
-                .font(.footnote).foregroundStyle(.secondary)
+                .readableFont(16, weight: .regular, relativeTo: .footnote).foregroundStyle(.secondary)
         }
     }
 
@@ -87,12 +88,12 @@ struct GoalOnboardingView: View {
         VStack(spacing: 20) {
             Spacer().frame(height: 12)
             Text("A few vitals")
-                .font(.title2.bold())
+                .readableFont(24, weight: .bold, relativeTo: .title2)
             DatePicker("Birthdate", selection: $birthdate, in: ...Date.now, displayedComponents: .date)
             numericField("Height", suffix: "cm", text: $heightCm)
             numericField("Current weight", suffix: "kg", text: $weightKg, allowsDecimal: true)
             Text("Used to work out a daily calorie goal, BMI and a healthy weight range. Stays private to your family.")
-                .font(.footnote).foregroundStyle(.secondary)
+                .readableFont(16, weight: .regular, relativeTo: .footnote).foregroundStyle(.secondary)
         }
     }
 
@@ -100,19 +101,19 @@ struct GoalOnboardingView: View {
         VStack(spacing: 20) {
             Spacer().frame(height: 12)
             Text("Weight goal")
-                .font(.title2.bold())
+                .readableFont(24, weight: .bold, relativeTo: .title2)
             Text("What is your target weight?")
-                .font(.subheadline).foregroundStyle(.secondary)
+                .readableFont(17, weight: .regular, relativeTo: .subheadline).foregroundStyle(.secondary)
             numericField("Target weight", suffix: "kg", text: $targetWeightKg, allowsDecimal: true)
             Text("Optional — leave blank and NutriKin will suggest a healthy target from your BMI instead.")
-                .font(.footnote).foregroundStyle(.secondary)
+                .readableFont(16, weight: .regular, relativeTo: .footnote).foregroundStyle(.secondary)
         }
     }
 
     private var footer: some View {
         VStack(spacing: 10) {
             if let error = family.errorMessage {
-                Text(error).font(.footnote).foregroundStyle(.red).multilineTextAlignment(.center)
+                Text(error).readableFont(16, weight: .regular, relativeTo: .footnote).foregroundStyle(.red).multilineTextAlignment(.center)
             }
             Button(step < totalSteps ? "Continue" : "Done") {
                 if step < totalSteps { step += 1 } else { Task { await finish(skipped: false) } }
@@ -121,7 +122,7 @@ struct GoalOnboardingView: View {
             .controlSize(.large)
             .disabled(step == 1 && name.trimmingCharacters(in: .whitespaces).isEmpty || isSaving)
             if step > 1 {
-                Button("Back") { step -= 1 }.font(.footnote)
+                Button("Back") { step -= 1 }.readableFont(16, weight: .regular, relativeTo: .footnote)
             }
         }
         .padding(.horizontal, 24)
@@ -137,7 +138,7 @@ struct GoalOnboardingView: View {
                 .keyboardType(allowsDecimal ? .decimalPad : .numberPad)
                 .multilineTextAlignment(.trailing)
                 .frame(width: 70)
-            Text(suffix).foregroundStyle(.secondary).font(.footnote)
+            Text(suffix).foregroundStyle(.secondary).readableFont(16, weight: .regular, relativeTo: .footnote)
         }
     }
 

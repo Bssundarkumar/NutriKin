@@ -40,7 +40,7 @@ struct EditFoodEntryView: View {
             Form {
                 if entry.source != .manual {
                     Section {
-                        Text(note(for: entry.source)).font(.footnote).foregroundStyle(.secondary)
+                        Text(note(for: entry.source)).readableFont(16, weight: .regular, relativeTo: .footnote).foregroundStyle(.secondary)
                     }
                 }
                 Section("Food") {
@@ -54,7 +54,7 @@ struct EditFoodEntryView: View {
                         fieldRow("Protein", "g", $protein); fieldRow("Fibre", "g", $fiber)
                     }
                 } footer: { Text("Leave blank anything you don't know.") }
-                if let message { Section { Text(message).font(.footnote).foregroundStyle(.red) } }
+                if let message { Section { Text(message).readableFont(16, weight: .regular, relativeTo: .footnote).foregroundStyle(.red) } }
             }
             .softList()
             .navigationTitle("Edit food")

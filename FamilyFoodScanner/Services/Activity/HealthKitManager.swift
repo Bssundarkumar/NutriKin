@@ -4,6 +4,7 @@ import Observation
 
 struct HealthSnapshot {
     var weightKg: Double?
+    var heightCm: Double?
     var bloodGlucoseMgDl: Double?
     var systolic: Double?
     var diastolic: Double?
@@ -18,15 +19,24 @@ struct HealthSnapshot {
 @MainActor
 @Observable
 final class HealthKitManager {
-    private let store = HKHealthStore()
+    let store = HKHealthStore()
     var hasRequestedAccess = false
     var snapshot = HealthSnapshot()
     var errorMessage: String?
     /// Steps, active calories, exercise minutes and workouts for the day being viewed.
     var activity = HealthActivity()
+    var linkedMemberID: UUID?
+    var syncURL: URL?
+    var pendingWrites: [String: HealthSync.Write] = [:]
+    var observers: [HKObserverQuery] = []
+    var isFlushing = false
+    var onHealthChange: (() async -> Void)?
+    var externalNutrition = DayTotals()
+    var externalWaterMl: Double = 0
+    var dataDay: Date?
     var isAvailable: Bool { Demo.isOn || HKHealthStore.isHealthDataAvailable() }
 
-    private var readTypes: Set<HKObjectType> {
+    var readTypes: Set<HKObjectType> {
         [
             // Body measurements
             HKQuantityType(.bodyMass),
@@ -34,6 +44,7 @@ final class HealthKitManager {
             HKQuantityType(.height),
             HKQuantityType(.waistCircumference),
             // Heart
+            HKQuantityType(.heartRate), HKQuantityType(.restingHeartRate),
             HKQuantityType(.bloodGlucose),
             HKQuantityType(.bloodPressureSystolic),
             HKQuantityType(.bloodPressureDiastolic),
@@ -42,12 +53,15 @@ final class HealthKitManager {
             HKObjectType.characteristicType(forIdentifier: .biologicalSex)!,
             // Nutrition
             HKQuantityType(.dietaryEnergyConsumed),
+            HKQuantityType(.dietaryCarbohydrates), HKQuantityType(.dietaryProtein), HKQuantityType(.dietaryFatTotal),
+            HKQuantityType(.dietarySugar), HKQuantityType(.dietaryFiber), HKQuantityType(.dietaryFatSaturated), HKQuantityType(.dietarySodium),
             HKQuantityType(.dietaryWater),
             // Sleep
             HKObjectType.categoryType(forIdentifier: .sleepAnalysis)!,
             // Activity
             HKQuantityType(.stepCount),
-            HKQuantityType(.activeEnergyBurned),
+            HKQuantityType(.distanceWalkingRunning), HKQuantityType(.flightsClimbed),
+            HKQuantityType(.activeEnergyBurned), HKQuantityType(.basalEnergyBurned),
             HKQuantityType(.appleExerciseTime),
             HKObjectType.workoutType(),
         ]
@@ -55,7 +69,7 @@ final class HealthKitManager {
 
     /// What NutriKin writes back, so other health apps on the same phone can use what's logged here —
     /// shown to the person as its own "Write Access" section, separate from what we read.
-    private var shareTypes: Set<HKSampleType> {
+    var shareTypes: Set<HKSampleType> {
         [
             HKQuantityType(.activeEnergyBurned),
             HKObjectType.workoutType(),
@@ -93,18 +107,26 @@ final class HealthKitManager {
             // Denied types simply return no samples.
             hasRequestedAccess = true
             await refresh()
+            await startObserving()
+            await flush()
+            await onHealthChange?()
         } catch {
             errorMessage = error.localizedDescription
         }
     }
 
     func refresh() async {
-        snapshot.weightKg = await latest(.bodyMass, unit: .gramUnit(with: .kilo))
-        snapshot.bloodGlucoseMgDl = await latest(.bloodGlucose, unit: HKUnit(from: "mg/dL"))
-        snapshot.systolic = await latest(.bloodPressureSystolic, unit: .millimeterOfMercury())
-        snapshot.diastolic = await latest(.bloodPressureDiastolic, unit: .millimeterOfMercury())
-        snapshot.caloriesToday = await todaySum(.dietaryEnergyConsumed, unit: .kilocalorie())
-        snapshot.sleepHoursLastNight = await sleepLastNight()
+        guard !Demo.isOn, hasRequestedAccess, let owner = linkedMemberID else { return }
+        var latestSnapshot = HealthSnapshot()
+        latestSnapshot.weightKg = await latest(.bodyMass, unit: .gramUnit(with: .kilo))
+        latestSnapshot.heightCm = await latest(.height, unit: .meterUnit(with: .centi))
+        latestSnapshot.bloodGlucoseMgDl = await latest(.bloodGlucose, unit: HKUnit(from: "mg/dL"))
+        latestSnapshot.systolic = await latest(.bloodPressureSystolic, unit: .millimeterOfMercury())
+        latestSnapshot.diastolic = await latest(.bloodPressureDiastolic, unit: .millimeterOfMercury())
+        latestSnapshot.caloriesToday = await todaySum(.dietaryEnergyConsumed, unit: .kilocalorie())
+        latestSnapshot.sleepHoursLastNight = await sleepLastNight()
+        guard linkedMemberID == owner else { return }
+        snapshot = latestSnapshot
     }
 
     /// Sums "asleep" samples (any of Apple's asleep categories, not just "in bed") from the last 24 hours,
@@ -123,9 +145,9 @@ final class HealthKitManager {
             HKCategoryValueSleepAnalysis.asleepDeep.rawValue,
             HKCategoryValueSleepAnalysis.asleepREM.rawValue,
         ]
-        let seconds = samples.filter { asleepValues.contains($0.value) }
-            .reduce(0.0) { $0 + $1.endDate.timeIntervalSince($1.startDate) }
-        return seconds > 0 ? seconds / 3600 : nil
+        return HealthSync.sleepHours(samples.filter { asleepValues.contains($0.value) }.map {
+            DateInterval(start: max($0.startDate, start), end: max(max($0.startDate, start), min($0.endDate, .now)))
+        })
     }
 
     /// Whether the person has already been asked, so a returning user isn't shown "Connect" again.
@@ -139,7 +161,7 @@ final class HealthKitManager {
     /// The day's steps, active calories, exercise minutes and workouts (all sources Health knows about).
     func loadActivity(day: Date) async {
         if Demo.isOn { activity = Demo.healthActivity; return }
-        guard HKHealthStore.isHealthDataAvailable(), hasRequestedAccess else { return }
+        guard HKHealthStore.isHealthDataAvailable(), hasRequestedAccess, let owner = linkedMemberID else { return }
         let cal = Calendar.current
         let start = cal.startOfDay(for: day)
         let end = min(cal.date(byAdding: .day, value: 1, to: start) ?? .now, .now)
@@ -152,16 +174,49 @@ final class HealthKitManager {
         }
         let steps = await sum(.stepCount, .count())
         let active = await sum(.activeEnergyBurned, .kilocalorie())
+        let restingEnergy = await sum(.basalEnergyBurned, .kilocalorie())
+        let totalEnergy = active.flatMap { activeValue in restingEnergy.map { activeValue + $0 } }
         let exercise = await sum(.appleExerciseTime, .minute())
+        let distance = await sum(.distanceWalkingRunning, .meter())
+        let flights = await sum(.flightsClimbed, .count())
+        func average(_ id: HKQuantityTypeIdentifier) async -> Double? {
+            let descriptor = HKStatisticsQueryDescriptor(
+                predicate: .quantitySample(type: HKQuantityType(id), predicate: range), options: .discreteAverage)
+            return try? await descriptor.result(for: store)?.averageQuantity()?.doubleValue(for: HKUnit.count().unitDivided(by: .minute()))
+        }
+        let heartRate = await average(.heartRate)
+        let restingHeartRate = await average(.restingHeartRate)
 
-        let query = HKSampleQueryDescriptor(predicates: [.workout(range)], sortDescriptors: [SortDescriptor(\.startDate)], limit: 30)
+        let query = HKSampleQueryDescriptor(predicates: [.workout(range)], sortDescriptors: [SortDescriptor(\.startDate)])
         let workouts = ((try? await query.result(for: store)) ?? []).map { w -> HealthWorkout in
             let kcal = w.statistics(for: HKQuantityType(.activeEnergyBurned))?.sumQuantity()?.doubleValue(for: .kilocalorie())
             return HealthWorkout(id: w.uuid, kind: HealthImport.kind(for: w.workoutActivityType), start: w.startDate,
                                  minutes: Int((w.duration / 60).rounded()), activeKcal: kcal.map { Int($0.rounded()) },
-                                 sourceName: w.sourceRevision.source.name)
+                                 sourceName: w.sourceRevision.source.name, isFromNutriKin: w.sourceRevision.source == HKSource.default())
         }
-        activity = HealthActivity(steps: steps.map { Int($0.rounded()) }, activeKcal: active, exerciseMinutes: exercise.map { Int($0.rounded()) }, workouts: workouts)
+        let external = NSCompoundPredicate(andPredicateWithSubpredicates: [range, NSCompoundPredicate(notPredicateWithSubpredicate: HKQuery.predicateForObjects(from: HKSource.default()))])
+        let waterQuery = HKStatisticsQueryDescriptor(predicate: .quantitySample(type: HKQuantityType(.dietaryWater), predicate: external), options: .cumulativeSum)
+        let waterMl = (try? await waterQuery.result(for: store)?.sumQuantity()?.doubleValue(for: HKUnit.literUnit(with: .milli))) ?? 0
+        func nutrition(_ identifier: HKQuantityTypeIdentifier, _ unit: HKUnit) async -> Double {
+            let query = HKStatisticsQueryDescriptor(predicate: .quantitySample(type: HKQuantityType(identifier), predicate: external), options: .cumulativeSum)
+            return (try? await query.result(for: store)?.sumQuantity()?.doubleValue(for: unit)) ?? 0
+        }
+        var nutrients = DayTotals()
+        nutrients.calories = await nutrition(.dietaryEnergyConsumed, .kilocalorie())
+        nutrients.carbsG = await nutrition(.dietaryCarbohydrates, .gram())
+        nutrients.proteinG = await nutrition(.dietaryProtein, .gram())
+        nutrients.fatG = await nutrition(.dietaryFatTotal, .gram())
+        nutrients.sugarG = await nutrition(.dietarySugar, .gram())
+        nutrients.fiberG = await nutrition(.dietaryFiber, .gram())
+        nutrients.satFatG = await nutrition(.dietaryFatSaturated, .gram())
+        nutrients.sodiumMg = await nutrition(.dietarySodium, .gramUnit(with: .milli))
+        guard linkedMemberID == owner else { return }
+        externalWaterMl = waterMl
+        externalNutrition = nutrients
+        dataDay = start
+        activity = HealthActivity(steps: steps.map { Int($0.rounded()) }, activeKcal: active, exerciseMinutes: exercise.map { Int($0.rounded()) }, workouts: workouts,
+                                  totalEnergyKcal: totalEnergy, averageHeartRateBpm: heartRate, restingHeartRateBpm: restingHeartRate,
+                                  walkingRunningDistanceMeters: distance, flightsClimbed: flights.map { Int($0.rounded()) })
     }
 
     private func latest(_ id: HKQuantityTypeIdentifier, unit: HKUnit) async -> Double? {

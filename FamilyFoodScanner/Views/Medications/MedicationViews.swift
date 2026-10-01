@@ -39,7 +39,7 @@ struct MedicationsCard: View {
             } else {
                 let s = MedicationSchedule.summary(doses)
                 Text("\(s.taken) of \(s.total) dose\(s.total == 1 ? "" : "s") taken")
-                    .font(.footnote).foregroundStyle(.secondary)
+                    .readableFont(16, weight: .regular, relativeTo: .footnote).foregroundStyle(.secondary)
                 VStack(spacing: 0) {
                     ForEach(doses) { dose in
                         row(dose)
@@ -47,27 +47,38 @@ struct MedicationsCard: View {
                     }
                 }
             }
-            if !canEdit { Text(readOnlyNote(member)).font(.caption).foregroundStyle(.secondary) }
-            if let message = meds.errorMessage { Text(message).font(.footnote).foregroundStyle(.red) }
+            if !canEdit { Text(readOnlyNote(member)).readableFont(15, weight: .regular, relativeTo: .caption).foregroundStyle(.secondary) }
+            if let message = meds.errorMessage { Text(message).readableFont(16, weight: .regular, relativeTo: .footnote).foregroundStyle(.red) }
         }
         .card(tint: .blue)
+        .alert("Family reminder", isPresented: Binding(get: { meds.reminderResult != nil }, set: { if !$0 { meds.reminderResult = nil } })) {
+            Button("OK") { meds.reminderResult = nil }
+        } message: { Text(meds.reminderResult ?? "") }
     }
 
     private func row(_ dose: ScheduledDose) -> some View {
-        HStack(spacing: 12) {
+        VStack(alignment: .leading, spacing: 4) {
+        ReadableStack(spacing: 12) {
             Image(systemName: symbol(dose.state)).frame(width: 34, height: 34)
                 .background(tint(dose.state).opacity(0.14), in: Circle()).foregroundStyle(tint(dose.state))
             VStack(alignment: .leading, spacing: 1) {
-                Text(dose.medication.name).font(.subheadline.weight(.semibold)).lineLimit(1)
+                Text(dose.medication.name).readableFont(17, weight: .semibold, relativeTo: .subheadline).lineLimit(2)
                 HStack(spacing: 4) {
                     Text([dose.dueAt.formatted(date: .omitted, time: .shortened), dose.medication.dose].compactMap { $0 }.joined(separator: " \u{00B7} "))
-                        .font(.caption).foregroundStyle(.secondary).lineLimit(1)
-                    if dose.state == .missed { Text("\u{00B7} Not marked").font(.caption.weight(.semibold)).foregroundStyle(.red).lineLimit(1) }
-                    if dose.state == .due { Text("\u{00B7} Due now").font(.caption.weight(.semibold)).foregroundStyle(.orange).lineLimit(1) }
+                        .readableFont(15, weight: .regular, relativeTo: .caption).foregroundStyle(.secondary).lineLimit(2)
+                    if dose.state == .missed { Text("\u{00B7} Not marked").readableFont(15, weight: .semibold, relativeTo: .caption).foregroundStyle(.red).lineLimit(2) }
+                    if dose.state == .due { Text("\u{00B7} Due now").readableFont(15, weight: .semibold, relativeTo: .caption).foregroundStyle(.orange).lineLimit(2) }
                 }
             }
             Spacer(minLength: 6)
             actions(dose)
+        }
+        if MedicationStore.canRemind(dose, member: member, userID: family.myUserId) {
+            Button { Task { await meds.remind(dose, member: member, userID: family.myUserId) } } label: {
+                Label(meds.sendingReminder == dose.id ? "Sending…" : "Remind them", systemImage: "bell.badge")
+                    .frame(minHeight: 44)
+            }.disabled(meds.sendingReminder != nil)
+        }
         }
         .padding(.vertical, 8)
     }
@@ -76,12 +87,12 @@ struct MedicationsCard: View {
     private func actions(_ dose: ScheduledDose) -> some View {
         if !canEdit {
             let label = dose.state == .taken ? "Taken" : dose.state == .skipped ? "Skipped" : dose.state == .missed ? "Not taken yet" : "Waiting"
-            Text(label).font(.caption.weight(.semibold)).foregroundStyle(dose.state == .taken ? .green : .secondary)
+            Text(label).readableFont(15, weight: .semibold, relativeTo: .caption).foregroundStyle(dose.state == .taken ? .green : .secondary)
         } else {
         switch dose.state {
         case .taken, .skipped:
             HStack(spacing: 6) {
-                Text(dose.state == .taken ? "Taken" : "Skipped").font(.caption.weight(.semibold)).foregroundStyle(tint(dose.state))
+                Text(dose.state == .taken ? "Taken" : "Skipped").readableFont(15, weight: .semibold, relativeTo: .caption).foregroundStyle(tint(dose.state))
                 Menu {
                     if let record = dose.record {
                         Button("Undo", systemImage: "arrow.uturn.backward") { Task { await meds.undo(record) } }
@@ -89,19 +100,19 @@ struct MedicationsCard: View {
                             Task { await meds.mark(dose, as: dose.state == .taken ? .skipped : .taken) }
                         }
                     }
-                } label: { Image(systemName: "ellipsis").foregroundStyle(.secondary).frame(width: 28, height: 34) }
+                } label: { Image(systemName: "ellipsis").foregroundStyle(.secondary).frame(width: 44, height: 44) }
             }
         case .due, .missed, .upcoming:
             HStack(spacing: 6) {
                 Button { Task { await meds.mark(dose, as: .taken) } } label: {
-                    Text("Taken").font(.caption.weight(.bold)).fixedSize().padding(.horizontal, 12).padding(.vertical, 7)
+                    Text("Taken").readableFont(15, weight: .bold, relativeTo: .caption).fixedSize().padding(.horizontal, 12).padding(.vertical, 7)
                         .background(dose.state == .upcoming ? Color(.tertiarySystemFill) : Theme.brand, in: Capsule())
                         .foregroundStyle(dose.state == .upcoming ? Color.primary : Color.white)
                 }
                 .buttonStyle(PressableStyle())
                 Menu {
                     Button("Skip this dose", systemImage: "forward.end") { Task { await meds.mark(dose, as: .skipped) } }
-                } label: { Image(systemName: "ellipsis").foregroundStyle(.secondary).frame(width: 28, height: 34) }
+                } label: { Image(systemName: "ellipsis").foregroundStyle(.secondary).frame(width: 44, height: 44) }
             }
         }
         }
@@ -142,7 +153,7 @@ struct MedicationsManageView: View {
         NavigationStack {
             List {
                 Section {
-                    HStack(spacing: 10) { Avatar(name: member.name, size: 36); Text(member.name).font(.headline) }
+                    HStack(spacing: 10) { Avatar(name: member.name, size: 36); Text(member.name).readableFont(19, weight: .semibold, relativeTo: .headline) }
                         .listRowBackground(Color.clear)
                 }
                 Section {
@@ -155,11 +166,11 @@ struct MedicationsManageView: View {
                             HStack(spacing: 12) {
                                 VStack(alignment: .leading, spacing: 2) {
                                     HStack(spacing: 6) {
-                                        Text(med.name).font(.headline).foregroundStyle(med.active ? .primary : .secondary)
-                                        if !med.active { Text("Paused").font(.caption2.weight(.bold)).foregroundStyle(.orange) }
+                                        Text(med.name).readableFont(19, weight: .semibold, relativeTo: .headline).foregroundStyle(med.active ? .primary : .secondary)
+                                        if !med.active { Text("Paused").readableFont(15, weight: .bold, relativeTo: .caption2).foregroundStyle(.orange) }
                                     }
-                                    if let dose = med.dose { Text(dose).font(.subheadline).foregroundStyle(.secondary) }
-                                    Text(scheduleText(med)).font(.caption).foregroundStyle(.secondary)
+                                    if let dose = med.dose { Text(dose).readableFont(17, weight: .regular, relativeTo: .subheadline).foregroundStyle(.secondary) }
+                                    Text(scheduleText(med)).readableFont(15, weight: .regular, relativeTo: .caption).foregroundStyle(.secondary)
                                 }
                                 Spacer()
                                 if meds.remindHere.contains(med.id) { Image(systemName: "bell.fill").foregroundStyle(Theme.brand) }
@@ -188,7 +199,7 @@ struct MedicationsManageView: View {
                             if let url = URL(string: UIApplication.openSettingsURLString) { UIApplication.shared.open(url) }
                         }
                     case .notDetermined:
-                        Text("You'll be asked to allow notifications when you turn on a reminder.").font(.footnote).foregroundStyle(.secondary)
+                        Text("You'll be asked to allow notifications when you turn on a reminder.").readableFont(16, weight: .regular, relativeTo: .footnote).foregroundStyle(.secondary)
                     case .allowed:
                         Label("Reminders are allowed", systemImage: "bell.badge.fill").foregroundStyle(Theme.brand)
                     }
@@ -201,7 +212,7 @@ struct MedicationsManageView: View {
 
                 Section {
                     Text("NutriKin helps you remember and keep track of medicines. It doesn't give medical advice and doesn't check doses or interactions: follow your doctor's or pharmacist's instructions. Reminders can fail (silent mode, notifications off, an empty battery), so don't rely on them alone.")
-                        .font(.footnote).foregroundStyle(.secondary)
+                        .readableFont(16, weight: .regular, relativeTo: .footnote).foregroundStyle(.secondary)
                 }
             }
             .softList()
@@ -263,7 +274,7 @@ struct MedicationEditView: View {
                     HStack(spacing: 6) {
                         ForEach(1...7, id: \.self) { d in
                             Button { if days.contains(d) { days.remove(d) } else { days.insert(d) } } label: {
-                                Text(dayLetters[d - 1]).font(.subheadline.weight(.bold)).frame(maxWidth: .infinity, minHeight: 38)
+                                Text(dayLetters[d - 1]).readableFont(17, weight: .bold, relativeTo: .subheadline).frame(maxWidth: .infinity, minHeight: 38)
                                     .background(days.contains(d) ? Theme.brand : Color(.tertiarySystemFill), in: Circle())
                                     .foregroundStyle(days.contains(d) ? Color.white : Color.primary)
                             }
@@ -281,7 +292,7 @@ struct MedicationEditView: View {
                         Button("Delete this medicine", role: .destructive) { Task { await meds.delete(medication); dismiss() } }
                     }
                 }
-                if let message = meds.errorMessage { Section { Text(message).font(.footnote).foregroundStyle(.red) } }
+                if let message = meds.errorMessage { Section { Text(message).readableFont(16, weight: .regular, relativeTo: .footnote).foregroundStyle(.red) } }
             }
             .softList()
             .navigationTitle(medication == nil ? "Add medication" : "Edit medication")

@@ -54,11 +54,11 @@ struct AskAIView: View {
         VStack(spacing: 14) {
             Spacer()
             Image(systemName: "sparkles").font(.system(size: 48)).foregroundStyle(Theme.brandGradient)
-            Text("Ask questions about your food").font(.headline)
+            Text("Ask questions about your food").readableFont(19, weight: .semibold, relativeTo: .headline)
             Text("The AI already knows your family's conditions and allergies. Your iPhone can't run Apple's on-device AI, so link your own AI key (Claude, OpenAI, Grok or Gemini) to use this.")
-                .font(.subheadline).foregroundStyle(.secondary).multilineTextAlignment(.center)
+                .readableFont(17, weight: .regular, relativeTo: .subheadline).foregroundStyle(.secondary).multilineTextAlignment(.center)
             if case .unavailable(let reason) = ai.appleStatus {
-                Text(reason).font(.caption).foregroundStyle(.secondary).multilineTextAlignment(.center)
+                Text(reason).readableFont(15, weight: .regular, relativeTo: .caption).foregroundStyle(.secondary).multilineTextAlignment(.center)
             }
             Button("Link your key") { showConnect = true }.buttonStyle(.borderedProminent).buttonBorderShape(.capsule)
             Spacer()
@@ -78,14 +78,14 @@ struct AskAIView: View {
             ScrollView {
                 VStack(spacing: 12) {
                     Text("\(privacyNote) Answers stay within food and nutrition for your family. AI can be wrong and isn't a doctor: for allergies, always read the label.")
-                        .font(.caption).foregroundStyle(.secondary).multilineTextAlignment(.center).padding(.top, 8)
+                        .readableFont(15, weight: .regular, relativeTo: .caption).foregroundStyle(.secondary).multilineTextAlignment(.center).padding(.top, 8)
 
                     if messages.isEmpty {
                         VStack(alignment: .leading, spacing: 8) {
-                            Text("Try asking").font(.subheadline.weight(.semibold)).foregroundStyle(.secondary)
+                            Text("Try asking").readableFont(17, weight: .semibold, relativeTo: .subheadline).foregroundStyle(.secondary)
                             ForEach(starters, id: \.self) { q in
                                 Button { send(q) } label: {
-                                    Text(q).font(.subheadline).multilineTextAlignment(.leading)
+                                    Text(q).readableFont(17, weight: .regular, relativeTo: .subheadline).multilineTextAlignment(.leading)
                                         .padding(.horizontal, 14).padding(.vertical, 10)
                                         .frame(maxWidth: .infinity, alignment: .leading)
                                         .background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
@@ -99,9 +99,9 @@ struct AskAIView: View {
                     ForEach(messages) { m in bubble(m).id(m.id) }
                     if isSending { TypingDots().frame(maxWidth: .infinity, alignment: .leading).id("typing") }
                     if let error {
-                        Text(error).font(.footnote).foregroundStyle(.red).multilineTextAlignment(.center)
+                        Text(error).readableFont(16, weight: .regular, relativeTo: .footnote).foregroundStyle(.red).multilineTextAlignment(.center)
                         if messages.last?.role == .user {
-                            Button("Try again") { retry() }.font(.footnote.weight(.semibold))
+                            Button("Try again") { retry() }.readableFont(16, weight: .semibold, relativeTo: .footnote)
                         }
                     }
                 }
@@ -123,12 +123,12 @@ struct AskAIView: View {
             if isUser { Spacer(minLength: 40) }
             Group {
                 if m.isNotice {
-                    Label { Text(m.text).font(.subheadline) } icon: { Image(systemName: "shield.lefthalf.filled").foregroundStyle(.orange) }
+                    Label { Text(m.text).readableFont(17, weight: .regular, relativeTo: .subheadline) } icon: { Image(systemName: "shield.lefthalf.filled").foregroundStyle(.orange) }
                         .padding(.horizontal, 14).padding(.vertical, 10)
                         .background(RoundedRectangle(cornerRadius: 18, style: .continuous).fill(Color.orange.opacity(0.14)))
                 } else {
                     Text(markdown(m.text))
-                        .font(.subheadline)
+                        .readableFont(17, weight: .regular, relativeTo: .subheadline)
                         .padding(.horizontal, 14).padding(.vertical, 10)
                         .foregroundStyle(isUser ? Color.white : Color.primary)
                         .background {

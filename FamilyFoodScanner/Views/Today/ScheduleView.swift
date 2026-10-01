@@ -23,10 +23,10 @@ struct ScheduleView: View {
                                     .background(Color.orange.opacity(0.14), in: Circle()).foregroundStyle(.orange)
                                 VStack(alignment: .leading, spacing: 2) {
                                     HStack(spacing: 6) {
-                                        Text(s.title).font(.headline).foregroundStyle(s.active ? .primary : .secondary)
-                                        if !s.active { Text("Paused").font(.caption2.weight(.bold)).foregroundStyle(.orange) }
+                                        Text(s.title).readableFont(19, weight: .semibold, relativeTo: .headline).foregroundStyle(s.active ? .primary : .secondary)
+                                        if !s.active { Text("Paused").readableFont(15, weight: .bold, relativeTo: .caption2).foregroundStyle(.orange) }
                                     }
-                                    Text("\(ScheduleMath.daysText(s.daysOfWeek)) \u{00B7} \(ScheduleMath.timeText(s.time)) \u{00B7} \(s.minutes) min").font(.caption).foregroundStyle(.secondary)
+                                    Text("\(ScheduleMath.daysText(s.daysOfWeek)) \u{00B7} \(ScheduleMath.timeText(s.time)) \u{00B7} \(s.minutes) min").readableFont(15, weight: .regular, relativeTo: .caption).foregroundStyle(.secondary)
                                 }
                                 Spacer()
                                 if s.remind && canEdit { Image(systemName: "bell.fill").foregroundStyle(Theme.brand) }
@@ -49,7 +49,7 @@ struct ScheduleView: View {
                     Text(canEdit ? "Reminders come on this iPhone with a Went button that logs the activity. They can fail (silent mode, notifications off), so treat them as a nudge."
                                  : "Only \(member.name) or a parent can change this schedule.")
                 }
-                if let message = tracking.errorMessage { Section { Text(message).font(.footnote).foregroundStyle(.red) } }
+                if let message = tracking.errorMessage { Section { Text(message).readableFont(16, weight: .regular, relativeTo: .footnote).foregroundStyle(.red) } }
             }
             .softList()
             .navigationTitle("Weekly schedule")
@@ -79,12 +79,12 @@ struct ScheduleEditView: View {
         NavigationStack {
             Form {
                 Section("Activity") {
-                    LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 8), count: 4), spacing: 10) {
+                    LazyVGrid(columns: [GridItem(.adaptive(minimum: 90), spacing: 8)], spacing: 10) {
                         ForEach(WorkoutKind.choices(for: member)) { k in
                             Button { schedule.kind = k.rawValue } label: {
                                 VStack(spacing: 5) {
-                                    Image(systemName: k.symbol).font(.title3).frame(height: 24)
-                                    Text(k.title).font(.caption2).lineLimit(1).minimumScaleFactor(0.7)
+                                    Image(systemName: k.symbol).readableFont(22, weight: .regular, relativeTo: .title3).frame(minHeight: 24)
+                                    Text(k.title).readableFont(15, weight: .regular, relativeTo: .caption2).lineLimit(2).fixedSize(horizontal: false, vertical: true)
                                 }
                                 .frame(maxWidth: .infinity).padding(.vertical, 9)
                                 .background(schedule.kind == k.rawValue ? Color.orange.opacity(0.22) : Color(.tertiarySystemFill), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
@@ -95,19 +95,21 @@ struct ScheduleEditView: View {
                     TextField("Name, for example Swimming class (optional)", text: Binding(get: { schedule.label ?? "" }, set: { schedule.label = $0 }))
                 }
                 Section("When") {
+                    ScrollView(.horizontal, showsIndicators: false) {
                     HStack(spacing: 6) {
                         ForEach(1...7, id: \.self) { d in
                             let on = schedule.daysOfWeek.contains(d)
                             Button {
                                 if on { schedule.daysOfWeek.removeAll { $0 == d } } else { schedule.daysOfWeek.append(d) }
                             } label: {
-                                Text(["M", "T", "W", "T", "F", "S", "S"][d - 1]).font(.subheadline.weight(.bold)).frame(width: 36, height: 36)
+                                Text(["M", "T", "W", "T", "F", "S", "S"][d - 1]).readableFont(17, weight: .bold, relativeTo: .subheadline).frame(minWidth: 44, minHeight: 44)
                                     .background(on ? Color.orange : Color(.tertiarySystemFill), in: Circle()).foregroundStyle(on ? Color.white : Color.primary)
                             }
                             .buttonStyle(.plain)
                             .accessibilityLabel(["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"][d - 1])
                             .accessibilityAddTraits(on ? .isSelected : [])
                         }
+                    }
                     }
                     DatePicker("Time", selection: $time, displayedComponents: .hourAndMinute)
                     Stepper("\(schedule.minutes) minutes", value: $schedule.minutes, in: 5...300, step: 5)
@@ -121,7 +123,7 @@ struct ScheduleEditView: View {
                         Button("Remove from the schedule", role: .destructive) { Task { await tracking.delete(schedule); dismiss() } }
                     }
                 }
-                if let message = tracking.errorMessage { Section { Text(message).font(.footnote).foregroundStyle(.red) } }
+                if let message = tracking.errorMessage { Section { Text(message).readableFont(16, weight: .regular, relativeTo: .footnote).foregroundStyle(.red) } }
             }
             .softList()
             .navigationTitle("Schedule")

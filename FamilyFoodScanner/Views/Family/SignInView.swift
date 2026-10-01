@@ -15,6 +15,7 @@ struct SignInView: View {
 
     var body: some View {
         NavigationStack {
+            ScrollView {
             VStack(spacing: 20) {
                 Spacer()
 
@@ -26,7 +27,7 @@ struct SignInView: View {
                     .popIn()
                     .floating()
                 Text("Sign in to NutriKin")
-                    .font(.title2.bold())
+                    .readableFont(24, weight: .bold, relativeTo: .title2)
 
                 Group {
                     if let pending = auth.pendingEmail {
@@ -40,7 +41,7 @@ struct SignInView: View {
                 if auth.isWorking { ProgressView() }
                 if let message = auth.errorMessage {
                     Text(message)
-                        .font(.footnote)
+                        .readableFont(16, weight: .regular, relativeTo: .footnote)
                         .foregroundStyle(.red)
                         .multilineTextAlignment(.center)
                         .padding(.horizontal, 24)
@@ -50,6 +51,8 @@ struct SignInView: View {
                 Spacer()
             }
             .padding()
+            }
+            .background(AppBackground())
             .background(AppBackground())
         }
     }
@@ -57,7 +60,7 @@ struct SignInView: View {
     private var emailStep: some View {
         VStack(spacing: 12) {
             Text("Your family's health details are private. Sign in with your email and we'll send you a code, so there's no password to remember.")
-                .font(.subheadline)
+                .readableFont(17, weight: .regular, relativeTo: .subheadline)
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
                 .padding(.horizontal, 24)
@@ -80,7 +83,7 @@ struct SignInView: View {
 
             HStack {
                 Rectangle().fill(.quaternary).frame(height: 1)
-                Text("or").font(.footnote).foregroundStyle(.secondary)
+                Text("or").readableFont(16, weight: .regular, relativeTo: .footnote).foregroundStyle(.secondary)
                 Rectangle().fill(.quaternary).frame(height: 1)
             }
             .padding(.vertical, 4)
@@ -102,7 +105,7 @@ struct SignInView: View {
                     Image("GoogleG").resizable().scaledToFit().frame(width: 18, height: 18)
                     Text("Continue with Google")
                 }
-                .font(.system(size: 17, weight: .medium))
+                .readableFont(19, weight: .medium, design: .default)
                 .frame(maxWidth: .infinity)
                 .frame(height: Self.buttonHeight)
                 .foregroundStyle(.primary)
@@ -123,7 +126,7 @@ struct SignInView: View {
                 }
                 .padding(.top, 8)
             }
-            .font(.footnote)
+            .readableFont(16, weight: .regular, relativeTo: .footnote)
             .padding(.top, 4)
         }
     }
@@ -131,7 +134,7 @@ struct SignInView: View {
     private func codeStep(_ pending: String) -> some View {
         VStack(spacing: 12) {
             Text("We emailed a code to \(pending). Enter it below.")
-                .font(.subheadline)
+                .readableFont(17, weight: .regular, relativeTo: .subheadline)
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
                 .padding(.horizontal, 24)
@@ -140,7 +143,7 @@ struct SignInView: View {
                 .keyboardType(.numberPad)
                 .textContentType(.oneTimeCode)
                 .multilineTextAlignment(.center)
-                .font(.title3.monospacedDigit())
+                .readableFont(22, weight: .regular, relativeTo: .title3).monospacedDigit()
                 .focused($focused)
                 .onChange(of: code) { _, new in
                     let clean = AuthStore.sanitizedCode(new)
@@ -150,7 +153,7 @@ struct SignInView: View {
                 .buttonStyle(.borderedProminent)
                 .disabled(AuthStore.sanitizedCode(code).count < 6 || auth.isWorking)
             Button("Use a different email") { code = ""; auth.startOver() }
-                .font(.footnote)
+                .readableFont(16, weight: .regular, relativeTo: .footnote)
         }
         .onAppear { focused = true }
     }

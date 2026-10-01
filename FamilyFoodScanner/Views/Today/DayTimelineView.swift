@@ -22,7 +22,7 @@ struct DayTimelineView: View {
             hungerEntries: checkIns.hungerEntries(for: member.id, day: day),
             moodEntries: checkIns.moodEntries(for: member.id, day: day),
             weightEntries: checkIns.weightEntries(for: member.id, day: day),
-            sleepHours: tracking.isToday ? health.snapshot.sleepHoursLastNight : nil,
+            sleepHours: tracking.isToday && health.linkedMemberID == member.id ? health.snapshot.sleepHoursLastNight : nil,
             sleepAnchor: Calendar.current.startOfDay(for: day)
         )
     }
@@ -54,13 +54,13 @@ struct DayTimelineView: View {
     private func row(_ event: TimelineEvent, isLast: Bool) -> some View {
         HStack(alignment: .top, spacing: 12) {
             Text(event.at.formatted(date: .omitted, time: .shortened))
-                .font(.caption2.monospacedDigit()).foregroundStyle(.secondary)
-                .frame(width: 56, alignment: .trailing)
+                .readableFont(15, weight: .regular, relativeTo: .caption2).monospacedDigit().foregroundStyle(.secondary)
+                .frame(minWidth: 78, alignment: .trailing)
                 .padding(.top, 10)
 
             VStack(spacing: 0) {
                 Image(systemName: event.symbol)
-                    .font(.caption).foregroundStyle(.white)
+                    .readableFont(15, weight: .regular, relativeTo: .caption).foregroundStyle(.white)
                     .frame(width: 26, height: 26)
                     .background(event.tint.color, in: Circle())
                 if !isLast {
@@ -69,9 +69,9 @@ struct DayTimelineView: View {
             }
 
             VStack(alignment: .leading, spacing: 1) {
-                Text(event.title).font(.subheadline.weight(.semibold))
+                Text(event.title).readableFont(17, weight: .semibold, relativeTo: .subheadline)
                 if !event.detail.isEmpty {
-                    Text(event.detail).font(.caption).foregroundStyle(.secondary)
+                    Text(event.detail).readableFont(15, weight: .regular, relativeTo: .caption).foregroundStyle(.secondary)
                 }
             }
             .padding(.top, 2)

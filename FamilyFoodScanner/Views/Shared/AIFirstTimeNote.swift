@@ -10,9 +10,9 @@ struct AIFirstTimeNote: View {
             HStack(alignment: .top, spacing: 10) {
                 Image(systemName: "sparkles").foregroundStyle(Theme.brand)
                 VStack(alignment: .leading, spacing: 4) {
-                    Text("What's the sparkle icon?").font(.subheadline.weight(.semibold))
+                    Text("What's the sparkle icon?").readableFont(17, weight: .semibold, relativeTo: .subheadline)
                     Text("It's an optional AI helper — on your iPhone, or your own account. Nothing is sent unless you tap it, and every answer is clearly marked \u{201C}Written by AI\u{201D}.")
-                        .font(.caption).foregroundStyle(.secondary)
+                        .readableFont(15, weight: .regular, relativeTo: .caption).foregroundStyle(.secondary)
                 }
                 Spacer(minLength: 4)
                 Button { withAnimation(.snappy) { seen = true } } label: {
