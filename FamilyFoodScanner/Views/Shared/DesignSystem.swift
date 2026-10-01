@@ -11,20 +11,25 @@ struct SectionTitle: View {
     /// touch of color per heading makes them easier to tell apart at a glance.
     var symbol: String? = nil
     var tint: Color = Theme.brand
+    /// A smaller icon, title and action, for use in a half-width (two-column) card — the full-size title
+    /// wraps letter by letter once the icon and action button are also competing for that little width.
+    var compact: Bool = false
 
     var body: some View {
-        HStack(spacing: 8) {
+        HStack(spacing: compact ? 6 : 8) {
             if let symbol {
                 Image(systemName: symbol)
-                    .font(.footnote.weight(.bold))
+                    .font(compact ? .caption2.weight(.bold) : .footnote.weight(.bold))
                     .foregroundStyle(tint)
-                    .frame(width: 26, height: 26)
+                    .frame(width: compact ? 20 : 26, height: compact ? 20 : 26)
                     .background(tint.opacity(0.15), in: Circle())
             }
-            Text(title).font(.title3.weight(.bold))
-            Spacer()
+            Text(title).font(compact ? .footnote.weight(.bold) : .title3.weight(.bold))
+                .lineLimit(1).minimumScaleFactor(0.8).layoutPriority(1)
+            Spacer(minLength: 4)
             if let actionTitle, let action {
-                Button(actionTitle, action: action).font(.subheadline.weight(.semibold))
+                Button(actionTitle, action: action).font(compact ? .caption.weight(.semibold) : .subheadline.weight(.semibold))
+                    .lineLimit(1).fixedSize(horizontal: true, vertical: false)
             }
         }
         .padding(.horizontal, 4)

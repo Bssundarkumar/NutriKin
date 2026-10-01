@@ -1,8 +1,9 @@
 import SwiftUI
 
-/// Quick daily check-ins row — water, weight, sleep, hunger, mood — styled after the pill row on a
-/// typical tracker's Today screen. Water/hunger/mood are logged on-device only (DailyCheckInStore);
-/// weight updates the member's own record, same as editing it from the Family tab.
+/// Quick daily check-ins — water, weight, sleep, hunger — as a 2x2 grid of tiles, each with a thin
+/// progress bar, matching the reference design. Mood is still logged and shown on the day's timeline
+/// (DailyCheckInStore keeps full history for it), it just doesn't get its own tile here — four tiles
+/// matches the reference exactly; a fifth would crowd a 2-column grid on a phone width.
 struct CheckInsCard: View {
     let member: Member
     let day: Date
@@ -11,39 +12,59 @@ struct CheckInsCard: View {
     @Environment(HealthKitManager.self) private var health
     @State private var sheet: Sheet?
 
-    private enum Sheet: String, Identifiable { case water, weight, sleep, hunger, mood
+    private enum Sheet: String, Identifiable { case water, weight, sleep, hunger
         var id: String { rawValue }
     }
 
+    private var weightProgress: Double {
+        guard let target = member.goals.targetWeightKg, let current = member.weightKg, current > 0 else { return 0 }
+        return min(max(1 - abs(current - target) / current, 0), 1)
+    }
+
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            SectionTitle(title: "Check in", symbol: "checklist", tint: .pink)
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 10) {
-                    pill("Water", "drop.fill", .blue, detail: "\(checkIns.waterGlasses(for: member.id, day: day))/\(DailyCheckInStore.waterGoalGlasses)") { sheet = .water }
-                    pill("Weight", "scalemass.fill", .purple, detail: member.weightKg.map { StrengthMath.display(kg: $0, pounds: false) + " kg" } ?? "—") { sheet = .weight }
-                    pill("Sleep", "bed.double.fill", .indigo, detail: health.snapshot.sleepHoursLastNight.map { String(format: "%.1fh", $0) } ?? "—") { sheet = .sleep }
-                    pill("Hunger", "fork.knife", .orange, detail: checkIns.hunger(for: member.id, day: day).map { DailyCheckInStore.hungerLabels[$0] } ?? "—") { sheet = .hunger }
-                    pill("Mood", "face.smiling", .pink, detail: checkIns.mood(for: member.id, day: day).map { DailyCheckInStore.moodLabels[$0] } ?? "—") { sheet = .mood }
-                }
-            }
+        LazyVGrid(columns: [GridItem(.flexible(), spacing: 10), GridItem(.flexible(), spacing: 10)], spacing: 10) {
+            tile("Water", "drop.fill", .blue, value: "\(checkIns.waterGlasses(for: member.id, day: day))",
+                 unit: "/ \(DailyCheckInStore.waterGoalGlasses)",
+                 progress: Double(checkIns.waterGlasses(for: member.id, day: day)) / Double(DailyCheckInStore.waterGoalGlasses)) { sheet = .water }
+            tile("Weight", "scalemass.fill", .purple, value: member.weightKg.map { StrengthMath.display(kg: $0, pounds: false) } ?? "—",
+                 unit: "kg", progress: weightProgress) { sheet = .weight }
+            tile("Sleep", "moon.fill", .indigo, value: health.snapshot.sleepHoursLastNight.map { String(format: "%.1f", $0) } ?? "—",
+                 unit: "h", progress: (health.snapshot.sleepHoursLastNight ?? 0) / 8) { sheet = .sleep }
+            tile("Hunger", "fork.knife", .orange,
+                 value: checkIns.hunger(for: member.id, day: day).map { DailyCheckInStore.hungerLabels[$0] } ?? "—", unit: "",
+                 progress: checkIns.hunger(for: member.id, day: day).map { Double($0) / Double(DailyCheckInStore.hungerLabels.count - 1) } ?? 0) { sheet = .hunger }
         }
-        .card(tint: .pink)
         .sheet(item: $sheet) { s in
             NavigationStack { sheetContent(s) }
                 .presentationDetents([.height(280)])
         }
     }
 
-    private func pill(_ title: String, _ symbol: String, _ tint: Color, detail: String, action: @escaping () -> Void) -> some View {
+    private func tile(_ title: String, _ symbol: String, _ tint: Color, value: String, unit: String, progress: Double, action: @escaping () -> Void) -> some View {
         Button(action: action) {
-            VStack(spacing: 6) {
-                Image(systemName: symbol).font(.title3).foregroundStyle(tint)
-                Text(title).font(.caption.weight(.semibold))
-                Text(detail).font(.caption2).foregroundStyle(.secondary)
+            VStack(alignment: .leading, spacing: 10) {
+                HStack {
+                    Image(systemName: symbol).font(.body).foregroundStyle(tint)
+                        .frame(width: 34, height: 34).background(tint.opacity(0.15), in: Circle())
+                    Spacer()
+                    Image(systemName: "chevron.right").font(.caption2.weight(.semibold)).foregroundStyle(.tertiary)
+                }
+                Text(title).font(.caption).foregroundStyle(.secondary)
+                HStack(alignment: .firstTextBaseline, spacing: 3) {
+                    Text(value).font(.title3.bold())
+                    if !unit.isEmpty { Text(unit).font(.caption).foregroundStyle(.secondary) }
+                }
+                Capsule().fill(tint.opacity(0.18)).frame(height: 5)
+                    .overlay(alignment: .leading) {
+                        GeometryReader { geo in
+                            Capsule().fill(tint).frame(width: geo.size.width * min(max(progress, 0), 1))
+                        }
+                    }
+                    .frame(height: 5)
             }
-            .frame(width: 76, height: 76)
-            .background(tint.opacity(0.1), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+            .padding(14)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(RoundedRectangle(cornerRadius: 18, style: .continuous).fill(tint.opacity(0.08)))
         }
         .buttonStyle(.plain)
     }
@@ -56,8 +77,6 @@ struct CheckInsCard: View {
         case .sleep: sleepSheet
         case .hunger: scaleSheet(title: "How hungry are you?", labels: DailyCheckInStore.hungerLabels,
                                   current: checkIns.hunger(for: member.id, day: day)) { checkIns.setHunger($0, for: member.id, day: day) }
-        case .mood: scaleSheet(title: "How are you feeling?", labels: DailyCheckInStore.moodLabels,
-                                current: checkIns.mood(for: member.id, day: day)) { checkIns.setMood($0, for: member.id, day: day) }
         }
     }
 

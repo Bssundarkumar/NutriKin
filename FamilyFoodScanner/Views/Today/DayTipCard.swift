@@ -1,6 +1,7 @@
 import SwiftUI
 
 /// "Get a tip for today": one warm, practical food idea from the person's AI, only when they ask and only when AI is set up.
+/// Shown as a slim pill; tapping fetches a tip and expands to show it right there, collapsing again on a second tap.
 struct DayTipCard: View {
     let member: Member
     let budget: DayBudget
@@ -11,44 +12,61 @@ struct DayTipCard: View {
     @Environment(TrackingStore.self) private var tracking
     @State private var tip: String?
     @State private var loading = false
+    @State private var expanded = false
     @State private var snacks: String?
     @State private var carerNote: String?
     @Environment(MedicationStore.self) private var medications
 
     var body: some View {
         if ai.textProvider != nil, tracking.isToday, budget.eaten.calories > 0 || TodayLayout.isChild(member) || TodayLayout.isOlderAdult(member) {
-            VStack(alignment: .leading, spacing: 8) {
-                if let tip {
-                    Label("A tip for \(member.name)", systemImage: "sparkles").font(.subheadline.weight(.semibold)).foregroundStyle(Theme.brand)
-                    Text(tip).font(.subheadline)
-                    Text("Written by AI. General food ideas, not medical advice.").font(.caption2).foregroundStyle(.secondary)
-                }
-                if TodayLayout.isChild(member) {
-                    if let snacks {
-                        Label("Snack ideas", systemImage: "carrot").font(.subheadline.weight(.semibold)).foregroundStyle(Theme.brand)
-                        Text(snacks).font(.subheadline)
+            VStack(alignment: .leading, spacing: 10) {
+                Button { tap() } label: {
+                    HStack(spacing: 10) {
+                        Image(systemName: "sparkles").foregroundStyle(Theme.brand)
+                        Text(loading ? "Thinking\u{2026}" : (tip == nil ? "Get a tip for today" : "Today's tip"))
+                            .font(.subheadline.weight(.semibold)).foregroundStyle(.primary)
+                        Spacer()
+                        Image(systemName: "chevron.right").font(.caption.weight(.semibold)).foregroundStyle(.tertiary)
+                            .rotationEffect(.degrees(expanded ? 90 : 0))
                     }
-                    Button { fetchSnacks() } label: { Label(snacks == nil ? "Snack and lunchbox ideas" : "Another idea", systemImage: "sparkles").font(.subheadline.weight(.semibold)) }
-                        .disabled(loading)
+                    .padding(14)
+                    .background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+                    .shadow(color: .black.opacity(0.06), radius: 10, y: 4)
                 }
-                if TodayLayout.isOlderAdult(member) {
-                    if let carerNote {
-                        Label("A note for the family", systemImage: "heart.text.square").font(.subheadline.weight(.semibold)).foregroundStyle(Theme.brand)
-                        Text(carerNote).font(.subheadline)
-                    }
-                    Button { fetchCarerNote() } label: { Label(carerNote == nil ? "Weekly note for the family" : "Another note", systemImage: "sparkles").font(.subheadline.weight(.semibold)) }
-                        .disabled(loading)
-                }
-                Button { fetch() } label: {
-                    Label(loading ? "Thinking\u{2026}" : (tip == nil ? "Get a tip for today" : "Another tip"), systemImage: "sparkles")
-                        .font(.subheadline.weight(.semibold))
-                }
+                .buttonStyle(.plain)
                 .disabled(loading)
+
+                if expanded {
+                    VStack(alignment: .leading, spacing: 10) {
+                        if let tip {
+                            Text(tip).font(.subheadline)
+                            Text("Written by AI. General food ideas, not medical advice.").font(.caption2).foregroundStyle(.secondary)
+                        }
+                        if TodayLayout.isChild(member) {
+                            if let snacks { Text(snacks).font(.subheadline) }
+                            Button { fetchSnacks() } label: { Label(snacks == nil ? "Snack and lunchbox ideas" : "Another idea", systemImage: "sparkles").font(.footnote.weight(.semibold)) }
+                                .disabled(loading)
+                        }
+                        if TodayLayout.isOlderAdult(member) {
+                            if let carerNote { Text(carerNote).font(.subheadline) }
+                            Button { fetchCarerNote() } label: { Label(carerNote == nil ? "Weekly note for the family" : "Another note", systemImage: "sparkles").font(.footnote.weight(.semibold)) }
+                                .disabled(loading)
+                        }
+                        if tip != nil {
+                            Button("Another tip") { fetch() }.font(.footnote.weight(.semibold)).disabled(loading)
+                        }
+                    }
+                    .padding(.horizontal, 4)
+                    .transition(.opacity.combined(with: .move(edge: .top)))
+                }
             }
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .card()
-            .onChange(of: member.id) { _, _ in tip = nil }
+            .onChange(of: member.id) { _, _ in tip = nil; expanded = false }
         }
+    }
+
+    private func tap() {
+        withAnimation(.snappy) { expanded.toggle() }
+        if expanded && tip == nil { fetch() }
     }
 
     private func fetchCarerNote() {
