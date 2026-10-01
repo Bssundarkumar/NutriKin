@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 
 /// The home screen: how today is going for one person, and quick ways to log food and workouts.
 struct TodayView: View {
@@ -23,6 +24,14 @@ struct TodayView: View {
     @State private var showAddChoice = false
     @State private var editingWorkout: Workout?
     @State private var viewingWorkout: Workout?
+
+    /// A 2:1 width split for the "Today's Meals | Activity" row — iPhone only (this app targets iPhone
+    /// only, see project.yml), so the screen width minus the outer 16pt margins and the row's own
+    /// spacing is a reliable, simple stand-in for a GeometryReader here.
+    private var mealsActivityWidths: (wide: CGFloat, narrow: CGFloat) {
+        let available = UIScreen.main.bounds.width - 32 - 14
+        return (available * 2 / 3, available * 1 / 3)
+    }
 
     private var member: Member? {
         if Demo.isOn, let i = Demo.memberIndex, family.members.indices.contains(i) { return family.members[i] }
@@ -67,8 +76,8 @@ struct TodayView: View {
                                 hero(member, budget) { showPlan = true }.staggeredAppear(3)
                                 AIFirstTimeNote()
                                 HStack(alignment: .top, spacing: 14) {
-                                    compactMeals(member).frame(maxWidth: .infinity)
-                                    compactActivity(member).frame(maxWidth: .infinity)
+                                    compactMeals(member).frame(width: mealsActivityWidths.wide)
+                                    compactActivity(member).frame(width: mealsActivityWidths.narrow)
                                 }
                                 .staggeredAppear(4)
                                 HStack(alignment: .top, spacing: 14) {
@@ -413,9 +422,12 @@ struct TodayView: View {
         let logged = tracking.workouts(for: member)
         let minutes = max(logged.reduce(0) { $0 + $1.minutes }, showsHealth ? (health.activity.exerciseMinutes ?? 0) : 0)
         let dailyGoal = max(ActivityGoals.suggested(for: member).weeklyMinutes / 7, 20)
+        // Narrower now (one third of the row, Today's Meals takes the other two thirds), so the header
+        // drops its own "See all" button (the whole card is already tappable) and the Steps/Workouts
+        // stats below use a slimmer layout than the shared StatTile, which was designed for more width
+        // than this column has.
         return VStack(alignment: .leading, spacing: 10) {
-            SectionTitle(title: "Activity", actionTitle: "See all", action: { activityStartsLogging = false; showActivity = true },
-                         symbol: "figure.run", tint: .orange, compact: true, actionShowsChevron: true)
+            SectionTitle(title: "Activity", symbol: "figure.run", tint: .orange, compact: true)
             ZStack(alignment: .top) {
                 ScoreRingLabel(fraction: Double(minutes) / Double(dailyGoal), color: .orange, primary: "\(minutes)", secondary: "Active min")
                     .frame(width: 92, height: 92)
@@ -427,14 +439,27 @@ struct TodayView: View {
                     .offset(y: -4)
             }
             .frame(maxWidth: .infinity)
-            HStack(spacing: 10) {
-                StatTile(title: "Steps", value: showsHealth ? (health.activity.steps.map { $0.formatted() } ?? "\u{2013}") : "\u{2013}", symbol: "figure.walk", tint: .blue)
-                StatTile(title: "Workouts", value: "\(logged.count)", symbol: "figure.run", tint: .orange)
+            VStack(spacing: 6) {
+                compactStat("figure.walk", .blue, title: "Steps", value: showsHealth ? (health.activity.steps.map { $0.formatted() } ?? "\u{2013}") : "\u{2013}")
+                compactStat("figure.run", .orange, title: "Workouts", value: "\(logged.count)")
             }
         }
         .card(tint: .orange)
         .contentShape(Rectangle())
         .onTapGesture { activityStartsLogging = false; showActivity = true }
+    }
+
+    /// A one-line icon + label + value, for a stat row too narrow for the full `StatTile` box.
+    private func compactStat(_ symbol: String, _ tint: Color, title: String, value: String) -> some View {
+        HStack(spacing: 6) {
+            Image(systemName: symbol).font(.caption2).foregroundStyle(tint)
+                .frame(width: 20, height: 20).background(tint.opacity(0.15), in: Circle())
+            Text(title).font(.system(size: 10)).foregroundStyle(.secondary).lineLimit(1)
+            Spacer(minLength: 2)
+            Text(value).font(.caption.weight(.bold)).lineLimit(1).minimumScaleFactor(0.7)
+        }
+        .padding(.horizontal, 8).padding(.vertical, 6)
+        .background(tint.opacity(0.10), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
     }
 
     /// "Medications": the compact, two-column-width sibling of `MedicationsCard`, showing just today's
