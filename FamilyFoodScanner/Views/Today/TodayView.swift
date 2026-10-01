@@ -112,7 +112,11 @@ struct TodayView: View {
                 AIFirstTimeNote()
                 DayTipCard(member: member, budget: budget, steps: health.activity.steps, weekMinutes: tracking.weeklyMinutes(for: member))
             }
-        case .quickActions: quickActions
+        case .quickActions:
+            VStack(spacing: 22) {
+                quickActions
+                if !TodayLayout.isChild(member) { CheckInsCard(member: member, day: tracking.day) }
+            }
         case .medications: MedicationsCard(member: member) { showMeds = true }.id("meds")
         case .limits: nutrients(budget)
         case .eaten: foodSection(member)
@@ -165,20 +169,31 @@ struct TodayView: View {
     private func hero(_ member: Member, _ budget: DayBudget, showPlan: @escaping () -> Void) -> some View {
         let color = Theme.color(for: budget.calorieStatus)
         let left = Int(budget.remaining.rounded())
+        let net = Int((budget.eaten.calories - Double(budget.burned)).rounded())
+        let grade = FoodGrade.average(tracking.entries(for: member))
         return VStack(spacing: 16) {
-            HStack(spacing: 18) {
+            HStack(alignment: .top, spacing: 18) {
                 ScoreRingLabel(fraction: budget.calorieShare, color: color, primary: "\(abs(left))",
                                secondary: left >= 0 ? "kcal left" : "kcal over")
                     .frame(width: 132, height: 132)
-                VStack(alignment: .leading, spacing: 6) {
+                VStack(alignment: .leading, spacing: 8) {
                     Text(statusHeadline(budget)).font(.headline).foregroundStyle(Theme.color(for: budget.status))
                     Text(statusDetail(member, budget)).font(.footnote).foregroundStyle(.secondary)
+                    // Eaten / burned / net, inline right under the headline — the same at-a-glance
+                    // breakdown as the ring itself, just spelled out.
+                    HStack(spacing: 14) {
+                        inlineStat("fork.knife", "\(Int(budget.eaten.calories.rounded()))", tint: .secondary)
+                        inlineStat("flame.fill", "\(budget.burned)", tint: .orange)
+                        Text("Net \(net)").font(.caption.weight(.semibold)).foregroundStyle(.secondary)
+                    }
                 }
                 Spacer(minLength: 0)
+                if let grade {
+                    FoodGradeRing(percent: grade.percent, letter: grade.grade.letter)
+                        .frame(width: 44, height: 44)
+                }
             }
             HStack(spacing: 10) {
-                StatTile(title: "Eaten", value: "\(Int(budget.eaten.calories.rounded()))", symbol: "fork.knife")
-                StatTile(title: "Exercise", value: "+\(budget.burned)", symbol: "flame.fill", tint: .orange)
                 Button(action: showPlan) {
                     StatTile(title: "Goal", value: "\(Int(budget.limits.calories.rounded()))", symbol: "target", tint: .blue)
                 }
@@ -191,6 +206,13 @@ struct TodayView: View {
             }
         }
         .card()
+    }
+
+    private func inlineStat(_ symbol: String, _ value: String, tint: Color) -> some View {
+        HStack(spacing: 3) {
+            Image(systemName: symbol).font(.caption2).foregroundStyle(tint)
+            Text(value).font(.caption.weight(.semibold))
+        }
     }
 
     private func statusHeadline(_ b: DayBudget) -> String {
@@ -251,7 +273,7 @@ struct TodayView: View {
                 VStack(spacing: 0) {
                     ForEach(list) { e in
                         LogRow(symbol: symbol(for: e.source), title: e.label, subtitle: e.eatenAt.formatted(date: .omitted, time: .shortened),
-                            trailing: TodayLayout.showsCalorieSummary(for: member) ? "\(Int(e.calories.rounded())) kcal" : "", tint: Theme.brand,
+                            trailing: TodayLayout.showsCalorieSummary(for: member) ? "\(Int(e.calories.rounded())) kcal" : "", tint: mealTint(e.eatenAt),
                             onEdit: { editingFood = e }) {
                             Task { await tracking.delete(e) }
                         }
@@ -261,6 +283,17 @@ struct TodayView: View {
             }
         }
         .card()
+    }
+
+    /// Colors each row's icon by roughly when it was eaten, like a tracker's per-meal colored dots —
+    /// purely visual grouping, nothing is stored or computed from this.
+    private func mealTint(_ at: Date) -> Color {
+        switch Calendar.current.component(.hour, from: at) {
+        case 4..<11: .green
+        case 11..<16: .orange
+        case 16..<21: Theme.brand
+        default: .purple
+        }
     }
 
     private func symbol(for source: FoodSource) -> String {
@@ -308,5 +341,34 @@ struct ScoreRingLabel: View {
     private func animate() {
         let target = min(max(fraction, 0.01), 1)
         if reduceMotion { shown = target } else { withAnimation(.easeOut(duration: 0.9)) { shown = target } }
+    }
+}
+
+/// A small ring showing the day's average food grade (A–E), from `FoodGrade`. A rough nutrient-quality
+/// read on what's been logged, not a medical or per-condition score — `Verdict` from `ScoringEngine`
+/// still handles that at scan time.
+struct FoodGradeRing: View {
+    let percent: Int
+    let letter: String
+
+    private var color: Color {
+        switch letter {
+        case "A": .green
+        case "B": Theme.brand
+        case "C": .yellow
+        case "D": .orange
+        default: .red
+        }
+    }
+
+    var body: some View {
+        ZStack {
+            Circle().stroke(color.opacity(0.18), lineWidth: 5)
+            Circle().trim(from: 0, to: Double(percent) / 100).stroke(color.gradient, style: StrokeStyle(lineWidth: 5, lineCap: .round))
+                .rotationEffect(.degrees(-90))
+            Text(letter).font(.system(size: 16, weight: .bold, design: .rounded)).foregroundStyle(color)
+        }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("Average food grade \(letter), \(percent) percent")
     }
 }

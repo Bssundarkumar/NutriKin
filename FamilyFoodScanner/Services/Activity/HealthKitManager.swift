@@ -8,6 +8,8 @@ struct HealthSnapshot {
     var systolic: Double?
     var diastolic: Double?
     var caloriesToday: Double?
+    /// Total time asleep (not just in bed) over the last night, from any source Health knows about.
+    var sleepHoursLastNight: Double?
 }
 
 /// Reads the *current device owner's* HealthKit data. Each family member
@@ -102,6 +104,28 @@ final class HealthKitManager {
         snapshot.systolic = await latest(.bloodPressureSystolic, unit: .millimeterOfMercury())
         snapshot.diastolic = await latest(.bloodPressureDiastolic, unit: .millimeterOfMercury())
         snapshot.caloriesToday = await todaySum(.dietaryEnergyConsumed, unit: .kilocalorie())
+        snapshot.sleepHoursLastNight = await sleepLastNight()
+    }
+
+    /// Sums "asleep" samples (any of Apple's asleep categories, not just "in bed") from the last 24 hours,
+    /// which is close enough to "last night" without needing to guess a bedtime window.
+    private func sleepLastNight() async -> Double? {
+        let start = Calendar.current.date(byAdding: .hour, value: -24, to: .now) ?? .now
+        let predicate = HKQuery.predicateForSamples(withStart: start, end: .now)
+        let descriptor = HKSampleQueryDescriptor(
+            predicates: [.categorySample(type: HKCategoryType(.sleepAnalysis), predicate: predicate)],
+            sortDescriptors: [SortDescriptor(\.startDate)]
+        )
+        guard let samples = try? await descriptor.result(for: store) else { return nil }
+        let asleepValues: Set<Int> = [
+            HKCategoryValueSleepAnalysis.asleepUnspecified.rawValue,
+            HKCategoryValueSleepAnalysis.asleepCore.rawValue,
+            HKCategoryValueSleepAnalysis.asleepDeep.rawValue,
+            HKCategoryValueSleepAnalysis.asleepREM.rawValue,
+        ]
+        let seconds = samples.filter { asleepValues.contains($0.value) }
+            .reduce(0.0) { $0 + $1.endDate.timeIntervalSince($1.startDate) }
+        return seconds > 0 ? seconds / 3600 : nil
     }
 
     /// Whether the person has already been asked, so a returning user isn't shown "Connect" again.
