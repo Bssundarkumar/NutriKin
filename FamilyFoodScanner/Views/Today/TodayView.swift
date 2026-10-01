@@ -18,6 +18,7 @@ struct TodayView: View {
     @State private var showActivity = Demo.opensLogWorkout || Demo.opensPlan || Demo.opensGrowth
     @State private var activityStartsLogging = Demo.opensLogWorkout
     @State private var showMeds = Demo.opensMeds
+    @State private var showTimeline = false
 
     private var member: Member? {
         if Demo.isOn, let i = Demo.memberIndex, family.members.indices.contains(i) { return family.members[i] }
@@ -57,6 +58,15 @@ struct TodayView: View {
             }
             .background(AppBackground())
             .navigationTitle("Today")
+            .toolbar {
+                if member != nil {
+                    ToolbarItem(placement: .topBarTrailing) {
+                        Button { showTimeline = true } label: { Image(systemName: "list.bullet.rectangle") }
+                            .accessibilityLabel("Today's timeline")
+                    }
+                }
+            }
+            .sheet(isPresented: $showTimeline) { if let member { DayTimelineView(member: member, day: tracking.day) } }
             .refreshable { await tracking.load(householdId: family.householdId) }
             .task(id: family.householdId) { await tracking.load(householdId: family.householdId) }
             .sheet(isPresented: $showFood) { if let member { LogFoodSheet(member: member) } }
