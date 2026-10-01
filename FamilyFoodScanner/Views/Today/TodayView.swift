@@ -381,26 +381,23 @@ struct TodayView: View {
     /// plain colored dot on a connecting line (no icon glyph — there's no room for one at this width),
     /// then the title and calories on one line, with a trailing chevron.
     private func compactMealRow(_ event: TimelineEvent, member: Member, isLast: Bool) -> some View {
-        HStack(alignment: .top, spacing: 8) {
-            Text(event.at.formatted(date: .omitted, time: .shortened))
-                .font(.system(size: 10)).foregroundStyle(.secondary)
-                .lineLimit(1).minimumScaleFactor(0.8)
-                .frame(width: 50, alignment: .leading)
-                .padding(.top, 3)
-            VStack(spacing: 0) {
-                Circle().fill(event.tint.color).frame(width: 9, height: 9)
-                if !isLast { Rectangle().fill(event.tint.color.opacity(0.3)).frame(width: 1.5).frame(maxHeight: .infinity) }
-            }
-            .padding(.top, 5)
-            HStack(alignment: .top, spacing: 4) {
-                Text(event.title).font(.caption.weight(.semibold)).lineLimit(2).fixedSize(horizontal: false, vertical: true)
-                Spacer(minLength: 2)
-                VStack(alignment: .trailing, spacing: 2) {
-                    if !event.detail.isEmpty { Text(event.detail).font(.system(size: 10)).foregroundStyle(.secondary) }
-                    Image(systemName: "chevron.right").font(.system(size: 9).weight(.semibold)).foregroundStyle(.tertiary)
+        VStack(spacing: 0) {
+            HStack(alignment: .center, spacing: 8) {
+                VStack(spacing: 0) {
+                    Circle().fill(event.tint.color).frame(width: 9, height: 9)
+                    if !isLast { Rectangle().fill(event.tint.color.opacity(0.3)).frame(width: 1.5).frame(maxHeight: .infinity) }
                 }
+                VStack(alignment: .leading, spacing: 1) {
+                    Text(event.at.formatted(date: .omitted, time: .shortened))
+                        .font(.system(size: 10)).foregroundStyle(.secondary)
+                    Text(event.title).font(.caption.weight(.semibold)).lineLimit(2).fixedSize(horizontal: false, vertical: true)
+                }
+                Spacer(minLength: 2)
+                if !event.detail.isEmpty { Text(event.detail).font(.system(size: 10)).foregroundStyle(.primary) }
+                Image(systemName: "chevron.right").font(.system(size: 9).weight(.semibold)).foregroundStyle(.tertiary)
             }
-            .padding(.bottom, isLast ? 2 : 12)
+            .padding(.vertical, 8)
+            if !isLast { Divider() }
         }
         .contentShape(Rectangle())
         .onTapGesture {
