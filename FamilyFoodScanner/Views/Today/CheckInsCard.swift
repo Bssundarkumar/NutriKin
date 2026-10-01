@@ -1,9 +1,8 @@
 import SwiftUI
 
-/// Quick daily check-ins — water, weight, sleep, hunger — as a 2x2 grid of tiles, each with a thin
-/// progress bar, matching the reference design. Mood is still logged and shown on the day's timeline
-/// (DailyCheckInStore keeps full history for it), it just doesn't get its own tile here — four tiles
-/// matches the reference exactly; a fifth would crowd a 2-column grid on a phone width.
+/// Quick daily check-ins — water, weight, sleep, hunger — as a single row of four tiles, each with a
+/// thin progress bar. Mood is still logged and shown on the day's timeline (DailyCheckInStore keeps full
+/// history for it), it just doesn't get its own tile here — a fifth would crowd this row too much.
 struct CheckInsCard: View {
     let member: Member
     let day: Date
@@ -22,7 +21,7 @@ struct CheckInsCard: View {
     }
 
     var body: some View {
-        LazyVGrid(columns: [GridItem(.flexible(), spacing: 10), GridItem(.flexible(), spacing: 10)], spacing: 10) {
+        HStack(spacing: 8) {
             tile("Water", "drop.fill", .blue, value: "\(checkIns.waterGlasses(for: member.id, day: day))",
                  unit: "/ \(DailyCheckInStore.waterGoalGlasses)",
                  progress: Double(checkIns.waterGlasses(for: member.id, day: day)) / Double(DailyCheckInStore.waterGoalGlasses)) { sheet = .water }
@@ -40,31 +39,31 @@ struct CheckInsCard: View {
         }
     }
 
+    /// Sized for four side by side on one phone-width row: a small icon badge, a short label, the value
+    /// (unit beneath it rather than alongside, since there's no horizontal room for both on one line),
+    /// and a thin progress bar.
     private func tile(_ title: String, _ symbol: String, _ tint: Color, value: String, unit: String, progress: Double, action: @escaping () -> Void) -> some View {
         Button(action: action) {
-            VStack(alignment: .leading, spacing: 10) {
-                HStack {
-                    Image(systemName: symbol).font(.body).foregroundStyle(tint)
-                        .frame(width: 34, height: 34).background(tint.opacity(0.15), in: Circle())
-                    Spacer()
-                    Image(systemName: "chevron.right").font(.caption2.weight(.semibold)).foregroundStyle(.tertiary)
+            VStack(alignment: .leading, spacing: 6) {
+                Image(systemName: symbol).font(.caption).foregroundStyle(tint)
+                    .frame(width: 24, height: 24).background(tint.opacity(0.15), in: Circle())
+                Text(title).font(.system(size: 10)).foregroundStyle(.secondary).lineLimit(1)
+                HStack(alignment: .firstTextBaseline, spacing: 2) {
+                    Text(value).font(.subheadline.bold())
+                    if !unit.isEmpty { Text(unit).font(.system(size: 9)).foregroundStyle(.secondary) }
                 }
-                Text(title).font(.caption).foregroundStyle(.secondary)
-                HStack(alignment: .firstTextBaseline, spacing: 3) {
-                    Text(value).font(.title3.bold())
-                    if !unit.isEmpty { Text(unit).font(.caption).foregroundStyle(.secondary) }
-                }
-                Capsule().fill(tint.opacity(0.18)).frame(height: 5)
+                .lineLimit(1).minimumScaleFactor(0.7)
+                Capsule().fill(tint.opacity(0.18)).frame(height: 4)
                     .overlay(alignment: .leading) {
                         GeometryReader { geo in
                             Capsule().fill(tint).frame(width: geo.size.width * min(max(progress, 0), 1))
                         }
                     }
-                    .frame(height: 5)
+                    .frame(height: 4)
             }
-            .padding(14)
+            .padding(10)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background(RoundedRectangle(cornerRadius: 18, style: .continuous).fill(tint.opacity(0.08)))
+            .background(RoundedRectangle(cornerRadius: 16, style: .continuous).fill(tint.opacity(0.08)))
         }
         .buttonStyle(.plain)
     }
