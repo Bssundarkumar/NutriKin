@@ -303,6 +303,12 @@ final class PlateNonFoodFilterTests: XCTestCase {
             XCTAssertTrue(result.items.isEmpty, "\(junk) should have been filtered")
         }
     }
+    func testSceneryFromAnOutdoorPhotoIsDropped() throws {
+        for junk in ["Sky", "trees", "Grass", "Cloud", "mountain", "  Building  ", "Road", "person"] {
+            let result = try PlateParser.parse(json(name: junk))
+            XCTAssertTrue(result.items.isEmpty, "\(junk) should have been filtered")
+        }
+    }
     func testRealFoodWithASimilarWordStillPassesThrough() throws {
         let result = try PlateParser.parse(json(name: "Wooden-fired pizza"))
         XCTAssertEqual(result.items.count, 1)

@@ -48,6 +48,7 @@ struct PlateService {
         5. Never invent food that is not visible. If you cannot tell what something is, name your best guess and set confidence "low". Set confidence "low" or "medium" when the amount is hard to judge (food hidden under other food, deep bowls, sauces).
         6. Only list actual food and drink. Never list the plate, bowl, tray, board, cutlery, napkin, table, hands or anything else the food sits on or is eaten with.
         7. When you're not sure exactly what a food is (confidence "low" or "medium"), put your 1 or 2 next-best guesses in "alternatives" (just the names, most likely first), so the person can pick the right one instead of you guessing wrong silently. Leave "alternatives" empty when confidence is "high".
+        8. CHECK FIRST: does this photo actually show food on a plate, bowl or similar, ready to eat? If it shows a landscape, scenery, sky, trees, a person, an animal, an object, a screenshot, or anything else that is not a meal, you MUST reply {"items":[],"note":"No food found in the photo."} and stop there. Do not describe clouds, trees, a sky or other non-food shapes as if they were food, even loosely or as a joke.
         List possible allergens only from: \(allergenList).
 
         Reply with JSON only, no other text, in exactly this shape:
@@ -176,6 +177,12 @@ enum PlateParser {
         "placemat", "napkin", "tissue", "plate", "bowl", "glass", "cup", "mug", "cutlery", "fork", "spoon", "knife",
         "chopsticks", "hand", "hands", "finger", "fingers", "background", "wall", "floor", "phone", "plastic",
         "metal", "tray", "basket", "paper", "foil", "cloth", "surface", "counter", "countertop",
+        // Scenery and other non-food things a photo taken outdoors, or of the wrong subject, might contain.
+        "sky", "skies", "cloud", "clouds", "tree", "trees", "grass", "leaf", "leaves", "mountain", "mountains",
+        "hill", "hills", "building", "buildings", "road", "street", "car", "vehicle", "water", "lake", "river",
+        "sea", "ocean", "sand", "beach", "sun", "sunset", "flower", "flowers", "bird", "birds", "animal", "dog",
+        "cat", "person", "people", "face", "clothing", "shirt", "shoe", "shoes", "furniture", "chair", "sofa",
+        "bed", "ceiling", "window", "door", "screen", "book", "toy", "plant", "pot", "vase",
     ]
 
     private static func isPlausibleFood(_ name: String) -> Bool {

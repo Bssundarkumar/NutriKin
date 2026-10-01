@@ -31,6 +31,11 @@ plate, board, cutlery, napkin, table or hands. List possible allergens only from
 eggs, soybeans, fish, crustaceans, sesame. If the plate's size is unknown, estimate its diameter in cm from
 cues like cutlery or a glass and report it as plate_diameter_cm.
 
+CHECK FIRST: does this photo actually show food on a plate, bowl or similar, ready to eat? If it shows a
+landscape, scenery, sky, trees, a person, an animal, an object, a screenshot, or anything else that is not a
+meal, you MUST reply {"items":[],"note":"No food found in the photo."} and stop there. Do not describe clouds,
+trees, a sky or other non-food shapes as if they were food, even loosely or as a joke.
+
 Reply with JSON only, no other text, in exactly this shape:
 {"plate_diameter_cm":26,"items":[{"name":"Basmati rice","grams":180,"per_100g":{"calories":130,"protein_g":2.7,"carbs_g":28,"sugar_g":0.1,"fiber_g":0.4,"fat_g":0.3,"sat_fat_g":0.1,"sodium_mg":250},"confidence":"high","allergens":[],"alternatives":[]}],"note":"one short sentence about the biggest uncertainty"}
 If the photo does not show food, reply {"items":[],"note":"No food found in the photo."}
