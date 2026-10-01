@@ -229,15 +229,15 @@ struct TodayView: View {
                             }
                         }
                         .frame(height: 7)
-                    // All three macros stacked here, beside the ring, rather than spanning the full
-                    // card width below it — keeps every individual tracking figure in one glance on
-                    // the right, with the ring as the one big number on the left.
-                    VStack(spacing: 8) {
-                        MacroBar(symbol: "leaf.fill", tint: .blue, title: "Carbs", value: budget.eaten.carbsG, goal: goals.carbsG, iconTint: .green)
-                        MacroBar(symbol: "drop.fill", tint: .purple, title: "Protein", value: budget.eaten.proteinG, goal: goals.proteinG, iconTint: .orange)
-                        MacroBar(symbol: "drop.fill", tint: .orange, title: "Fat", value: budget.eaten.fatG, goal: goals.fatG)
-                    }
                 }
+            }
+            // All three macros in one row, under the ring and the rest — spans the card's full width
+            // so each bar has room to read clearly, rather than being squeezed into the narrow column
+            // beside the ring.
+            HStack(spacing: 18) {
+                MacroBar(symbol: "leaf.fill", tint: .blue, title: "Carbs", value: budget.eaten.carbsG, goal: goals.carbsG, iconTint: .green)
+                MacroBar(symbol: "drop.fill", tint: .purple, title: "Protein", value: budget.eaten.proteinG, goal: goals.proteinG, iconTint: .orange)
+                MacroBar(symbol: "drop.fill", tint: .orange, title: "Fat", value: budget.eaten.fatG, goal: goals.fatG)
             }
             if !TodayLayout.isChild(member) {
                 Button("Weight & daily intake plan", action: showPlan)
