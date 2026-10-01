@@ -9,6 +9,7 @@ struct ContentView: View {
     @Environment(GroceryStore.self) private var groceries
     @Environment(MedicationStore.self) private var medications
     @State private var tab: Tab = Tab(rawValue: Demo.startTab) ?? .today
+    @AppStorage("hasSeenWelcomeCarousel") private var hasSeenWelcomeCarousel = false
 
     private enum Tab: String, Hashable { case today, scan, groceries, family }
 
@@ -18,7 +19,11 @@ struct ContentView: View {
             case .loading:
                 ProgressView()
             case .signedOut:
-                SignInView()
+                if hasSeenWelcomeCarousel {
+                    SignInView()
+                } else {
+                    WelcomeCarouselView { hasSeenWelcomeCarousel = true }
+                }
             case .signedIn:
                 switch family.phase {
                 case .idle, .loading:
@@ -42,11 +47,11 @@ struct ContentView: View {
                                 .tag(Tab.family)
                         }
                         .sensoryFeedback(.selection, trigger: tab)
-                        .sheet(isPresented: Binding(
+                        .fullScreenCover(isPresented: Binding(
                             get: { family.promptToAddMembers },
                             set: { family.promptToAddMembers = $0 }
                         )) {
-                            MemberEditView(mode: .add)
+                            GoalOnboardingView()
                         }
                     } else {
                         HouseholdSetupView()

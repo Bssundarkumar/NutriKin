@@ -26,15 +26,57 @@ final class HealthKitManager {
 
     private var readTypes: Set<HKObjectType> {
         [
+            // Body measurements
             HKQuantityType(.bodyMass),
+            HKQuantityType(.bodyFatPercentage),
+            HKQuantityType(.height),
+            HKQuantityType(.waistCircumference),
+            // Heart
             HKQuantityType(.bloodGlucose),
             HKQuantityType(.bloodPressureSystolic),
             HKQuantityType(.bloodPressureDiastolic),
+            // Health details (characteristic data — set once, not a sample series)
+            HKObjectType.characteristicType(forIdentifier: .dateOfBirth)!,
+            HKObjectType.characteristicType(forIdentifier: .biologicalSex)!,
+            // Nutrition
             HKQuantityType(.dietaryEnergyConsumed),
+            HKQuantityType(.dietaryWater),
+            // Sleep
+            HKObjectType.categoryType(forIdentifier: .sleepAnalysis)!,
+            // Activity
             HKQuantityType(.stepCount),
             HKQuantityType(.activeEnergyBurned),
             HKQuantityType(.appleExerciseTime),
             HKObjectType.workoutType(),
+        ]
+    }
+
+    /// What NutriKin writes back, so other health apps on the same phone can use what's logged here —
+    /// shown to the person as its own "Write Access" section, separate from what we read.
+    private var shareTypes: Set<HKSampleType> {
+        [
+            HKQuantityType(.activeEnergyBurned),
+            HKObjectType.workoutType(),
+            HKQuantityType(.bodyMass),
+            HKQuantityType(.bodyFatPercentage),
+            HKQuantityType(.height),
+            HKQuantityType(.waistCircumference),
+            HKQuantityType(.dietaryEnergyConsumed),
+            HKQuantityType(.dietaryCarbohydrates),
+            HKQuantityType(.dietarySugar),
+            HKQuantityType(.dietaryFiber),
+            HKQuantityType(.dietaryProtein),
+            HKQuantityType(.dietaryFatTotal),
+            HKQuantityType(.dietaryFatSaturated),
+            HKQuantityType(.dietarySodium),
+            HKQuantityType(.dietaryCholesterol),
+            HKQuantityType(.dietaryVitaminA),
+            HKQuantityType(.dietaryVitaminC),
+            HKQuantityType(.dietaryVitaminD),
+            HKQuantityType(.dietaryCalcium),
+            HKQuantityType(.dietaryIron),
+            HKQuantityType(.dietaryPotassium),
+            HKQuantityType(.dietaryWater),
         ]
     }
 
@@ -44,7 +86,7 @@ final class HealthKitManager {
             return
         }
         do {
-            try await store.requestAuthorization(toShare: [], read: readTypes)
+            try await store.requestAuthorization(toShare: shareTypes, read: readTypes)
             // Note: HealthKit never reveals whether *read* access was denied.
             // Denied types simply return no samples.
             hasRequestedAccess = true
@@ -66,7 +108,7 @@ final class HealthKitManager {
     func checkAccessStatus() async {
         if Demo.isOn { hasRequestedAccess = true; return }
         guard HKHealthStore.isHealthDataAvailable() else { return }
-        let status = try? await store.statusForAuthorizationRequest(toShare: [], read: readTypes)
+        let status = try? await store.statusForAuthorizationRequest(toShare: shareTypes, read: readTypes)
         hasRequestedAccess = status == .unnecessary
     }
 

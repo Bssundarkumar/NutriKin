@@ -124,7 +124,11 @@ enum NutritionPlanner {
         let bmiValue = bmi(weightKg: weight, heightCm: height)
         let category = BMICategory(bmi: bmiValue)
         let healthy = (18.5 * m * m)...(24.9 * m * m)
-        let target = category == .healthy ? weight : targetBMI * m * m
+        // A weight the person chose for themself (e.g. during onboarding) wins over our own BMI-based
+        // default, as long as it's a realistic number — their goal, not a guess we're making for them.
+        let bmiDefault = category == .healthy ? weight : targetBMI * m * m
+        let chosenTarget = member.goals.targetWeightKg
+        let target = (chosenTarget != nil && (25...300).contains(chosenTarget!)) ? chosenTarget! : bmiDefault
         let direction: NutritionPlan.Direction = abs(target - weight) < 0.5 ? .maintain : (target < weight ? .lose : .gain)
 
         // Mifflin-St Jeor resting energy use.

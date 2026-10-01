@@ -110,6 +110,9 @@ struct Goals: Codable, Hashable {
     /// Activity goals. Older versions of the app ignore these two.
     var dailySteps: Int?
     var weeklyWorkoutMinutes: Int?
+    /// A weight this person chose for themself (e.g. during onboarding), in kilograms. When set,
+    /// NutritionPlanner aims for this instead of its own BMI-based default — it's their call, not ours.
+    var targetWeightKg: Double?
 }
 
 /// Biological sex, used only to pick a more accurate default daily target
