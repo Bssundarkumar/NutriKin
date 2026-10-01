@@ -14,22 +14,31 @@ struct SectionTitle: View {
     /// A smaller icon, title and action, for use in a half-width (two-column) card — the full-size title
     /// wraps letter by letter once the icon and action button are also competing for that little width.
     var compact: Bool = false
+    /// Adds a trailing chevron after the action text, e.g. "See all ›" — used for actions that open
+    /// another screen; left off for an action like "Add +" that does something right on this card.
+    var actionShowsChevron: Bool = false
 
     var body: some View {
-        HStack(spacing: compact ? 6 : 8) {
+        HStack(spacing: compact ? 5 : 8) {
             if let symbol {
                 Image(systemName: symbol)
-                    .font(compact ? .caption2.weight(.bold) : .footnote.weight(.bold))
+                    .font(compact ? .system(size: 10).weight(.bold) : .footnote.weight(.bold))
                     .foregroundStyle(tint)
-                    .frame(width: compact ? 20 : 26, height: compact ? 20 : 26)
+                    .frame(width: compact ? 18 : 26, height: compact ? 18 : 26)
                     .background(tint.opacity(0.15), in: Circle())
             }
-            Text(title).font(compact ? .footnote.weight(.bold) : .title3.weight(.bold))
-                .lineLimit(1).minimumScaleFactor(0.8).layoutPriority(1)
-            Spacer(minLength: 4)
+            Text(title).font(compact ? .caption.weight(.bold) : .title3.weight(.bold))
+                .lineLimit(1).minimumScaleFactor(0.65)
+            Spacer(minLength: 2)
             if let actionTitle, let action {
-                Button(actionTitle, action: action).font(compact ? .caption.weight(.semibold) : .subheadline.weight(.semibold))
-                    .lineLimit(1).fixedSize(horizontal: true, vertical: false)
+                Button(action: action) {
+                    HStack(spacing: 1) {
+                        Text(actionTitle)
+                        if actionShowsChevron { Image(systemName: "chevron.right").font(.system(size: 8).weight(.bold)) }
+                    }
+                }
+                .font(compact ? .system(size: 11).weight(.semibold) : .subheadline.weight(.semibold))
+                .lineLimit(1).minimumScaleFactor(0.8).fixedSize()
             }
         }
         .padding(.horizontal, 4)

@@ -352,13 +352,13 @@ struct TodayView: View {
                                          waterTimes: [], hungerEntries: [], moodEntries: []).suffix(4)
         if !showsCalories { for i in events.indices { events[i].detail = "" } }
         return VStack(alignment: .leading, spacing: 10) {
-            SectionTitle(title: "Today's Meals", actionTitle: "Add", action: { showAddChoice = true }, symbol: "fork.knife", tint: Theme.brand, compact: true)
+            SectionTitle(title: "Today's Meals", actionTitle: "Add +", action: { showAddChoice = true }, symbol: "fork.knife", tint: Theme.brand, compact: true)
             if events.isEmpty {
                 EmptyState(symbol: "fork.knife", title: "Nothing yet", message: "Log a meal to start.", actionTitle: "Add") { showAddChoice = true }
             } else {
-                VStack(spacing: 10) {
-                    ForEach(events) { event in
-                        compactMealRow(event, member: member)
+                VStack(spacing: 0) {
+                    ForEach(Array(events.enumerated()), id: \.element.id) { index, event in
+                        compactMealRow(event, member: member, isLast: index == events.count - 1)
                     }
                 }
             }
@@ -371,24 +371,30 @@ struct TodayView: View {
         }
     }
 
-    /// A single meal row sized for the narrow half-width "Today's Meals" column — `ladderRow`'s
-    /// connecting-line layout assumes full width, so a half-width card gets its own simpler row instead
-    /// of squeezing that one in (a fixed-width icon plus a ladder line left so little room for the title
-    /// that long meal names wrapped letter by letter).
-    private func compactMealRow(_ event: TimelineEvent, member: Member) -> some View {
+    /// A single meal row sized for the narrow half-width "Today's Meals" column: time on the left, a
+    /// plain colored dot on a connecting line (no icon glyph — there's no room for one at this width),
+    /// then the title and calories on one line, with a trailing chevron.
+    private func compactMealRow(_ event: TimelineEvent, member: Member, isLast: Bool) -> some View {
         HStack(alignment: .top, spacing: 8) {
-            Image(systemName: event.symbol)
-                .font(.caption2).foregroundStyle(.white)
-                .frame(width: 22, height: 22)
-                .background(event.tint.color, in: Circle())
-            VStack(alignment: .leading, spacing: 1) {
-                Text(event.title).font(.caption.weight(.semibold)).lineLimit(1).truncationMode(.tail)
-                HStack(spacing: 4) {
-                    if !event.detail.isEmpty { Text(event.detail).font(.caption2).foregroundStyle(.secondary) }
-                    Text(event.at.formatted(date: .omitted, time: .shortened)).font(.caption2).foregroundStyle(.tertiary)
+            Text(event.at.formatted(date: .omitted, time: .shortened))
+                .font(.system(size: 10)).foregroundStyle(.secondary)
+                .lineLimit(1).minimumScaleFactor(0.8)
+                .frame(width: 50, alignment: .leading)
+                .padding(.top, 3)
+            VStack(spacing: 0) {
+                Circle().fill(event.tint.color).frame(width: 9, height: 9)
+                if !isLast { Rectangle().fill(event.tint.color.opacity(0.3)).frame(width: 1.5).frame(maxHeight: .infinity) }
+            }
+            .padding(.top, 5)
+            HStack(alignment: .top, spacing: 4) {
+                Text(event.title).font(.caption.weight(.semibold)).lineLimit(2).fixedSize(horizontal: false, vertical: true)
+                Spacer(minLength: 2)
+                VStack(alignment: .trailing, spacing: 2) {
+                    if !event.detail.isEmpty { Text(event.detail).font(.system(size: 10)).foregroundStyle(.secondary) }
+                    Image(systemName: "chevron.right").font(.system(size: 9).weight(.semibold)).foregroundStyle(.tertiary)
                 }
             }
-            Spacer(minLength: 0)
+            .padding(.bottom, isLast ? 2 : 12)
         }
         .contentShape(Rectangle())
         .onTapGesture {
@@ -406,10 +412,16 @@ struct TodayView: View {
         let dailyGoal = max(ActivityGoals.suggested(for: member).weeklyMinutes / 7, 20)
         return VStack(alignment: .leading, spacing: 10) {
             SectionTitle(title: "Activity", actionTitle: "See all", action: { activityStartsLogging = false; showActivity = true },
-                         symbol: "figure.run", tint: .orange, compact: true)
-            VStack(spacing: 4) {
+                         symbol: "figure.run", tint: .orange, compact: true, actionShowsChevron: true)
+            ZStack(alignment: .top) {
                 ScoreRingLabel(fraction: Double(minutes) / Double(dailyGoal), color: .orange, primary: "\(minutes)", secondary: "Active min")
                     .frame(width: 92, height: 92)
+                Image(systemName: "figure.run")
+                    .font(.caption2.weight(.bold)).foregroundStyle(.white)
+                    .frame(width: 22, height: 22)
+                    .background(Color.orange, in: Circle())
+                    .overlay(Circle().strokeBorder(.white, lineWidth: 2))
+                    .offset(y: -4)
             }
             .frame(maxWidth: .infinity)
             HStack(spacing: 10) {
@@ -428,7 +440,7 @@ struct TodayView: View {
     private func compactMedications(_ member: Member) -> some View {
         let doses = medications.doses(for: member)
         return VStack(alignment: .leading, spacing: 10) {
-            SectionTitle(title: "Medications", actionTitle: "Manage", action: { showMeds = true }, symbol: "pills.fill", tint: .blue, compact: true)
+            SectionTitle(title: "Medications", actionTitle: "Manage", action: { showMeds = true }, symbol: "pills.fill", tint: .blue, compact: true, actionShowsChevron: true)
             if doses.isEmpty {
                 EmptyState(symbol: "pills", title: "Nothing scheduled", message: "Add a medication to track doses.", actionTitle: "Add") { showMeds = true }
             } else {
@@ -445,19 +457,28 @@ struct TodayView: View {
     }
 
     private func compactDoseRow(_ dose: ScheduledDose, member: Member) -> some View {
-        HStack(spacing: 10) {
+        HStack(spacing: 6) {
             Image(systemName: dose.state == .taken ? "checkmark.circle.fill" : dose.state == .skipped ? "xmark.circle" : "clock")
+                .font(.footnote)
                 .foregroundStyle(dose.state == .taken ? .green : dose.state == .missed ? .red : .secondary)
             VStack(alignment: .leading, spacing: 1) {
-                Text(dose.medication.name).font(.subheadline.weight(.semibold)).lineLimit(1)
+                Text(dose.medication.name).font(.caption.weight(.semibold)).lineLimit(1).truncationMode(.tail)
                 Text(dose.dueAt.formatted(date: .omitted, time: .shortened)).font(.caption2).foregroundStyle(.secondary)
             }
-            Spacer(minLength: 4)
+            Spacer(minLength: 2)
             if dose.state != .taken && dose.state != .skipped && family.canManage(member) {
                 Button("Take") { Task { await medications.mark(dose, as: .taken) } }
-                    .font(.caption.weight(.semibold)).buttonStyle(.bordered).controlSize(.mini)
+                    .font(.caption2.weight(.semibold)).buttonStyle(.bordered).controlSize(.mini)
+                    .lineLimit(1).fixedSize()
             } else if dose.state == .taken {
-                Text("Taken").font(.caption.weight(.semibold)).foregroundStyle(.green)
+                Text("Taken").font(.caption2.weight(.semibold)).foregroundStyle(.green).lineLimit(1).fixedSize()
+            }
+            if family.canManage(member) {
+                Menu {
+                    if dose.state != .taken { Button("Mark taken", systemImage: "checkmark") { Task { await medications.mark(dose, as: .taken) } } }
+                    if dose.state != .skipped { Button("Skip", systemImage: "forward") { Task { await medications.mark(dose, as: .skipped) } } }
+                    Button("Manage medications", systemImage: "pills") { showMeds = true }
+                } label: { Image(systemName: "ellipsis").font(.caption).foregroundStyle(.secondary).frame(width: 22, height: 22) }
             }
         }
         .padding(.vertical, 6)
@@ -468,7 +489,7 @@ struct TodayView: View {
     /// bars on the Daily Calories card.
     private func compactLimits(_ b: DayBudget) -> some View {
         VStack(alignment: .leading, spacing: 12) {
-            SectionTitle(title: "Daily Nutrient Limits", actionTitle: "See all", action: { showPlan = true }, symbol: "chart.bar.fill", tint: .teal, compact: true)
+            SectionTitle(title: "Daily Nutrient Limits", actionTitle: "See all", action: { showPlan = true }, symbol: "chart.bar.fill", tint: .teal, compact: true, actionShowsChevron: true)
             NutrientBar(title: "Sugar", share: b.sugarShare, detail: "\(Int(b.eaten.sugarG.rounded())) / \(Int(b.limits.sugarG.rounded())) g")
             NutrientBar(title: "Sodium", share: b.sodiumShare, detail: "\(Int(b.eaten.sodiumMg.rounded())) / \(Int(b.limits.sodiumMg.rounded())) mg")
             NutrientBar(title: "Saturated fat", share: b.satFatShare, detail: "\(Int(b.eaten.satFatG.rounded())) / \(Int(b.limits.satFatG.rounded())) g")
