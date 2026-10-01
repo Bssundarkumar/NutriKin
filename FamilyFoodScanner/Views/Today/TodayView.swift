@@ -20,6 +20,7 @@ struct TodayView: View {
     @State private var activityStartsLogging = Demo.opensLogWorkout
     @State private var showMeds = Demo.opensMeds
     @State private var showTimeline = false
+    @State private var showAddChoice = false
     @State private var editingWorkout: Workout?
     @State private var viewingWorkout: Workout?
 
@@ -254,11 +255,11 @@ struct TodayView: View {
 
     // MARK: Actions and nutrients
 
+    /// Food and activity logging now live as one "Add" choice on the Eaten & burned ladder below, so
+    /// they don't need their own pills here too — this row is only for what nothing else covers.
     private var quickActions: some View {
         HStack(spacing: 8) {
-            QuickAction(title: "Log food", symbol: "plus.circle.fill") { showFood = true }
             QuickAction(title: "Ask AI", symbol: "sparkles", tint: .purple) { showAsk = true }
-            QuickAction(title: "Activity", symbol: "figure.run", tint: .orange) { activityStartsLogging = true; showActivity = true }
         }
     }
 
@@ -303,9 +304,11 @@ struct TodayView: View {
             for i in events.indices where events[i].kind == .food { events[i].detail = "" }
         }
         return VStack(alignment: .leading, spacing: 10) {
-            SectionTitle(title: "Eaten & burned", actionTitle: "Add") { showFood = true }
+            SectionTitle(title: "Eaten & burned", actionTitle: "Add") { showAddChoice = true }
             if events.isEmpty {
-                EmptyState(symbol: "fork.knife", title: "Nothing logged", message: "Scan a product and tap \u{201C}Log as eaten\u{201D}, or add a meal or workout.")
+                EmptyState(symbol: "fork.knife", title: "Nothing logged",
+                            message: "Log a meal, snack or workout to start today's ladder.",
+                            actionTitle: "Add") { showAddChoice = true }
             } else {
                 VStack(spacing: 0) {
                     ForEach(Array(events.enumerated()), id: \.element.id) { index, event in
@@ -315,6 +318,11 @@ struct TodayView: View {
             }
         }
         .card()
+        .confirmationDialog("Add to today", isPresented: $showAddChoice, titleVisibility: .visible) {
+            Button("Log food") { showFood = true }
+            Button("Log activity") { activityStartsLogging = true; showActivity = true }
+            Button("Cancel", role: .cancel) {}
+        }
     }
 
     private func ladderRow(_ event: TimelineEvent, member: Member, isLast: Bool) -> some View {
