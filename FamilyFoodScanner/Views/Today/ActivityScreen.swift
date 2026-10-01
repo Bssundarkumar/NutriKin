@@ -177,7 +177,7 @@ struct ActivitySummaryCard: View {
         let logged = tracking.workouts(for: member)
         let minutes = max(logged.reduce(0) { $0 + $1.minutes }, showsHealth ? (health.activity.exerciseMinutes ?? 0) : 0)
         VStack(alignment: .leading, spacing: 12) {
-            SectionTitle(title: "Activity", actionTitle: "Open", action: onOpen)
+            SectionTitle(title: "Activity", actionTitle: "Open", action: onOpen, symbol: "figure.run", tint: .orange)
             HStack(spacing: 10) {
                 StatTile(title: "Active min", value: "\(minutes)", symbol: "timer", tint: Theme.brand)
                 if showsHealth { StatTile(title: "Steps", value: health.activity.steps.map { $0.formatted() } ?? "\u{2013}", symbol: "figure.walk", tint: .blue) }
@@ -186,7 +186,7 @@ struct ActivitySummaryCard: View {
             ScheduledTodayList(member: member, showsScheduleLink: false)
             ActivityGoalBars(member: member, showsSteps: showsHealth)
         }
-        .card()
+        .card(tint: .orange)
         .contentShape(Rectangle())
         .onTapGesture(perform: onOpen)
         .id("health")

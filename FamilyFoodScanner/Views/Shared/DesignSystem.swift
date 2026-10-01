@@ -7,9 +7,20 @@ struct SectionTitle: View {
     let title: String
     var actionTitle: String?
     var action: (() -> Void)?
+    /// An optional small colored icon chip before the title, for a screen with several sections where a
+    /// touch of color per heading makes them easier to tell apart at a glance.
+    var symbol: String? = nil
+    var tint: Color = Theme.brand
 
     var body: some View {
-        HStack {
+        HStack(spacing: 8) {
+            if let symbol {
+                Image(systemName: symbol)
+                    .font(.footnote.weight(.bold))
+                    .foregroundStyle(tint)
+                    .frame(width: 26, height: 26)
+                    .background(tint.opacity(0.15), in: Circle())
+            }
             Text(title).font(.title3.weight(.bold))
             Spacer()
             if let actionTitle, let action {

@@ -48,9 +48,11 @@ struct TodayView: View {
                             for: member,
                             hasMedications: !medications.medications(for: member).isEmpty,
                             needsAttention: tracking.isToday && doses.contains { $0.state == .due || $0.state == .missed })
-                        ForEach(order, id: \.self) { card in
+                        ForEach(Array(order.enumerated()), id: \.element) { index, card in
                             cardView(card, member: member, budget: budget)
+                                .staggeredAppear(index)
                         }
+                        .animation(.smooth(duration: 0.3), value: tracking.day)
                         if let message = tracking.errorMessage {
                             Text(message).font(.footnote).foregroundStyle(.red).frame(maxWidth: .infinity, alignment: .leading)
                         }
@@ -143,10 +145,11 @@ struct TodayView: View {
         case .workouts:
             if TodayLayout.isChild(member) {
                 VStack(alignment: .leading, spacing: 10) {
-                    SectionTitle(title: "Active play", actionTitle: "Open") { activityStartsLogging = false; showActivity = true }
+                    SectionTitle(title: "Active play", actionTitle: "Open", action: { activityStartsLogging = false; showActivity = true },
+                                 symbol: "figure.run", tint: .orange)
                     KidActivityCard(member: member, healthMinutes: health.activity.exerciseMinutes)
                 }
-                .card().id("health")
+                .card(tint: .orange).id("health")
             } else {
                 ActivitySummaryCard(member: member) { activityStartsLogging = false; showActivity = true }
             }
@@ -225,7 +228,7 @@ struct TodayView: View {
                     .font(.caption.weight(.semibold))
             }
         }
-        .card()
+        .card(tint: color)
     }
 
     private func inlineStat(_ symbol: String, _ value: String, tint: Color) -> some View {
@@ -265,7 +268,7 @@ struct TodayView: View {
 
     private func nutrients(_ b: DayBudget) -> some View {
         VStack(alignment: .leading, spacing: 14) {
-            SectionTitle(title: "Daily limits and targets")
+            SectionTitle(title: "Daily limits and targets", symbol: "chart.bar.fill", tint: .teal)
             NutrientBar(title: "Sugar", share: b.sugarShare, detail: "\(Int(b.eaten.sugarG.rounded())) / \(Int(b.limits.sugarG.rounded())) g")
             NutrientBar(title: "Sodium", share: b.sodiumShare, detail: "\(Int(b.eaten.sodiumMg.rounded())) / \(Int(b.limits.sodiumMg.rounded())) mg")
             NutrientBar(title: "Saturated fat", share: b.satFatShare, detail: "\(Int(b.eaten.satFatG.rounded())) / \(Int(b.limits.satFatG.rounded())) g")
@@ -278,7 +281,7 @@ struct TodayView: View {
                 Text("Fat \(Int(b.eaten.fatG.rounded())) g").font(.caption).foregroundStyle(.secondary)
             }
         }
-        .card()
+        .card(tint: .teal)
     }
 
     // MARK: Lists
@@ -304,7 +307,7 @@ struct TodayView: View {
             for i in events.indices where events[i].kind == .food { events[i].detail = "" }
         }
         return VStack(alignment: .leading, spacing: 10) {
-            SectionTitle(title: "Eaten & burned", actionTitle: "Add") { showAddChoice = true }
+            SectionTitle(title: "Eaten & burned", actionTitle: "Add", action: { showAddChoice = true }, symbol: "fork.knife", tint: Theme.brand)
             if events.isEmpty {
                 EmptyState(symbol: "fork.knife", title: "Nothing logged",
                             message: "Log a meal, snack or workout to start today's ladder.",
@@ -317,7 +320,7 @@ struct TodayView: View {
                 }
             }
         }
-        .card()
+        .card(tint: Theme.brand)
         .confirmationDialog("Add to today", isPresented: $showAddChoice, titleVisibility: .visible) {
             Button("Log food") { showFood = true }
             Button("Log activity") { activityStartsLogging = true; showActivity = true }

@@ -30,7 +30,8 @@ struct MedicationsCard: View {
         let doses = meds.doses(for: member)
         let hasAny = !meds.medications(for: member).isEmpty
         VStack(alignment: .leading, spacing: 10) {
-            SectionTitle(title: "Medications", actionTitle: canEdit ? (hasAny ? "Manage" : "Add") : "View", action: onManage)
+            SectionTitle(title: "Medications", actionTitle: canEdit ? (hasAny ? "Manage" : "Add") : "View", action: onManage,
+                         symbol: "pills.fill", tint: .blue)
             if doses.isEmpty {
                 EmptyState(symbol: "pills", title: hasAny ? "Nothing scheduled today" : "No medications yet",
                            message: hasAny ? "\(member.name) has no doses due on this day."
@@ -49,7 +50,7 @@ struct MedicationsCard: View {
             if !canEdit { Text(readOnlyNote(member)).font(.caption).foregroundStyle(.secondary) }
             if let message = meds.errorMessage { Text(message).font(.footnote).foregroundStyle(.red) }
         }
-        .card()
+        .card(tint: .blue)
     }
 
     private func row(_ dose: ScheduledDose) -> some View {

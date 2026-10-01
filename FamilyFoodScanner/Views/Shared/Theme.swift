@@ -32,11 +32,31 @@ struct AppBackground: View {
 }
 
 extension View {
-    /// A rounded, softly shadowed card.
-    func card(padding: CGFloat = 16, radius: CGFloat = 22) -> some View {
+    /// A rounded, softly shadowed card. With a `tint`, it gets a faint gradient wash and a thin colored
+    /// top edge instead of the plain flat background — used where a screen has several cards and a touch
+    /// of color per card helps tell them apart at a glance.
+    func card(padding: CGFloat = 16, radius: CGFloat = 22, tint: Color? = nil) -> some View {
         self.padding(padding)
-            .background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: radius, style: .continuous))
-            .shadow(color: .black.opacity(0.07), radius: 12, y: 5)
+            .background {
+                RoundedRectangle(cornerRadius: radius, style: .continuous)
+                    .fill(Color(.secondarySystemGroupedBackground))
+                    .overlay {
+                        if let tint {
+                            RoundedRectangle(cornerRadius: radius, style: .continuous)
+                                .fill(LinearGradient(colors: [tint.opacity(0.12), .clear], startPoint: .topLeading, endPoint: .bottomTrailing))
+                        }
+                    }
+                    .overlay(alignment: .top) {
+                        if let tint {
+                            RoundedRectangle(cornerRadius: radius / 4)
+                                .fill(tint.gradient)
+                                .frame(height: 4)
+                                .padding(.horizontal, radius * 0.7)
+                                .offset(y: 1)
+                        }
+                    }
+            }
+            .shadow(color: (tint ?? .black).opacity(tint == nil ? 0.07 : 0.12), radius: 14, y: 6)
     }
 
     /// Screens built on `List`: soft background, no separators between cards.

@@ -17,7 +17,7 @@ struct CheckInsCard: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
-            SectionTitle(title: "Check in")
+            SectionTitle(title: "Check in", symbol: "checklist", tint: .pink)
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 10) {
                     pill("Water", "drop.fill", .blue, detail: "\(checkIns.waterGlasses(for: member.id, day: day))/\(DailyCheckInStore.waterGoalGlasses)") { sheet = .water }
@@ -28,7 +28,7 @@ struct CheckInsCard: View {
                 }
             }
         }
-        .card()
+        .card(tint: .pink)
         .sheet(item: $sheet) { s in
             NavigationStack { sheetContent(s) }
                 .presentationDetents([.height(280)])
