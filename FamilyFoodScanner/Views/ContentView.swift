@@ -12,12 +12,19 @@ struct ContentView: View {
     @Environment(DailyCheckInStore.self) private var checkIns
     @Environment(\.scenePhase) private var scenePhase
     @AppStorage("healthMemberID") private var healthMemberID = ""
+    @State private var buddyStore = BuddyStore()
     @State private var refreshingHealth = false
     @State private var healthRefreshPending = false
     @State private var tab: Tab = Tab(rawValue: Demo.startTab) ?? .today
     @AppStorage("hasSeenWelcomeCarousel") private var hasSeenWelcomeCarousel = false
 
-    private enum Tab: String, Hashable { case today, scan, groceries, family }
+    private enum Tab: String, Hashable { case today, scan, groceries, family, buddies }
+
+    private var hasBuddyGroup: Bool {
+        guard let userID = family.myUserId else { return false }
+        let groupIDs = Set(buddyStore.groups.map(\.id))
+        return buddyStore.buddies.contains { $0.userId == userID && groupIDs.contains($0.groupId) }
+    }
 
     var body: some View {
         Group {
@@ -51,6 +58,11 @@ struct ContentView: View {
                             FamilyView()
                                 .tabItem { Label("Family", systemImage: "person.3") }
                                 .tag(Tab.family)
+                            if hasBuddyGroup {
+                                BuddiesView(presentedAsTab: true)
+                                    .tabItem { Label("Gym Buddies", systemImage: "dumbbell.fill") }
+                                    .tag(Tab.buddies)
+                            }
                         }
                         .sensoryFeedback(.selection, trigger: tab)
                         .fullScreenCover(isPresented: Binding(
@@ -64,6 +76,11 @@ struct ContentView: View {
                     }
                 }
             }
+        }
+        .environment(buddyStore)
+        .task(id: family.myUserId) { await buddyStore.load(myUserId: family.myUserId) }
+        .onChange(of: hasBuddyGroup) { _, joined in
+            if !joined && tab == .buddies { tab = .today }
         }
         .readableFont(18)
         .environment(\.defaultMinListRowHeight, 52)
@@ -96,7 +113,10 @@ struct ContentView: View {
             Task { await tracking.goToToday(); await medications.load(householdId: family.householdId, day: .now) }
         }
         .onChange(of: scenePhase) { _, phase in
-            if phase == .active { Task { await refreshHealth() } }
+            if phase == .active {
+                Task { await refreshHealth() }
+                Task { await buddyStore.load(myUserId: family.myUserId) }
+            }
         }
         // Whatever the route (sign out, deleted account, revoked session), the linked AI key goes too.
         .onChange(of: auth.state) { old, new in

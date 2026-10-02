@@ -214,9 +214,9 @@ struct LogWorkoutSheet: View {
     @State private var prefilled = false
     @State private var ideaLoading = false
 
-    init(member: Member, editing: Workout? = nil) {
+    init(member: Member, editing: Workout? = nil, initialKind: WorkoutKind? = nil) {
         self.member = member; self.editing = editing
-        _kind = State(initialValue: TodayLayout.isChild(member) ? .play : .walking)
+        _kind = State(initialValue: initialKind ?? (TodayLayout.isChild(member) ? .play : .walking))
     }
 
     private var estimate: Int { WorkoutEstimator.calories(kind: kind, intensity: intensity, minutes: minutes, weightKg: member.weightKg) }

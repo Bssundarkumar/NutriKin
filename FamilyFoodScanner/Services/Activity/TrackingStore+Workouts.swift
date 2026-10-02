@@ -131,6 +131,14 @@ extension TrackingStore {
         }
     }
 
+    func receiveGroupWorkouts(_ saved: [Workout]) {
+        for workout in saved where workout.householdId == householdId && householdId != nil {
+            if Calendar.current.isDate(workout.doneAt, inSameDayAs: day), !workouts.contains(where: { $0.id == workout.id }) { workouts.append(workout) }
+            if workout.doneAt >= Self.recentCutoff, !recentWorkouts.contains(where: { $0.id == workout.id }) { recentWorkouts.append(workout) }
+            healthSync?.enqueue(HealthSync.workout(workout))
+        }
+    }
+
     /// Saves changes to a logged workout (kind, time spent, effort, calories, note and strength exercises).
     @discardableResult
     func update(_ workout: Workout) async -> Bool {
