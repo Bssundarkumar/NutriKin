@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 
 struct FamilyView: View {
     @Environment(AuthStore.self) private var auth
@@ -13,6 +14,8 @@ struct FamilyView: View {
     @State private var editingMember: Member?
     @State private var didCopyCode = false
     @State private var confirmDelete = false
+    @State private var isRefreshingHealth = false
+    @State private var refreshedJustNow = false
 
     var body: some View {
         NavigationStack {
@@ -73,8 +76,32 @@ struct FamilyView: View {
                         healthRow("Systolic", health.snapshot.systolic, unit: "mmHg")
                         healthRow("Diastolic", health.snapshot.diastolic, unit: "mmHg")
                         healthRow("Calories today", health.snapshot.caloriesToday, unit: "kcal")
-                        Button("Refresh") { Task { await health.refresh() } }
-                        Button("Update Health permissions") { Task { await health.requestAccess() } }
+                        Button {
+                            Task {
+                                isRefreshingHealth = true
+                                await health.refresh()
+                                isRefreshingHealth = false
+                                refreshedJustNow = true
+                                try? await Task.sleep(for: .seconds(2))
+                                refreshedJustNow = false
+                            }
+                        } label: {
+                            HStack {
+                                Text("Refresh")
+                                Spacer()
+                                if isRefreshingHealth { ProgressView() }
+                                else if refreshedJustNow { Image(systemName: "checkmark").foregroundStyle(Theme.brand) }
+                            }
+                        }
+                        .disabled(isRefreshingHealth)
+                        // Once you've answered the system prompt, HealthKit never shows it again — the
+                        // only way to actually change permissions afterward is in Settings, so this opens
+                        // that instead of silently re-calling an API that would do nothing.
+                        Button("Change permissions in Settings") {
+                            if let url = URL(string: UIApplication.openSettingsURLString) { UIApplication.shared.open(url) }
+                        }
+                        Text("To change what NutriKin can read or write in Health, use Settings \u{2192} Health \u{2192} Data Access & Devices \u{2192} NutriKin \u{2014} iOS only shows the permission prompt once, so re-asking here can't open it again.")
+                            .readableFont(15, weight: .regular, relativeTo: .caption).foregroundStyle(.secondary)
                     } else {
                         Button("Connect Apple Health") { Task {
                             guard let me = family.members.first(where: { $0.userId == family.myUserId && family.myUserId != nil }) else { return }
