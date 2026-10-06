@@ -205,7 +205,6 @@ private struct WeightQuickLogView: View {
     @State private var text: String
     @State private var isSaving = false
     @State private var growthStore = GrowthStore()
-    @State private var showFullHistory = false
 
     init(member: Member, day: Date, onDone: @escaping () -> Void) {
         self.member = member
@@ -234,11 +233,7 @@ private struct WeightQuickLogView: View {
                 .disabled(Double(text) == nil || isSaving)
             if points.count >= 2 {
                 VStack(alignment: .leading, spacing: 8) {
-                    HStack {
-                        Text("Recent trend").readableFont(16, weight: .semibold, relativeTo: .subheadline)
-                        Spacer()
-                        Button("Full history") { showFullHistory = true }.readableFont(15, weight: .semibold, relativeTo: .footnote)
-                    }
+                    Text("Recent trend").readableFont(16, weight: .semibold, relativeTo: .subheadline)
                     Chart {
                         ForEach(points, id: \.date) { p in
                             LineMark(x: .value("Date", p.date), y: .value("Weight", p.value)).foregroundStyle(Theme.brand)
@@ -254,7 +249,6 @@ private struct WeightQuickLogView: View {
             } else {
                 Text(points.isEmpty ? "No weight readings yet \u{2014} save one above to start the trend." : "Add one more reading to see a trend.")
                     .readableFont(15, weight: .regular, relativeTo: .footnote).foregroundStyle(.secondary).multilineTextAlignment(.center).padding(.horizontal, 24)
-                Button("View full history") { showFullHistory = true }.readableFont(15, weight: .semibold, relativeTo: .footnote)
             }
             Spacer()
         }
@@ -262,7 +256,6 @@ private struct WeightQuickLogView: View {
         }
         .navigationTitle("Weight").navigationBarTitleDisplayMode(.inline)
         .toolbar { ToolbarItem(placement: .cancellationAction) { Button("Cancel", action: onDone) } }
-        .sheet(isPresented: $showFullHistory) { GrowthView(member: member) }
         .task { growthStore.healthSync = health; await growthStore.load(for: member) }
     }
 
