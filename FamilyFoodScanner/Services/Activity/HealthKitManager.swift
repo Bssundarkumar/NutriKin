@@ -21,6 +21,7 @@ struct HealthSnapshot {
 final class HealthKitManager {
     let store = HKHealthStore()
     var hasRequestedAccess = false
+    var hasCheckedAccess = false
     var snapshot = HealthSnapshot()
     var errorMessage: String?
     /// Steps, active calories, exercise minutes and workouts for the day being viewed.
@@ -132,8 +133,13 @@ final class HealthKitManager {
     /// Sums "asleep" samples (any of Apple's asleep categories, not just "in bed") from the last 24 hours,
     /// which is close enough to "last night" without needing to guess a bedtime window.
     private func sleepLastNight() async -> Double? {
-        let start = Calendar.current.date(byAdding: .hour, value: -24, to: .now) ?? .now
-        let predicate = HKQuery.predicateForSamples(withStart: start, end: .now)
+        await sleepHours(from: Calendar.current.date(byAdding: .hour, value: -24, to: .now) ?? .now, to: .now)
+    }
+
+    /// One night's worth of "asleep" samples (any of Apple's asleep categories, not just "in bed") between
+    /// two dates, merging overlapping sources so the same sleep isn't counted twice.
+    private func sleepHours(from start: Date, to end: Date) async -> Double? {
+        let predicate = HKQuery.predicateForSamples(withStart: start, end: end)
         let descriptor = HKSampleQueryDescriptor(
             predicates: [.categorySample(type: HKCategoryType(.sleepAnalysis), predicate: predicate)],
             sortDescriptors: [SortDescriptor(\.startDate)]
@@ -146,12 +152,30 @@ final class HealthKitManager {
             HKCategoryValueSleepAnalysis.asleepREM.rawValue,
         ]
         return HealthSync.sleepHours(samples.filter { asleepValues.contains($0.value) }.map {
-            DateInterval(start: max($0.startDate, start), end: max(max($0.startDate, start), min($0.endDate, .now)))
+            DateInterval(start: max($0.startDate, start), end: max(max($0.startDate, start), min($0.endDate, end)))
         })
+    }
+
+    /// Hours asleep for each of the last `nights` nights, oldest first, for a trend chart. Each night is
+    /// the 24 hours ending at 6pm on that calendar day, so a night that runs past midnight is credited to
+    /// the day you woke up, matching how `sleepLastNight()` reads "last night" right now.
+    func sleepHistory(nights: Int = 14) async -> [(date: Date, hours: Double)] {
+        guard HKHealthStore.isHealthDataAvailable() else { return [] }
+        let cal = Calendar.current
+        var result: [(date: Date, hours: Double)] = []
+        for offset in stride(from: nights - 1, through: 0, by: -1) {
+            guard let day = cal.date(byAdding: .day, value: -offset, to: .now),
+                  let end = cal.date(bySettingHour: 18, minute: 0, second: 0, of: day) else { continue }
+            let start = cal.date(byAdding: .hour, value: -24, to: end) ?? end
+            let hours = await sleepHours(from: start, to: min(end, .now)) ?? 0
+            result.append((cal.startOfDay(for: day), hours))
+        }
+        return result
     }
 
     /// Whether the person has already been asked, so a returning user isn't shown "Connect" again.
     func checkAccessStatus() async {
+        defer { hasCheckedAccess = true }
         if Demo.isOn { hasRequestedAccess = true; return }
         guard HKHealthStore.isHealthDataAvailable() else { return }
         let status = try? await store.statusForAuthorizationRequest(toShare: shareTypes, read: readTypes)

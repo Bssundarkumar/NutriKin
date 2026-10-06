@@ -1,4 +1,5 @@
 import SwiftUI
+import Charts
 
 /// The three daily essentials. Hunger stays available through Today's optional check-ins menu.
 struct CheckInsCard: View {
@@ -126,7 +127,11 @@ struct CheckInsCard: View {
         WeightQuickLogView(member: member, day: day) { sheet = nil }
     }
 
+    @State private var sleepHistory: [(date: Date, hours: Double)] = []
+    @State private var loadingSleepHistory = false
+
     private var sleepSheet: some View {
+        ScrollView {
         VStack(spacing: 16) {
             Image(systemName: "bed.double.fill").font(.system(size: 40)).foregroundStyle(.indigo)
             if let hours = sleepHours {
@@ -137,14 +142,38 @@ struct CheckInsCard: View {
                 Text(health.hasRequestedAccess ? "Nothing logged in Apple Health for last night." : "Connect Apple Health from Activity to see sleep here.")
                     .readableFont(16, weight: .regular, relativeTo: .footnote).foregroundStyle(.secondary).multilineTextAlignment(.center).padding(.horizontal, 32)
             }
+            if health.hasRequestedAccess {
+                let nightsWithData = sleepHistory.filter { $0.hours > 0 }
+                if loadingSleepHistory && sleepHistory.isEmpty {
+                    ProgressView().padding(.top, 12)
+                } else if nightsWithData.count >= 2 {
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("Last \(sleepHistory.count) nights").readableFont(16, weight: .semibold, relativeTo: .subheadline)
+                        Chart(sleepHistory, id: \.date) { night in
+                            BarMark(x: .value("Night", night.date, unit: .day), y: .value("Hours", night.hours))
+                                .foregroundStyle(.indigo.gradient)
+                                .cornerRadius(3)
+                        }
+                        .chartYAxisLabel("hours")
+                        .frame(height: 160)
+                        .accessibilityLabel("Sleep hours for the last \(sleepHistory.count) nights")
+                    }
+                    .padding(.horizontal, 24).padding(.top, 8)
+                }
+            }
             Spacer()
         }
         .padding(.top, 24)
+        }
         .navigationTitle("Sleep").navigationBarTitleDisplayMode(.inline)
         .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Done") { sheet = nil } } }
+        .task {
+            guard health.hasRequestedAccess, sleepHistory.isEmpty else { return }
+            loadingSleepHistory = true
+            sleepHistory = await health.sleepHistory()
+            loadingSleepHistory = false
+        }
     }
-
-
 }
 
 /// Optional hunger logging retains the existing per-person, per-day history.
@@ -183,15 +212,20 @@ struct HungerCheckInView: View {
     }
 }
 
-/// A focused weight entry, separate from the full member-edit form, for a one-tap daily log.
+/// A focused weight entry, separate from the full member-edit form, for a one-tap daily log — plus a
+/// trend chart from the same readings `GrowthView` ("More \u{2192} Growth chart") shows, so there's no
+/// need to leave this sheet just to see whether the number is moving the right way.
 private struct WeightQuickLogView: View {
     let member: Member
     let day: Date
     let onDone: () -> Void
     @Environment(FamilyStore.self) private var family
     @Environment(DailyCheckInStore.self) private var checkIns
+    @Environment(HealthKitManager.self) private var health
     @State private var text: String
     @State private var isSaving = false
+    @State private var growthStore = GrowthStore()
+    @State private var showFullHistory = false
 
     init(member: Member, day: Date, onDone: @escaping () -> Void) {
         self.member = member
@@ -200,7 +234,12 @@ private struct WeightQuickLogView: View {
         _text = State(initialValue: member.weightKg.map { $0.truncatingRemainder(dividingBy: 1) == 0 ? String(Int($0)) : String(format: "%.1f", $0) } ?? "")
     }
 
+    private var points: [(date: Date, value: Double)] {
+        GrowthMath.sorted(growthStore.items).compactMap { m in m.weightKg.map { (m.date, $0) } }.suffix(10).map { $0 }
+    }
+
     var body: some View {
+        ScrollView {
         VStack(spacing: 20) {
             Image(systemName: "scalemass.fill").font(.system(size: 40)).foregroundStyle(.purple)
             HStack {
@@ -213,11 +252,36 @@ private struct WeightQuickLogView: View {
             Button("Save") { Task { await save() } }
                 .buttonStyle(.borderedProminent)
                 .disabled(Double(text) == nil || isSaving)
+            if points.count >= 2 {
+                VStack(alignment: .leading, spacing: 8) {
+                    HStack {
+                        Text("Recent trend").readableFont(16, weight: .semibold, relativeTo: .subheadline)
+                        Spacer()
+                        Button("Full history") { showFullHistory = true }.readableFont(15, weight: .semibold, relativeTo: .footnote)
+                    }
+                    Chart {
+                        ForEach(points, id: \.date) { p in
+                            LineMark(x: .value("Date", p.date), y: .value("Weight", p.value)).foregroundStyle(Theme.brand)
+                            PointMark(x: .value("Date", p.date), y: .value("Weight", p.value)).foregroundStyle(Theme.brand)
+                        }
+                    }
+                    .chartYScale(domain: .automatic(includesZero: false))
+                    .chartYAxisLabel("kg")
+                    .frame(height: 160)
+                    .accessibilityLabel("\(member.name)'s weight over the last \(points.count) readings")
+                }
+                .padding(.horizontal, 24)
+            } else {
+                Button("View full history") { showFullHistory = true }.readableFont(15, weight: .semibold, relativeTo: .footnote)
+            }
             Spacer()
         }
         .padding(.top, 16)
+        }
         .navigationTitle("Weight").navigationBarTitleDisplayMode(.inline)
         .toolbar { ToolbarItem(placement: .cancellationAction) { Button("Cancel", action: onDone) } }
+        .sheet(isPresented: $showFullHistory) { GrowthView(member: member) }
+        .task { growthStore.healthSync = health; await growthStore.load(for: member) }
     }
 
     private func save() async {
@@ -228,6 +292,8 @@ private struct WeightQuickLogView: View {
         updated.weightKg = value
         await family.updateMember(updated)
         checkIns.logWeight(value, for: member.id, day: day)
+        // Keep the trend chart in sync with what was just saved, same as GrowthView's own add flow.
+        _ = await growthStore.add(member: member, householdId: family.householdId, on: day, heightCm: nil, weightKg: value)
         onDone()
     }
 }
