@@ -125,14 +125,23 @@ struct PlateScanView: View {
                         .readableFont(15, weight: .regular, relativeTo: .caption).foregroundStyle(.orange).multilineTextAlignment(.center)
                 }
                 if let left = freeScansLeftToday {
-                    Label(left > 0 ? "\(left) free AI scan\(left == 1 ? "" : "s") left today" : "Today's free AI scans are used up \u{2014} using the basic guess for now",
+                    Label(left > 0 ? "\(left) free AI scan\(left == 1 ? "" : "s") left today" : "Today's free AI scans are used up for today",
                           systemImage: left > 0 ? "sparkles" : "hourglass")
                         .readableFont(16, weight: .semibold, relativeTo: .footnote).foregroundStyle(left > 0 ? Theme.brand : .secondary)
+                    if left == 0 && ai.keyClient == nil {
+                        VStack(spacing: 8) {
+                            Text("Without a linked key, photos now use a basic on-device guess \u{2014} it often gets things wrong (it doesn't understand food, just generic objects). Link a free key for accurate scans again today.")
+                                .readableFont(15, weight: .regular, relativeTo: .caption).foregroundStyle(.secondary).multilineTextAlignment(.center)
+                            Button { showConnect = true } label: { bigButton("Link your key", "key", filled: true) }
+                                .buttonStyle(PressableStyle())
+                        }
+                        .padding(.vertical, 4)
+                    }
                 }
                 if ai.keyClient != nil || ai.appleStatus.isAvailable {
                     if ai.keyClient == nil {
-                        Label("Uses Apple Intelligence on your iPhone. Nothing is uploaded.", systemImage: "apple.intelligence")
-                            .readableFont(16, weight: .regular, relativeTo: .footnote).foregroundStyle(Theme.brand).multilineTextAlignment(.center)
+                        Label("Without a key, photos use a basic on-device guess \u{2014} it recognises generic objects, not food, so it's often wrong. Nothing is uploaded.", systemImage: "eye")
+                            .readableFont(16, weight: .regular, relativeTo: .footnote).foregroundStyle(.secondary).multilineTextAlignment(.center)
                     }
                     if CameraPicker.isAvailable {
                         Button { showCamera = true } label: { bigButton("Take a photo", "camera.fill", filled: true) }
@@ -146,8 +155,9 @@ struct PlateScanView: View {
                         Button { image = nil; lastFoods = nil; foodsText = ""; phase = .describe } label: {
                             Label("Describe what you ate instead", systemImage: "text.cursor").readableFont(17, weight: .semibold, relativeTo: .subheadline)
                         }
-                        Text("Apple's on-device AI can't see photos. It recognises what's on the plate on your phone, you confirm the foods, then it estimates the portions. A linked AI key can read the photo directly for better accuracy \u{2014} Gemini has a free tier if you'd rather not pay per request.")
+                        Text("Typing what you ate, or linking an AI key to read the photo directly, is far more accurate than the on-device guess above \u{2014} Gemini has a free tier if you'd rather not pay per request.")
                             .readableFont(15, weight: .regular, relativeTo: .caption).foregroundStyle(.secondary).multilineTextAlignment(.center)
+                        Button { showConnect = true } label: { Label("Link your key instead", systemImage: "key.fill").readableFont(16, weight: .semibold, relativeTo: .footnote) }
                     }
                 } else {
                     VStack(spacing: 10) {
