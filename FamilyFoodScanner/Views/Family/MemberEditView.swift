@@ -304,6 +304,7 @@ struct MemberEditView: View {
         let heightValue = Double(heightCm)
         let weightValue = Double(weightKg)
 
+        var savedMember: Member?
         switch mode {
         case .add:
             let added = await family.addMember(
@@ -317,6 +318,7 @@ struct MemberEditView: View {
                 sex: sex
             )
             if thisIsMe, let added { await family.claimMember(added) }
+            savedMember = added
         case .edit(var existing):
             existing.name = name.trimmingCharacters(in: .whitespaces)
             existing.conditions = conditions
@@ -330,6 +332,14 @@ struct MemberEditView: View {
             let mine = family.myUserId != nil && existing.userId == family.myUserId
             if thisIsMe && !mine && canLinkToMe { await family.claimMember(existing) }
             else if !thisIsMe && mine { await family.releaseMember(existing) }
+            savedMember = existing
+        }
+        // Keep this in step with the Weight/Growth trend charts: without this, a height or weight set
+        // here (the normal path for most people) never shows up as a reading, and a chart that needs at
+        // least two readings never has any.
+        if let savedMember, heightValue != nil || weightValue != nil {
+            let growthStore = GrowthStore()
+            await growthStore.add(member: savedMember, householdId: family.householdId, on: Date(), heightCm: heightValue, weightKg: weightValue)
         }
 
         if family.errorMessage == nil { dismiss() }

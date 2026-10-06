@@ -135,11 +135,9 @@ struct CheckInsCard: View {
         WeightQuickLogView(member: member, day: day) { sheet = nil }
     }
 
-    @State private var sleepHistory: [(date: Date, hours: Double)] = []
-    @State private var loadingSleepHistory = false
+    @State private var showSleepHistory = false
 
     private var sleepSheet: some View {
-        ScrollView {
         VStack(spacing: 16) {
             Image(systemName: "bed.double.fill").font(.system(size: 40)).foregroundStyle(.indigo)
             if let hours = sleepHours {
@@ -150,37 +148,13 @@ struct CheckInsCard: View {
                 Text(health.hasRequestedAccess ? "Nothing logged in Apple Health for last night." : "Connect Apple Health from Activity to see sleep here.")
                     .readableFont(16, weight: .regular, relativeTo: .footnote).foregroundStyle(.secondary).multilineTextAlignment(.center).padding(.horizontal, 32)
             }
-            if health.hasRequestedAccess {
-                let nightsWithData = sleepHistory.filter { $0.hours > 0 }
-                if loadingSleepHistory && sleepHistory.isEmpty {
-                    ProgressView().padding(.top, 12)
-                } else if nightsWithData.count >= 2 {
-                    VStack(alignment: .leading, spacing: 8) {
-                        Text("Last \(sleepHistory.count) nights").readableFont(16, weight: .semibold, relativeTo: .subheadline)
-                        Chart(sleepHistory, id: \.date) { night in
-                            BarMark(x: .value("Night", night.date, unit: .day), y: .value("Hours", night.hours))
-                                .foregroundStyle(.indigo.gradient)
-                                .cornerRadius(3)
-                        }
-                        .chartYAxisLabel("hours")
-                        .frame(height: 160)
-                        .accessibilityLabel("Sleep hours for the last \(sleepHistory.count) nights")
-                    }
-                    .padding(.horizontal, 24).padding(.top, 8)
-                }
-            }
+            if health.hasRequestedAccess { Button("View trend") { showSleepHistory = true }.readableFont(15, weight: .semibold, relativeTo: .footnote) }
             Spacer()
         }
         .padding(.top, 24)
-        }
         .navigationTitle("Sleep").navigationBarTitleDisplayMode(.inline)
         .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Done") { sheet = nil } } }
-        .task {
-            guard health.hasRequestedAccess, sleepHistory.isEmpty else { return }
-            loadingSleepHistory = true
-            sleepHistory = await health.sleepHistory()
-            loadingSleepHistory = false
-        }
+        .sheet(isPresented: $showSleepHistory) { SleepHistoryView() }
     }
 }
 
@@ -280,6 +254,8 @@ private struct WeightQuickLogView: View {
                 }
                 .padding(.horizontal, 24)
             } else {
+                Text(points.isEmpty ? "No weight readings yet \u{2014} save one above to start the trend." : "Add one more reading to see a trend.")
+                    .readableFont(15, weight: .regular, relativeTo: .footnote).foregroundStyle(.secondary).multilineTextAlignment(.center).padding(.horizontal, 24)
                 Button("View full history") { showFullHistory = true }.readableFont(15, weight: .semibold, relativeTo: .footnote)
             }
             Spacer()

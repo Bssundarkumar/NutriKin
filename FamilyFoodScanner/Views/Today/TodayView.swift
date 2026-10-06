@@ -30,6 +30,8 @@ struct TodayView: View {
     @State private var showAddChoice = false
     @State private var heartRateHistoryMember: Member?
     @State private var metricHistory: MetricHistoryRequest?
+    @State private var weightHistoryMember: Member?
+    @State private var showSleepHistory = false
     @State private var editingWorkout: Workout?
     @State private var viewingWorkout: Workout?
     @ScaledMetric(relativeTo: .body) private var macroWidth: CGFloat = 105
@@ -139,6 +141,8 @@ struct TodayView: View {
             .sheet(isPresented: $showPlan) { if let member { NutritionPlanView(member: member) } }
             .sheet(isPresented: $showMeds) { if let member { MedicationsManageView(member: member) } }
             .sheet(item: $heartRateHistoryMember) { HeartRateHistoryView(member: $0) }
+            .sheet(item: $weightHistoryMember) { GrowthView(member: $0) }
+            .sheet(isPresented: $showSleepHistory) { SleepHistoryView() }
             .sheet(item: $metricHistory) { req in
                 MetricHistoryView(title: req.title, symbol: req.symbol, tint: req.tint, unit: req.unit, format: req.format, load: req.load)
             }
@@ -546,6 +550,24 @@ struct TodayView: View {
                 activitySummary("stairs", title: "Flights", value: showsHealth ? (health.activity.flightsClimbed.map { $0.formatted() } ?? "—") : "—", tint: .blue,
                                 action: showsHealth ? { metricHistory = .init(title: "Flights climbed", symbol: "stairs", tint: .blue, unit: "flights") {
                                     await health.quantityHistory(.flightsClimbed, unit: .count())
+                                } } : nil)
+            }
+            .padding(10)
+            .background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 16))
+            .overlay(RoundedRectangle(cornerRadius: 16).stroke(Color.orange.opacity(0.08)))
+            // These three reuse the same data and charts as the Weight/Sleep/Water check-ins above on
+            // Today, rather than being a fourth disconnected copy of each trend.
+            SingleRow(spacing: 8) {
+                activitySummary("scalemass.fill", title: "Weight",
+                                value: (showsHealth ? health.snapshot.weightKg ?? member.weightKg : member.weightKg).map { StrengthMath.display(kg: $0, pounds: false) + " kg" } ?? "—",
+                                tint: .pink, action: { weightHistoryMember = member })
+                activitySummary("bed.double.fill", title: "Sleep",
+                                value: (showsHealth && tracking.isToday ? health.snapshot.sleepHoursLastNight : nil).map { "\(Int($0))h \(Int(($0 - floor($0)) * 60))m" } ?? "—",
+                                tint: .indigo, action: showsHealth ? { showSleepHistory = true } : nil)
+                activitySummary("drop.fill", title: "Water",
+                                value: "\(checkIns.waterGlasses(for: member.id, day: tracking.day) + (showsHealth && health.dataDay == Calendar.current.startOfDay(for: tracking.day) ? Int(health.externalWaterMl / HealthSync.waterMlPerGlass) : 0))",
+                                tint: .blue, action: showsHealth ? { metricHistory = .init(title: "Water", symbol: "drop.fill", tint: .blue, unit: "glasses", format: { $0 / HealthSync.waterMlPerGlass }) {
+                                    await health.quantityHistory(.dietaryWater, unit: .literUnit(with: .milli))
                                 } } : nil)
             }
             .padding(10)
