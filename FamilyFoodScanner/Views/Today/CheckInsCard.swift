@@ -103,11 +103,10 @@ struct CheckInsCard: View {
         }
     }
 
-    @State private var showWaterHistory = false
-
     private var waterSheet: some View {
         let glasses = waterCount
-        return VStack(spacing: 20) {
+        return ScrollView {
+        VStack(spacing: 20) {
             Image(systemName: "drop.fill").font(.system(size: 40)).foregroundStyle(.blue)
             Text("\(glasses) of \(DailyCheckInStore.waterGoalGlasses) glasses").readableFont(24, weight: .bold, relativeTo: .title2)
             HStack(spacing: 24) {
@@ -118,26 +117,25 @@ struct CheckInsCard: View {
             .tint(.blue)
             Text("Each glass is 250 mL. Water from Health is included; remove water logged in other apps from Health.")
                 .readableFont(16).foregroundStyle(.secondary).multilineTextAlignment(.center).padding(.horizontal, 24)
-            if usesHealth { Button("View trend") { showWaterHistory = true }.readableFont(15, weight: .semibold, relativeTo: .footnote) }
+            if usesHealth {
+                MetricTrendChart(title: "Water", tint: .blue, unit: "glasses", format: { $0 / HealthSync.waterMlPerGlass }) {
+                    await health.quantityHistory(.dietaryWater, unit: .literUnit(with: .milli))
+                }
+            }
             Spacer()
         }
         .padding(.top, 24)
+        }
         .navigationTitle("Water").navigationBarTitleDisplayMode(.inline)
         .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Done") { sheet = nil } } }
-        .sheet(isPresented: $showWaterHistory) {
-            MetricHistoryView(title: "Water", symbol: "drop.fill", tint: .blue, unit: "glasses", format: { $0 / HealthSync.waterMlPerGlass }) {
-                await health.quantityHistory(.dietaryWater, unit: .literUnit(with: .milli))
-            }
-        }
     }
 
     private var weightSheet: some View {
         WeightQuickLogView(member: member, day: day) { sheet = nil }
     }
 
-    @State private var showSleepHistory = false
-
     private var sleepSheet: some View {
+        ScrollView {
         VStack(spacing: 16) {
             Image(systemName: "bed.double.fill").font(.system(size: 40)).foregroundStyle(.indigo)
             if let hours = sleepHours {
@@ -148,13 +146,13 @@ struct CheckInsCard: View {
                 Text(health.hasRequestedAccess ? "Nothing logged in Apple Health for last night." : "Connect Apple Health from Activity to see sleep here.")
                     .readableFont(16, weight: .regular, relativeTo: .footnote).foregroundStyle(.secondary).multilineTextAlignment(.center).padding(.horizontal, 32)
             }
-            if health.hasRequestedAccess { Button("View trend") { showSleepHistory = true }.readableFont(15, weight: .semibold, relativeTo: .footnote) }
+            SleepTrendChart()
             Spacer()
         }
         .padding(.top, 24)
+        }
         .navigationTitle("Sleep").navigationBarTitleDisplayMode(.inline)
         .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Done") { sheet = nil } } }
-        .sheet(isPresented: $showSleepHistory) { SleepHistoryView() }
     }
 }
 
