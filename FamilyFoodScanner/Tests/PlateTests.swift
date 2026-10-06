@@ -204,6 +204,17 @@ final class FoodClassifierTests: XCTestCase {
         let raw: [(label: String, confidence: Float)] = [("wood_processed", 0.8), ("tool", 0.6), ("material", 0.4)]
         XCTAssertTrue(FoodClassifier.foods(from: raw).isEmpty)
     }
+
+    /// A real report: a photo of puri and sabzi (real food) came back as this exact set of office/
+    /// electronics labels instead of an empty list - a low-confidence guess Vision made instead of
+    /// admitting it didn't recognise the dish, the same gap as the wooden-surface case above.
+    func testPhotoOfRealFoodMisreadAsElectronicsYieldsNothing() {
+        let raw: [(label: String, confidence: Float)] = [
+            ("machine", 0.3), ("consumer_electronics", 0.25), ("computer", 0.2), ("computer_keyboard", 0.15),
+            ("appliance", 0.12), ("computer_mouse", 0.1), ("drinking_glass", 0.09), ("seasonings", 0.08),
+        ]
+        XCTAssertTrue(FoodClassifier.foods(from: raw).isEmpty)
+    }
 }
 
 final class PlateNutrientTests: XCTestCase {

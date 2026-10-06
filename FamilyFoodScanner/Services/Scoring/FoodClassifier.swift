@@ -18,6 +18,12 @@ enum FoodClassifier {
         "tool", "device", "electronics", "metal", "plastic", "fabric", "paper", "cardboard", "box", "bag",
         "vehicle", "building", "architecture", "mountain", "grass", "tree", "leaf", "animal", "chair", "door",
         "window", "ground", "street", "road", "water", "stone", "rock", "concrete", "fence", "shelf", "cabinet",
+        // A plate of real food (puri and sabzi) came back as this exact set of labels on a low-confidence
+        // classification — Vision guessing at office/electronics objects instead of admitting it doesn't
+        // recognise the dish.
+        "machine", "consumer electronics", "computer", "computer keyboard", "computer mouse", "appliance",
+        "drinking glass", "seasoning", "seasonings", "keyboard", "mouse", "monitor", "laptop", "remote control",
+        "office supplies", "office equipment", "cable", "wire",
     ]
 
     /// Turns raw (label, confidence) pairs into a short, readable list of likely foods. Pure, so it's tested.
