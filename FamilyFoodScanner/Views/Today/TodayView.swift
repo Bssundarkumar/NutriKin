@@ -28,6 +28,8 @@ struct TodayView: View {
     @State private var goalComment = ""
     @State private var showHunger = false
     @State private var showAddChoice = false
+    @State private var heartRateHistoryMember: Member?
+    @State private var metricHistory: MetricHistoryRequest?
     @State private var editingWorkout: Workout?
     @State private var viewingWorkout: Workout?
     @ScaledMetric(relativeTo: .body) private var macroWidth: CGFloat = 105
@@ -136,6 +138,10 @@ struct TodayView: View {
             }
             .sheet(isPresented: $showPlan) { if let member { NutritionPlanView(member: member) } }
             .sheet(isPresented: $showMeds) { if let member { MedicationsManageView(member: member) } }
+            .sheet(item: $heartRateHistoryMember) { HeartRateHistoryView(member: $0) }
+            .sheet(item: $metricHistory) { req in
+                MetricHistoryView(title: req.title, symbol: req.symbol, tint: req.tint, unit: req.unit, format: req.format, load: req.load)
+            }
             .task(id: tracking.day) {
                 medications.updateMemberNames(family.members)
                 await medications.load(householdId: family.householdId, day: tracking.day)
@@ -436,7 +442,12 @@ struct TodayView: View {
         let logged = tracking.workouts(for: member)
         let minutes = max(logged.reduce(0) { $0 + $1.minutes }, showsHealth ? (health.activity.exerciseMinutes ?? 0) : 0)
         let dailyGoal = max(ActivityGoals.suggested(for: member).weeklyMinutes / 7, 20)
-        let reachedGoal = minutes >= dailyGoal
+        let expectsHealth = healthMemberID == member.id.uuidString && member.userId == family.myUserId && family.myUserId != nil
+        let loading = !Demo.isOn && (tracking.loadedDay != tracking.day || tracking.isLoading ||
+            (expectsHealth && (!health.hasCheckedAccess || (health.hasRequestedAccess && health.dataDay != tracking.day))))
+        let unavailable = tracking.errorMessage != nil && tracking.loadedDay != tracking.day
+        let pending = loading && !unavailable
+        let reachedGoal = !pending && !unavailable && minutes >= dailyGoal
         let fraction = Double(minutes) / Double(dailyGoal)
         return VStack(alignment: .leading, spacing: 12) {
             HStack(spacing: 10) {
@@ -457,14 +468,14 @@ struct TodayView: View {
 
                 ZStack {
                     Circle().stroke(Color.orange.opacity(0.13), lineWidth: 10)
-                    Circle().trim(from: 0, to: min(max(fraction, 0), 1))
+                    Circle().trim(from: 0, to: pending || unavailable ? 0 : min(max(fraction, 0), 1))
                         .stroke(Color.orange.gradient, style: StrokeStyle(lineWidth: 10, lineCap: .round))
                         .rotationEffect(.degrees(-90))
                     VStack(spacing: 2) {
                         Image(systemName: "figure.run").readableFont(20, weight: .semibold).foregroundStyle(.orange)
-                        Text(minutes.formatted()).readableFont(30, weight: .bold).monospacedDigit()
+                        Text(pending || unavailable ? "—" : minutes.formatted()).readableFont(30, weight: .bold).monospacedDigit()
                         Text("of \(dailyGoal) min").readableFont(13).foregroundStyle(.secondary)
-                        Text("\(Int((fraction * 100).rounded()))%")
+                        Text(pending || unavailable ? "—" : "\(Int((fraction * 100).rounded()))%")
                             .readableFont(13, weight: .bold).foregroundStyle(.orange)
                     }
                 }
@@ -473,12 +484,12 @@ struct TodayView: View {
                 .accessibilityLabel("Exercise, \(minutes) of \(dailyGoal) minutes, \(Int((fraction * 100).rounded())) percent")
                 VStack(alignment: .leading, spacing: 8) {
                 HStack(alignment: .top, spacing: 8) {
-                    Image(systemName: reachedGoal ? "checkmark.circle.fill" : "clock.fill")
+                    Image(systemName: pending ? "arrow.triangle.2.circlepath" : unavailable ? "exclamationmark.circle" : reachedGoal ? "checkmark.circle.fill" : "clock.fill")
                         .readableFont(26).foregroundStyle(reachedGoal ? Theme.brand : .orange)
                     VStack(alignment: .leading, spacing: 5) {
-                        Text(reachedGoal ? "Goal reached!" : "Keep moving!")
+                        Text(pending ? "Loading activity…" : unavailable ? "Activity unavailable" : reachedGoal ? "Goal reached!" : "Keep moving!")
                             .readableFont(18, weight: .bold).foregroundStyle(reachedGoal ? Theme.brand : .orange)
-                        Text(reachedGoal
+                        Text(pending ? "Checking your workouts and Health data." : unavailable ? "Pull to refresh and try again." : reachedGoal
                              ? (minutes == dailyGoal ? "You've met your exercise goal today." : "You're \(minutes - dailyGoal) min over your goal today.")
                              : "\(dailyGoal - minutes) min to reach your exercise goal.")
                             .readableFont(14).foregroundStyle(.secondary)
@@ -497,23 +508,45 @@ struct TodayView: View {
                 }.frame(maxWidth: .infinity, alignment: .leading)
             }
             SingleRow(spacing: 8) {
-                activitySummary("shoeprints.fill", title: "Steps", value: showsHealth ? (health.activity.steps.map { $0.formatted() } ?? "—") : "—", tint: .blue)
-                activitySummary("flame.fill", title: "Active kcal", value: showsHealth ? (health.activity.activeKcal.map { Int($0.rounded()).formatted() } ?? "—") : "—", tint: .orange)
+                activitySummary("shoeprints.fill", title: "Steps", value: showsHealth ? (health.activity.steps.map { $0.formatted() } ?? "—") : "—", tint: .blue,
+                                action: showsHealth ? { metricHistory = .init(title: "Steps", symbol: "shoeprints.fill", tint: .blue, unit: "steps") {
+                                    await health.quantityHistory(.stepCount, unit: .count())
+                                } } : nil)
+                activitySummary("flame.fill", title: "Active kcal", value: showsHealth ? (health.activity.activeKcal.map { Int($0.rounded()).formatted() } ?? "—") : "—", tint: .orange,
+                                action: showsHealth ? { metricHistory = .init(title: "Active kcal", symbol: "flame.fill", tint: .orange, unit: "kcal") {
+                                    await health.quantityHistory(.activeEnergyBurned, unit: .kilocalorie())
+                                } } : nil)
                 activitySummary("dumbbell.fill", title: "Workout kcal", value: logged.reduce(0) { $0 + $1.caloriesBurned }.formatted(), tint: .purple)
                 activitySummary("heart.fill", title: "Avg. heart rate",
                                 value: showsHealth ? (health.activity.averageHeartRateBpm.map { "\(Int($0.rounded())) bpm" } ?? "—") : "—",
-                                detail: showsHealth ? (health.activity.restingHeartRateBpm.map { "Resting \(Int($0.rounded())) bpm" } ?? "Resting unavailable") : "Resting unavailable", tint: .pink)
+                                detail: showsHealth ? (health.activity.restingHeartRateBpm.map { "Resting \(Int($0.rounded())) bpm" } ?? "Resting unavailable") : "Resting unavailable", tint: .pink,
+                                action: showsHealth ? { heartRateHistoryMember = member } : nil)
             }
             .padding(10)
             .background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 16))
             .overlay(RoundedRectangle(cornerRadius: 16).stroke(Color.orange.opacity(0.08)))
             SingleRow(spacing: 8) {
+                // Duration is summed from workouts you've logged in NutriKin, not Health, and there's no
+                // multi-day query for that yet (TrackingStore only holds the currently-viewed day) — not
+                // tappable until that exists.
                 activitySummary("clock", title: "Duration", value: "\(minutes) min", tint: .orange)
                 activitySummary("figure.walk", title: "Distance", value: showsHealth ? (health.activity.walkingRunningDistanceMeters.map {
                     ($0 / 1000).formatted(.number.precision(.fractionLength(1))) + " km"
-                } ?? "—") : "—", tint: .green)
-                activitySummary("bolt.fill", title: "Total kcal", value: showsHealth ? (health.activity.totalEnergyKcal.map { Int($0.rounded()).formatted() } ?? "—") : "—", tint: .yellow)
-                activitySummary("stairs", title: "Flights", value: showsHealth ? (health.activity.flightsClimbed.map { $0.formatted() } ?? "—") : "—", tint: .blue)
+                } ?? "—") : "—", tint: .green,
+                                action: showsHealth ? { metricHistory = .init(title: "Distance", symbol: "figure.walk", tint: .green, unit: "km", format: { $0 / 1000 }) {
+                                    await health.quantityHistory(.distanceWalkingRunning, unit: .meter())
+                                } } : nil)
+                activitySummary("bolt.fill", title: "Total kcal", value: showsHealth ? (health.activity.totalEnergyKcal.map { Int($0.rounded()).formatted() } ?? "—") : "—", tint: .yellow,
+                                action: showsHealth ? { metricHistory = .init(title: "Total kcal", symbol: "bolt.fill", tint: .yellow, unit: "kcal") {
+                                    async let active = health.quantityHistory(.activeEnergyBurned, unit: .kilocalorie())
+                                    async let resting = health.quantityHistory(.basalEnergyBurned, unit: .kilocalorie())
+                                    let (a, r) = await (active, resting)
+                                    return zip(a, r).map { ($0.date, $0.value + $1.value) }
+                                } } : nil)
+                activitySummary("stairs", title: "Flights", value: showsHealth ? (health.activity.flightsClimbed.map { $0.formatted() } ?? "—") : "—", tint: .blue,
+                                action: showsHealth ? { metricHistory = .init(title: "Flights climbed", symbol: "stairs", tint: .blue, unit: "flights") {
+                                    await health.quantityHistory(.flightsClimbed, unit: .count())
+                                } } : nil)
             }
             .padding(10)
             .background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 16))
@@ -551,19 +584,28 @@ struct TodayView: View {
 
     @ScaledMetric(relativeTo: .caption) private var activityLabelHeight: CGFloat = 32
 
-    private func activitySummary(_ symbol: String, title: String, value: String, detail: String? = nil, tint: Color = .secondary) -> some View {
-        VStack(alignment: .leading, spacing: 4) {
+    private func activitySummary(_ symbol: String, title: String, value: String, detail: String? = nil, tint: Color = .secondary, action: (() -> Void)? = nil) -> some View {
+        let content = VStack(alignment: .leading, spacing: 4) {
             HStack(alignment: .top, spacing: 3) {
                 Image(systemName: symbol).readableFont(11, weight: .medium).foregroundStyle(tint)
                     .padding(.top, 2).accessibilityHidden(true)
                 Text(title).readableFont(12).foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
+                if action != nil { Image(systemName: "chart.xyaxis.line").readableFont(9, weight: .medium).foregroundStyle(tint.opacity(0.6)) }
             }.frame(minHeight: activityLabelHeight, alignment: .topLeading)
             Text(value).readableFont(18, weight: .bold).monospacedDigit()
                 .lineLimit(1).minimumScaleFactor(0.85)
         }.frame(maxWidth: .infinity, alignment: .leading)
+        return Group {
+            if let action {
+                Button(action: action) { content }.buttonStyle(.plain)
+            } else {
+                content
+            }
+        }
         .accessibilityElement(children: .ignore)
         .accessibilityLabel([title, value, detail].compactMap { $0 }.joined(separator: ", "))
+        .accessibilityAddTraits(action != nil ? .isButton : [])
     }
 
     /// "Medications": the compact, two-column-width sibling of `MedicationsCard`, showing just today's
@@ -799,6 +841,18 @@ struct InsightCard: View {
         }
         .todaySurface()
     }
+}
+
+/// What tile was tapped to open `MetricHistoryView` — carries the title/styling plus the async loader for
+/// that one metric's history, so a single sheet modifier can serve every HealthKit-backed Activity stat.
+private struct MetricHistoryRequest: Identifiable {
+    let id = UUID()
+    let title: String
+    let symbol: String
+    let tint: Color
+    let unit: String
+    var format: (Double) -> Double = { $0 }
+    let load: () async -> [(date: Date, value: Double)]
 }
 
 /// Soft surfaces specific to the Today dashboard.

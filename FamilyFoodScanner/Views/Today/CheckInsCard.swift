@@ -103,6 +103,8 @@ struct CheckInsCard: View {
         }
     }
 
+    @State private var showWaterHistory = false
+
     private var waterSheet: some View {
         let glasses = waterCount
         return VStack(spacing: 20) {
@@ -116,11 +118,17 @@ struct CheckInsCard: View {
             .tint(.blue)
             Text("Each glass is 250 mL. Water from Health is included; remove water logged in other apps from Health.")
                 .readableFont(16).foregroundStyle(.secondary).multilineTextAlignment(.center).padding(.horizontal, 24)
+            if usesHealth { Button("View trend") { showWaterHistory = true }.readableFont(15, weight: .semibold, relativeTo: .footnote) }
             Spacer()
         }
         .padding(.top, 24)
         .navigationTitle("Water").navigationBarTitleDisplayMode(.inline)
         .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Done") { sheet = nil } } }
+        .sheet(isPresented: $showWaterHistory) {
+            MetricHistoryView(title: "Water", symbol: "drop.fill", tint: .blue, unit: "glasses", format: { $0 / HealthSync.waterMlPerGlass }) {
+                await health.quantityHistory(.dietaryWater, unit: .literUnit(with: .milli))
+            }
+        }
     }
 
     private var weightSheet: some View {

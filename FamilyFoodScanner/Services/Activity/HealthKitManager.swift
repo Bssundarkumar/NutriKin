@@ -173,6 +173,51 @@ final class HealthKitManager {
         return result
     }
 
+    /// Average and resting heart rate for each of the last `days` days, oldest first, for a trend chart.
+    func heartRateHistory(days: Int = 14) async -> [(date: Date, average: Double?, resting: Double?)] {
+        guard HKHealthStore.isHealthDataAvailable() else { return [] }
+        let cal = Calendar.current
+        var result: [(date: Date, average: Double?, resting: Double?)] = []
+        @Sendable func dayAverage(_ id: HKQuantityTypeIdentifier, start: Date, end: Date) async -> Double? {
+            let descriptor = HKStatisticsQueryDescriptor(
+                predicate: .quantitySample(type: HKQuantityType(id), predicate: HKQuery.predicateForSamples(withStart: start, end: end)),
+                options: .discreteAverage)
+            return try? await descriptor.result(for: store)?.averageQuantity()?.doubleValue(for: HKUnit.count().unitDivided(by: .minute()))
+        }
+        for offset in stride(from: days - 1, through: 0, by: -1) {
+            guard let day = cal.date(byAdding: .day, value: -offset, to: .now) else { continue }
+            let start = cal.startOfDay(for: day)
+            let end = min(cal.date(byAdding: .day, value: 1, to: start) ?? .now, .now)
+            guard end > start else { continue }
+            async let average = dayAverage(.heartRate, start: start, end: end)
+            async let resting = dayAverage(.restingHeartRate, start: start, end: end)
+            let (avg, rest) = await (average, resting)
+            result.append((start, avg, rest))
+        }
+        return result
+    }
+
+    /// A daily total for any cumulative HealthKit quantity (steps, active calories, distance, flights,
+    /// water...) for each of the last `days` days, oldest first — the one method behind every trend chart
+    /// on Today/Activity that isn't sleep, heart rate or weight (each of those has its own shape of query).
+    func quantityHistory(_ id: HKQuantityTypeIdentifier, unit: HKUnit, days: Int = 14) async -> [(date: Date, value: Double)] {
+        guard HKHealthStore.isHealthDataAvailable() else { return [] }
+        let cal = Calendar.current
+        var result: [(date: Date, value: Double)] = []
+        for offset in stride(from: days - 1, through: 0, by: -1) {
+            guard let day = cal.date(byAdding: .day, value: -offset, to: .now) else { continue }
+            let start = cal.startOfDay(for: day)
+            let end = min(cal.date(byAdding: .day, value: 1, to: start) ?? .now, .now)
+            guard end > start else { continue }
+            let descriptor = HKStatisticsQueryDescriptor(
+                predicate: .quantitySample(type: HKQuantityType(id), predicate: HKQuery.predicateForSamples(withStart: start, end: end)),
+                options: .cumulativeSum)
+            let value = (try? await descriptor.result(for: store)?.sumQuantity()?.doubleValue(for: unit)) ?? 0
+            result.append((start, value))
+        }
+        return result
+    }
+
     /// Whether the person has already been asked, so a returning user isn't shown "Connect" again.
     func checkAccessStatus() async {
         defer { hasCheckedAccess = true }
