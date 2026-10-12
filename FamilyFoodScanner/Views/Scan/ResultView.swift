@@ -19,6 +19,7 @@ struct ResultView: View {
     @State private var groceryNote: String?
     @State private var isEstimatingNutrition = false
     @State private var estimateError: String?
+    @State private var confirmingEstimate = false
 
     init(product: Product) {
         _product = State(initialValue: product)
@@ -48,7 +49,7 @@ struct ResultView: View {
                         .readableFont(16, weight: .regular, relativeTo: .footnote).foregroundStyle(.secondary)
                     if !product.hasAnyNutrition && !product.nutritionIsAIEstimate && AppleAI.status.isAvailable {
                         Button {
-                            Task { await estimateNutrition() }
+                            confirmingEstimate = true
                         } label: {
                             if isEstimatingNutrition {
                                 HStack(spacing: 6) { ProgressView(); Text("Estimating\u{2026}") }
@@ -113,7 +114,17 @@ struct ResultView: View {
                 }
             }
 
-            Section("Nutrition \(product.nutrition.basis)") { nutritionGrid.staggeredAppear(1) }
+            Section {
+                nutritionGrid.staggeredAppear(1)
+            } header: {
+                if product.nutritionIsAIEstimate {
+                    Label("Nutrition \(product.nutrition.basis) \u{2014} AI estimate, not from the package", systemImage: "sparkles")
+                        .foregroundStyle(.orange)
+                        .textCase(nil)
+                } else {
+                    Text("Nutrition \(product.nutrition.basis)")
+                }
+            }
 
             if !allergyHits.isEmpty {
                 Section {
@@ -194,6 +205,15 @@ struct ResultView: View {
         .sheet(isPresented: $showLog) { LogProductSheet(product: product) }
         .navigationTitle("Scan result")
         .navigationBarTitleDisplayMode(.inline)
+        .confirmationDialog(
+            "This is a general AI guess, not real data from this package",
+            isPresented: $confirmingEstimate, titleVisibility: .visible
+        ) {
+            Button("Estimate anyway") { Task { await estimateNutrition() } }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("Apple's on-device AI will guess typical nutrition for \"\(product.name)\" from its name alone. It can be wrong - always check the real package, especially for a condition like diabetes.")
+        }
         .task(id: product.barcode) { await loadAlternatives(for: results) }
         .onAppear {
             // The scanner already gave a success tap; only add one when there's something to heed.
