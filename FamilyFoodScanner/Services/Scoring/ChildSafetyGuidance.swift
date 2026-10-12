@@ -11,6 +11,11 @@ enum ChildSafetyGuidance {
     static let caffeineTerms = ["caffeine", "guarana", "energy drink", "coffee", "yerba mate", "matcha"]
     static let mercuryFishTerms = ["shark", "swordfish", "king mackerel", "marlin", "tilefish", "orange roughy"]
     static let honeyTerms = ["honey", "raw honey", "wildflower honey", "manuka honey", "honeycomb"]
+    static let juiceTerms = ["juice", "fruit juice", "100% juice", "apple juice", "orange juice", "grape juice", "juice drink", "juice box"]
+    /// Cured/processed meats carry nitrates or nitrites that healthy adults process fine, but a very
+    /// young infant's gut can convert into a form that interferes with how their blood carries oxygen
+    /// (methemoglobinemia) — a specific infant risk, distinct from "processed meat isn't great" advice.
+    static let curedMeatTerms = ["hot dog", "hot dogs", "frankfurter", "sausage", "salami", "bologna", "deli meat", "lunch meat", "bacon", "ham", "pepperoni", "nitrate", "nitrite", "sodium nitrite", "sodium nitrate"]
     /// The classic choking-hazard list pediatric guidance (AAP, NHS) names by shape, not nutrition —
     /// round, firm, or sticky enough to block a young child's airway whole.
     static let chokingHazardTerms = [
@@ -36,6 +41,8 @@ enum ChildSafetyGuidance {
              reason: "These fish can be high in mercury. The FDA and EPA advise limiting them for young children, same as in pregnancy."),
         Rule(id: "child-choking", title: "Common choking hazard", terms: chokingHazardTerms, maxAge: 4, cap: 65,
              reason: "This is on the common list of choking-hazard foods for young children (AAP/NHS guidance) \u{2014} cut it up small and supervise eating, don't serve it whole."),
+        Rule(id: "child-cured-meat", title: "Cured or processed meat", terms: curedMeatTerms, maxAge: 0, cap: 55,
+             reason: "Cured and processed meats contain nitrates/nitrites, which pediatric guidance advises limiting for infants under 1 \u{2014} their gut handles them differently than an older child's or adult's."),
     ]
 
     /// `member` must already be known to be a child (`TodayLayout.isChild`) before calling this — these
@@ -56,6 +63,30 @@ enum ChildSafetyGuidance {
         let text = PregnancyGuidance.searchText(for: product)
         let range = NSRange(text.startIndex..., in: text)
         return honeyTerms.contains { IngredientAnalyzer.regex(for: $0)?.firstMatch(in: text, range: range) != nil }
+    }
+
+    /// Fruit juice under 12 months is also a hard, specific AAP rule ("no juice before age 1"), not a
+    /// vague preference — same tier as honey.
+    static func containsJuice(_ product: Product) -> Bool {
+        let text = PregnancyGuidance.searchText(for: product)
+        let range = NSRange(text.startIndex..., in: text)
+        return juiceTerms.contains { IngredientAnalyzer.regex(for: $0)?.firstMatch(in: text, range: range) != nil }
+    }
+
+    /// Named added sweeteners, as distinct from a product (e.g. whole fruit) that just happens to
+    /// naturally contain sugar — used to gate the general child added-sugar guidance so it doesn't flag
+    /// a bag of grapes the same way it flags candy.
+    private static let addedSweetenerTerms = [
+        "sugar", "cane sugar", "brown sugar", "corn syrup", "high fructose corn syrup", "glucose syrup",
+        "sucrose", "dextrose", "fructose", "maltose", "honey", "molasses", "agave", "agave syrup",
+        "maple syrup", "golden syrup", "invert sugar", "syrup",
+    ]
+
+    static func hasAddedSweetener(_ product: Product) -> Bool {
+        guard let ingredients = product.ingredientsText else { return false }
+        let text = ingredients.lowercased()
+        let range = NSRange(text.startIndex..., in: text)
+        return addedSweetenerTerms.contains { IngredientAnalyzer.regex(for: $0)?.firstMatch(in: text, range: range) != nil }
     }
 
     /// A supplement scanned for a child: dosing is sized for adults unless the product says otherwise,

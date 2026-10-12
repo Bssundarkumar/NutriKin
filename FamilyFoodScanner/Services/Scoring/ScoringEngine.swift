@@ -58,6 +58,16 @@ struct ScoringEngine {
             )
         }
 
+        // 1d. Fruit juice is also a hard block under age 1 — AAP guidance is specific ("no juice before
+        // 12 months"), not a soft preference like most food choices for a child this age.
+        if member.age == 0, ChildSafetyGuidance.containsJuice(product) {
+            return MemberScore(
+                member: member, score: 0, verdict: .avoid,
+                reasons: ["Contains fruit juice. Pediatric guidance (AAP) advises no juice at all before 12 months, regardless of nutrition."],
+                blockedByAllergy: false
+            )
+        }
+
         var score = 100.0
         var reasons: [String] = []
         let n = product.nutrition
@@ -160,6 +170,25 @@ struct ScoringEngine {
             if let supplement = ChildSafetyGuidance.supplementCaution(product) {
                 cap = min(cap, Double(supplement.cap))
                 warnings.append(supplement.reason)
+            }
+            // Added sugar, for every child, not just one with diabetes — the diabetes check above
+            // already covers that case against their own goal, so this only applies when it hasn't.
+            // WHO/AAP guidance is about added/free sugars, not sugar naturally in whole fruit, and
+            // Nutrition only has one total sugarG figure with no added-vs-natural split — so this only
+            // fires when the ingredient list actually names an added sweetener, not just because a
+            // product (e.g. a bag of grapes) happens to contain natural sugar.
+            if !member.has(.diabetes), let sugar = n.sugarG, sugar > 0, ChildSafetyGuidance.hasAddedSweetener(product) {
+                if (member.age ?? 2) <= 1 {
+                    cap = min(cap, 50)
+                    warnings.append("Contains \(fmt(sugar)) g added sugar. Guidance (WHO/AAP) advises no added sugar at all under age 2.")
+                } else {
+                    let childLimit = 25.0 // AAP/AHA's "about 25 g (6 tsp) a day" figure for children generally
+                    let share = sugar / childLimit
+                    if share >= 0.4 {
+                        cap = min(cap, 65)
+                        warnings.append("\(fmt(sugar)) g sugar is \(pct(share)) of a child's roughly \(fmt(childLimit)) g daily guidance (not the same limit as an adult's).")
+                    }
+                }
             }
         }
         // Alcohol, for every adult, not just a pregnancy check — nutrient numbers alone (calories,
