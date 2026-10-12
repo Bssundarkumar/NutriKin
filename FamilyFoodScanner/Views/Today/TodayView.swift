@@ -609,8 +609,9 @@ struct TodayView: View {
                 .font(.footnote).foregroundStyle(.secondary)
         }
         .todaySurface(tint: .orange)
-        .contentShape(Rectangle())
-        .onTapGesture { activityStartsLogging = false; showActivity = true }
+        // No longer a whole-card .onTapGesture: it was swallowing taps meant for the per-tile chart
+        // buttons below (nested tappable controls are unreliable in SwiftUI - the outer gesture won
+        // every time). The "See all" button above already opens Activity.
     }
 
     private func rotateGoalComment() {
