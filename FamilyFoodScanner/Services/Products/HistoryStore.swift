@@ -147,6 +147,19 @@ final class HistoryStore {
     }
 
     private func save(_ payload: NewScan) async {
+        // record()/save() previously had no Demo.isOn check at all, unlike load() - a scan in demo mode
+        // always hit the real backend and failed (an RLS rejection, correctly: the fake demo household
+        // doesn't exist server-side), surfacing a raw Postgres error ("new row violates row-level
+        // security policy...") on the result screen. Mirror load()'s in-memory handling instead.
+        if Demo.isOn {
+            let record = ScanRecord(barcode: payload.barcode, productName: payload.productName, brand: payload.brand,
+                                     imageUrl: payload.imageUrl, results: payload.results, alerts: payload.alerts)
+            failedSave = nil
+            allRecords.removeAll { $0.barcode == record.barcode }
+            allRecords.insert(record, at: 0)
+            publish()
+            return
+        }
         do {
             let saved: ScanRecord = try await Backend.withRetry {
                 try await client.from("scans")

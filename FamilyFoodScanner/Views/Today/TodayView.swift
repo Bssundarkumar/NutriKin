@@ -23,6 +23,7 @@ struct TodayView: View {
     @State private var showActivity = Demo.opensActivity || Demo.opensLogWorkout || Demo.opensPlan || Demo.opensGrowth
     @State private var activityStartsLogging = Demo.opensLogWorkout
     @State private var showMeds = Demo.opensMeds
+    @State private var showAllDoses = false
     @State private var showTimeline = false
     @AppStorage("lastGoalCommentIndex") private var lastGoalCommentIndex = -1
     @State private var goalComment = ""
@@ -67,7 +68,6 @@ struct TodayView: View {
 
                         VStack(spacing: 10) {
                             if hasMedications && needsAttention { compactMedications(member).staggeredAppear(0) }
-                            GettingStartedCard(member: member).staggeredAppear(1)
                             if !TodayLayout.isChild(member) {
                                 CheckInsCard(member: member, day: tracking.day).staggeredAppear(2)
                             }
@@ -94,6 +94,7 @@ struct TodayView: View {
                             }
                         }
                         .animation(.smooth(duration: 0.3), value: tracking.day)
+                        GettingStartedCard(member: member)
                         if let message = tracking.errorMessage {
                             Text(message).readableFont(16, weight: .regular, relativeTo: .footnote).foregroundStyle(.red).frame(maxWidth: .infinity, alignment: .leading)
                         }
@@ -188,6 +189,7 @@ struct TodayView: View {
                     .frame(width: 44, height: 44).background(Color.purple.opacity(0.1), in: Circle())
             }.accessibilityLabel("Ask AI")
             Menu {
+                Button("Day timeline", systemImage: "clock") { showTimeline = true }
                 Button("Hunger check-in", systemImage: "fork.knife") { showHunger = true }
             } label: {
                 Image(systemName: "ellipsis").foregroundStyle(.primary)
@@ -225,10 +227,10 @@ struct TodayView: View {
     // MARK: Hero
 
     /// A rough, standard macro split used only to give the three macro bars below something to measure
-    /// against (30% of calories from carbs, 20% from protein, 30% from fat) — NutriKin doesn't collect
+    /// against (50% of calories from carbs, 20% from protein, 30% from fat) — NutriKin doesn't collect
     /// per-macro goals the way it does for calories/sugar/sodium/saturated fat.
     private func macroGoals(_ calories: Double) -> (carbsG: Double, proteinG: Double, fatG: Double) {
-        (carbsG: 0.3 * calories / 4, proteinG: 0.2 * calories / 4, fatG: 0.3 * calories / 9)
+        (carbsG: 0.5 * calories / 4, proteinG: 0.2 * calories / 4, fatG: 0.3 * calories / 9)
     }
 
     private func hero(_ member: Member, _ budget: DayBudget, showPlan: @escaping () -> Void) -> some View {
@@ -263,6 +265,8 @@ struct TodayView: View {
                         }
                     }.frame(maxWidth: .infinity, alignment: .leading)
                 }
+                Text("Calories left includes your recorded exercise allowance. Macro bars use approximate daily targets.")
+                    .font(.footnote).foregroundStyle(.secondary)
                 SingleRow(spacing: 8) {
                     MacroBar(symbol: "leaf.fill", tint: .blue, title: "Carbs", value: budget.eaten.carbsG, goal: goals.carbsG)
                     MacroBar(symbol: "drop.fill", tint: .purple, title: "Protein", value: budget.eaten.proteinG, goal: goals.proteinG)
@@ -443,10 +447,11 @@ struct TodayView: View {
 
     /// Daily exercise progress and supporting metrics, using only available Health/app data.
     private func compactActivity(_ member: Member) -> some View {
-        let showsHealth = HealthActivityCard.isVisible(for: member, linkedID: healthMemberID, health: health)
+        let showsHealth = HealthActivityCard.isVisible(for: member, linkedID: healthMemberID, health: health) && (Demo.isOn || health.dataDay == tracking.day)
         let logged = tracking.workouts(for: member)
         let minutes = max(logged.reduce(0) { $0 + $1.minutes }, showsHealth ? (health.activity.exerciseMinutes ?? 0) : 0)
-        let dailyGoal = max(ActivityGoals.suggested(for: member).weeklyMinutes / 7, 20)
+        let weeklyGoal = member.goals.weeklyWorkoutMinutes ?? ActivityGoals.suggested(for: member).weeklyMinutes
+        let dailyGoal = max(weeklyGoal / 7, 1)
         let expectsHealth = healthMemberID == member.id.uuidString && member.userId == family.myUserId && family.myUserId != nil
         let loading = !Demo.isOn && (tracking.loadedDay != tracking.day || tracking.isLoading ||
             (expectsHealth && (!health.hasCheckedAccess || (health.hasRequestedAccess && health.dataDay != tracking.day))))
@@ -486,7 +491,7 @@ struct TodayView: View {
                 }
                 .frame(width: activityRingSize + 20, height: activityRingSize + 20).padding(5)
                 .accessibilityElement(children: .ignore)
-                .accessibilityLabel("Exercise, \(minutes) of \(dailyGoal) minutes, \(Int((fraction * 100).rounded())) percent")
+                .accessibilityLabel(pending ? "Loading exercise activity" : unavailable ? "Exercise activity unavailable" : "Exercise, \(minutes) of \(dailyGoal) minutes, \(Int((fraction * 100).rounded())) percent")
                 VStack(alignment: .leading, spacing: 8) {
                 HStack(alignment: .top, spacing: 8) {
                     Image(systemName: pending ? "arrow.triangle.2.circlepath" : unavailable ? "exclamationmark.circle" : reachedGoal ? "checkmark.circle.fill" : "clock.fill")
@@ -558,6 +563,7 @@ struct TodayView: View {
             .overlay(RoundedRectangle(cornerRadius: 16).stroke(Color.orange.opacity(0.08)))
             // These three reuse the same data and charts as the Weight/Sleep/Water check-ins above on
             // Today, rather than being a fourth disconnected copy of each trend.
+            if tracking.isToday {
             SingleRow(spacing: 8) {
                 activitySummary("scalemass.fill", title: "Weight",
                                 value: (showsHealth ? health.snapshot.weightKg ?? member.weightKg : member.weightKg).map { StrengthMath.display(kg: $0, pounds: false) + " kg" } ?? "—",
@@ -574,6 +580,9 @@ struct TodayView: View {
             .padding(10)
             .background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 16))
             .overlay(RoundedRectangle(cornerRadius: 16).stroke(Color.orange.opacity(0.08)))
+            }
+            Text("Active kcal is movement energy. Workout kcal is logged sessions; it can overlap active energy. Total kcal includes resting energy from Health.")
+                .font(.footnote).foregroundStyle(.secondary)
         }
         .todaySurface(tint: .orange)
         .contentShape(Rectangle())
@@ -613,7 +622,7 @@ struct TodayView: View {
                 Image(systemName: symbol).readableFont(11, weight: .medium).foregroundStyle(tint)
                     .padding(.top, 2).accessibilityHidden(true)
                 Text(title).readableFont(12).foregroundStyle(.secondary)
-                    .fixedSize(horizontal: false, vertical: true)
+                    .lineLimit(3).minimumScaleFactor(0.7)
                 if action != nil { Image(systemName: "chart.xyaxis.line").readableFont(9, weight: .medium).foregroundStyle(tint.opacity(0.6)) }
             }.frame(minHeight: activityLabelHeight, alignment: .topLeading)
             Text(value).readableFont(18, weight: .bold).monospacedDigit()
@@ -636,20 +645,24 @@ struct TodayView: View {
     /// full-width above everything else.
     private func compactMedications(_ member: Member) -> some View {
         let doses = medications.doses(for: member)
+        let shownDoses = showAllDoses ? doses : Array(doses.prefix(4))
         return VStack(alignment: .leading, spacing: 10) {
-            SectionTitle(title: "Medications", actionTitle: "Manage", action: { showMeds = true }, symbol: "pills.fill", tint: .blue, compact: true, actionShowsChevron: true)
+            SectionTitle(title: "Medications", actionTitle: family.canManage(member) ? "Manage" : "View", action: { showMeds = true }, symbol: "pills.fill", tint: .blue, compact: true, actionShowsChevron: true)
             if doses.isEmpty {
                 HStack {
                     Text("No medications scheduled").readableFont(15, weight: .regular, relativeTo: .caption).foregroundStyle(.secondary)
                     Spacer()
-                    Button("Add", systemImage: "plus") { showMeds = true }
+                    Button(family.canManage(member) ? "Add" : "View", systemImage: family.canManage(member) ? "plus" : "eye") { showMeds = true }
                         .readableFont(15, weight: .semibold, relativeTo: .caption).buttonStyle(.bordered).buttonBorderShape(.capsule)
                 }
             } else {
                 VStack(spacing: 0) {
-                    ForEach(doses.prefix(4)) { dose in
+                    ForEach(shownDoses) { dose in
                         compactDoseRow(dose, member: member)
-                        if dose.id != doses.prefix(4).last?.id { Divider() }
+                        if dose.id != shownDoses.last?.id { Divider() }
+                    }
+                    if doses.count > 4 {
+                        Button(showAllDoses ? "Show fewer doses" : "View all \(doses.count) doses") { showAllDoses.toggle() }.frame(minHeight: 44)
                     }
                 }
             }
@@ -831,16 +844,16 @@ struct MacroBar: View {
     }
     private var summary: some View {
         VStack(alignment: .leading, spacing: 3) {
-            Text(title).readableFont(14, weight: .bold).fixedSize()
+            Text(title).readableFont(15, weight: .bold).fixedSize(horizontal: false, vertical: true)
             Text("\(Int(value.rounded())) / \(Int(goal.rounded())) g")
-                .readableFont(12).foregroundStyle(.secondary).fixedSize()
+                .readableFont(14).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
         }
     }
     private var percentage: some View {
-        Text("\(Int((fraction * 100).rounded()))%").readableFont(13, weight: .bold).foregroundStyle(tint).fixedSize()
+        Text("\(Int((fraction * 100).rounded()))%").readableFont(14, weight: .bold).foregroundStyle(tint).fixedSize(horizontal: false, vertical: true)
     }
     private var remaining: some View {
-        Text("\(Int(max(goal - value, 0).rounded())) g left").readableFont(11).foregroundStyle(.secondary).fixedSize()
+        Text("\(Int(max(goal - value, 0).rounded())) g left").readableFont(13).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
     }
 }
 
@@ -860,7 +873,6 @@ struct InsightCard: View {
                 Text(detail).readableFont(15, weight: .regular, relativeTo: .caption).foregroundStyle(.secondary)
             }
             Spacer(minLength: 0)
-            Image(systemName: "chevron.right").readableFont(15, weight: .semibold, relativeTo: .caption).foregroundStyle(.tertiary)
         }
         .todaySurface()
     }

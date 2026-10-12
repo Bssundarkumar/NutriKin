@@ -40,6 +40,10 @@ struct PlateScanView: View {
     /// A real error from the free-scan path, shown so it is never silently invisible (helped find the
     /// household/RPC/Gemini bug that caused a silent fallback to the on-device guesser).
     @State private var proxyNotice: String?
+    @State private var useFreeCloud = false
+    @State private var savingMeal = false
+    @State private var mealError: String?
+    @State private var pendingMeal: FoodEntry?
 
     /// The presets, plus a measured size if it isn't one of them.
     private var sizeOptions: [Int] { Array(Set(sizes + (plateCm > 0 ? [plateCm] : []))).sorted() }
@@ -138,8 +142,19 @@ struct PlateScanView: View {
                         .padding(.vertical, 4)
                     }
                 }
-                if ai.keyClient != nil || ai.appleStatus.isAvailable {
-                    if ai.keyClient == nil {
+                if ai.keyClient == nil {
+                    Toggle("Use free cloud AI for this scan", isOn: $useFreeCloud)
+                        .padding().background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 16))
+                    Text(useFreeCloud
+                         ? "Taking or choosing a photo sends it to NutriKin's scan service and Google Gemini for an estimate. Only include food in your photo."
+                         : "Cloud scanning is off. With Apple Intelligence, a basic estimate stays on this iPhone; otherwise turn on the cloud option or link an AI key.")
+                        .font(.footnote).foregroundStyle(.secondary)
+                } else {
+                    Text("Taking or choosing a photo sends it to \(ai.keyProvider?.vendorName ?? "your linked AI provider") under your key for analysis.")
+                        .font(.footnote).foregroundStyle(.secondary)
+                }
+                if ai.keyClient != nil || ai.appleStatus.isAvailable || useFreeCloud {
+                    if ai.keyClient == nil && !useFreeCloud {
                         Label("Without a key, photos use a basic on-device guess \u{2014} it recognises generic objects, not food, so it's often wrong. Nothing is uploaded.", systemImage: "eye")
                             .readableFont(16, weight: .regular, relativeTo: .footnote).foregroundStyle(.secondary).multilineTextAlignment(.center)
                     }
@@ -151,7 +166,7 @@ struct PlateScanView: View {
                         bigButton("Choose a photo", "photo.on.rectangle", filled: !CameraPicker.isAvailable)
                     }
                     .buttonStyle(PressableStyle())
-                    if ai.keyClient == nil {
+                    if ai.keyClient == nil && !useFreeCloud {
                         Button { image = nil; lastFoods = nil; foodsText = ""; phase = .describe } label: {
                             Label("Describe what you ate instead", systemImage: "text.cursor").readableFont(17, weight: .semibold, relativeTo: .subheadline)
                         }
@@ -173,7 +188,7 @@ struct PlateScanView: View {
                     .card()
                 }
 
-                Text("Estimates can be off by 20 to 30 percent. Not for insulin dosing or medical decisions.")
+                Text("Estimates can be substantially wrong. Check portions and ingredients. Not for insulin dosing or medical decisions.")
                     .readableFont(15, weight: .regular, relativeTo: .caption).foregroundStyle(.secondary).multilineTextAlignment(.center)
             }
             .padding()
@@ -304,6 +319,7 @@ struct PlateScanView: View {
         let totals = MealTotals.of(items)
         let allergens = Set(items.flatMap(\.allergens))
         return List {
+            if let mealError { Section { Text(mealError).foregroundStyle(.red) } }
             Section {
                 HStack(spacing: 14) {
                     if let image {
@@ -357,6 +373,7 @@ struct PlateScanView: View {
                 Section {
                     ForEach($items) { $item in PlateItemRow(item: $item) }
                         .onDelete { items.remove(atOffsets: $0) }
+                        .disabled(savingMeal || pendingMeal != nil)
                 } header: {
                     Text("What's on the plate")
                 } footer: {
@@ -388,8 +405,8 @@ struct PlateScanView: View {
                                 .readableFont(19, weight: .semibold, relativeTo: .headline).frame(maxWidth: .infinity)
                         }
                         .buttonStyle(.borderedProminent).buttonBorderShape(.capsule).controlSize(.large)
-                        .disabled(loggedNote != nil)
-                        if family.members.count > 1 && loggedNote == nil {
+                        .disabled(loggedNote != nil || savingMeal)
+                        if family.members.count > 1 && loggedNote == nil && !savingMeal {
                             Menu {
                                 ForEach(family.members.filter { $0.id != person.id }) { m in Button(m.name) { logMeal(for: m) } }
                             } label: { Label("Log for someone else\u{2026}", systemImage: "person.2") }
@@ -397,18 +414,20 @@ struct PlateScanView: View {
                     } else {
                         Menu {
                             ForEach(family.members) { m in Button(m.name) { logMeal(for: m) } }
-                        } label: { Label(loggedNote ?? "Log this meal for\u{2026}", systemImage: loggedNote == nil ? "plus.circle.fill" : "checkmark.circle.fill") }
+                        } label: { Label(savingMeal ? "Saving…" : loggedNote ?? "Log this meal for\u{2026}", systemImage: loggedNote == nil ? "plus.circle.fill" : "checkmark.circle.fill") }
+                        .disabled(savingMeal || loggedNote != nil)
                     }
                 } footer: { Text("Adjust the amounts above first if something looks off. It's added to the person's day on the Today tab.") }
             }
 
             Section {
-                Button { phase = .setup; image = nil; lastFoods = nil; loggedNote = nil } label: { Label("Scan another plate", systemImage: "camera.viewfinder") }
+                Button { phase = .setup; image = nil; lastFoods = nil; loggedNote = nil; pendingMeal = nil; mealError = nil } label: { Label("Scan another plate", systemImage: "camera.viewfinder") }
                 Text("Guidance only, not medical advice. Portions are estimated from a photo and can be significantly off.")
                     .readableFont(16, weight: .regular, relativeTo: .footnote).foregroundStyle(.secondary)
             }
         }
         .softList()
+        .interactiveDismissDisabled(savingMeal)
         .animation(.snappy, value: items)
     }
 
@@ -432,14 +451,18 @@ struct PlateScanView: View {
     }
 
     private func logMeal(for member: Member) {
-        let entry = PortionScaler.entry(for: items, memberId: member.id, householdId: family.householdId, at: tracking.timestampForNewItem)
+        guard !savingMeal, loggedNote == nil else { return }
+        savingMeal = true; mealError = nil
+        let entry = pendingMeal ?? PortionScaler.entry(for: items, memberId: member.id, householdId: family.householdId, at: tracking.timestampForNewItem)
+        pendingMeal = entry
         Task {
+            defer { savingMeal = false }
             if await tracking.add(entry) {
                 loggedNote = "Logged for \(member.name)"
                 UINotificationFeedbackGenerator().notificationOccurred(.success)
                 if let onLogged { try? await Task.sleep(for: .milliseconds(700)); onLogged() }
             }
-            else { loggedNote = nil }
+            else { mealError = tracking.errorMessage ?? "Couldn’t save this meal. Retry sends the same entry." }
         }
     }
 
@@ -466,6 +489,10 @@ struct PlateScanView: View {
             }
             return
         }
+        if !useFreeCloud {
+            beginOnDevice(picture)
+            return
+        }
         lastFoods = nil
         proxyNotice = nil
         image = picture
@@ -490,7 +517,7 @@ struct PlateScanView: View {
                 guard !Task.isCancelled else { return }
             }
             guard !Task.isCancelled else { return }
-            if ai.appleStatus.isAvailable { beginOnDevice(picture) } else { showConnect = true }
+            phase = .failed(proxyNotice ?? "The cloud scan could not finish. Try again or turn off cloud scanning to use an on-device estimate on a supported iPhone.")
         }
     }
 
