@@ -11,7 +11,9 @@ struct GettingStartedCard: View {
     @Environment(AIConnection.self) private var ai
     @Environment(HealthKitManager.self) private var health
     @AppStorage("healthMemberID") private var healthMemberID = ""
-    @AppStorage("dismissedGettingStarted") private var dismissed = false
+    // Versioned so existing users who already dismissed an earlier edition see this once more when a
+    // new item (e.g. the AI key nudge) is worth resurfacing - bump the suffix again for the next one.
+    @AppStorage("dismissedGettingStarted_v2") private var dismissed = false
     @State private var expanded = true
     @State private var showAddMember = false
     @State private var showScan = false
