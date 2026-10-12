@@ -67,6 +67,7 @@ struct TodayView: View {
 
                         VStack(spacing: 10) {
                             if hasMedications && needsAttention { compactMedications(member).staggeredAppear(0) }
+                            GettingStartedCard(member: member).staggeredAppear(1)
                             if !TodayLayout.isChild(member) {
                                 CheckInsCard(member: member, day: tracking.day).staggeredAppear(2)
                             }

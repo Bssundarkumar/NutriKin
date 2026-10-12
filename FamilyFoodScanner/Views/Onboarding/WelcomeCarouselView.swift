@@ -19,10 +19,19 @@ struct WelcomeCarouselView: View {
               body: "Track meals, scores and goals for everyone in your family, in one place."),
         Slide(title: "Scan a Plate,\nSkip the Guesswork",
               symbol: "camera.viewfinder",
-              body: "Snap a photo and AI estimates calories, protein, carbs and more — no searching required."),
+              body: "Snap a photo or scan a barcode and AI estimates calories, protein, carbs and more — no searching required."),
         Slide(title: "Built for the\nWhole Family",
               symbol: "person.3.fill",
               body: "Conditions, allergies and goals per person, so every scan is checked against who's eating."),
+        Slide(title: "Never Miss\nA Dose",
+              symbol: "pills.fill",
+              body: "Schedule medications and supplements, see what's due or missed, and nudge a family member who's about to miss one."),
+        Slide(title: "Stay Stronger,\nTogether",
+              symbol: "figure.run",
+              body: "Join a gym buddy group with family or friends, share workouts, and log a group session for everyone at once."),
+        Slide(title: "Growth, Groceries\nand More",
+              symbol: "cart.fill",
+              body: "Track kids' growth over time, share a grocery list, sync with Apple Health — it's all here when you need it."),
     ]
 
     var body: some View {

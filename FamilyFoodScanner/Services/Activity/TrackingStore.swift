@@ -15,6 +15,7 @@ final class TrackingStore {
     internal(set) var schedules: [ActivitySchedule] = []
     /// The day being shown (start of that day, local time).
     private(set) var day = Calendar.current.startOfDay(for: Date())
+    private(set) var loadedDay: Date?
     var isLoading = false
     var errorMessage: String?
 
@@ -36,7 +37,7 @@ final class TrackingStore {
 
     func load(householdId: UUID?, day newDay: Date? = nil) async {
         if let newDay { day = Calendar.current.startOfDay(for: newDay) }
-        if Demo.isOn { entries = Demo.foodEntries; workouts = Demo.workouts; recentWorkouts = Demo.workouts; return }
+        if Demo.isOn { entries = Demo.foodEntries; workouts = Demo.workouts; recentWorkouts = Demo.workouts; loadedDay = day; return }
         self.householdId = householdId
         guard let householdId else { entries = []; workouts = []; schedules = []; templates = []; return }
         let start = day
@@ -66,7 +67,7 @@ final class TrackingStore {
             let (f, w) = try await (food, training)
             _ = await (week, tmpl, sched)
             guard day == start else { return }              // the person moved to another day meanwhile
-            entries = f; workouts = w
+            entries = f; workouts = w; loadedDay = start
         } catch {
             errorMessage = "Couldn't load this day. \(error.localizedDescription)"
         }
@@ -110,6 +111,9 @@ final class TrackingStore {
             }
             if Calendar.current.isDate(saved.eatenAt, inSameDayAs: day) { entries.append(saved) }
             healthSync?.enqueue(HealthSync.food(saved))
+            // So the Getting Started checklist can tell this has been tried, without a dedicated
+            // lifetime-history query - set once, the first time any meal (scan, barcode or manual) saves.
+            UserDefaults.standard.set(true, forKey: GettingStarted.hasLoggedFoodKey)
             return true
         } catch {
             errorMessage = "Couldn't save that. \(error.localizedDescription)"
@@ -164,7 +168,7 @@ final class TrackingStore {
 
     func setHousehold(_ id: UUID?) { householdId = id }
 
-    func reset() { entries = []; workouts = []; recentWorkouts = []; templates = []; schedules = []; householdId = nil; errorMessage = nil; day = Calendar.current.startOfDay(for: Date()) }
+    func reset() { loadedDay = nil; entries = []; workouts = []; recentWorkouts = []; templates = []; schedules = []; householdId = nil; errorMessage = nil; day = Calendar.current.startOfDay(for: Date()) }
 
     func clamp(_ v: Double, _ hi: Double) -> Double { min(max(v, 0), hi) }
 }

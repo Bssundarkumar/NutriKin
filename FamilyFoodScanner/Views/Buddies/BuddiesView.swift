@@ -16,6 +16,7 @@ struct BuddiesView: View {
     @State private var text = ""
     @State private var copying: BuddyPost?
     @State private var viewing: BuddyPost?
+    @State private var editingWorkout: Workout?
     @State private var showAnalysis = false
     @State private var showLog = false
     @State private var showStrength = false
@@ -27,10 +28,20 @@ struct BuddiesView: View {
     @State private var activityDay = Calendar.current.startOfDay(for: Date())
     @State private var showActivityCalendar = false
     @State private var confirmLeave = false
+    @State private var showRenameGroup = false
+    @State private var groupName = ""
+    @State private var savingGroupName = false
     private enum Mode { case none, create, join }
     private var me: Member? { family.myMember }
     private var eligible: Bool { (me?.age ?? 0) >= 18 }
     private var group: BuddyGroup? { store.groups.first { $0.id == selected } }
+
+    /// Match the existing household workout update policy, including family group participants.
+    private func editableMember(for workout: Workout) -> Member? {
+        guard workout.source != "health", let householdID = family.householdId,
+              workout.householdId == householdID else { return nil }
+        return family.members.first { $0.id == workout.memberId }
+    }
 
     var body: some View {
         NavigationStack {
@@ -63,7 +74,10 @@ struct BuddiesView: View {
             }
             .background(AppBackground())
             .toolbar(.hidden, for: .navigationBar)
-            .task { await reload() }
+            .task {
+                await reload()
+                UserDefaults.standard.set(true, forKey: GettingStarted.hasOpenedBuddiesKey)
+            }
             .refreshable { await reload() }
             .onChange(of: selected) { _, _ in filterID = nil; showGroupMembers = false; restoreParticipants() }
             .onChange(of: store.buddies) { _, _ in restoreParticipants() }
@@ -74,7 +88,58 @@ struct BuddiesView: View {
                                            prefill: StrengthMath.forReuse(post.workout.exercises ?? []))
                 }
             }
-            .sheet(item: $viewing) { post in WorkoutDetailView(workout: post.workout, onEdit: {}, readOnly: true) }
+            .sheet(item: $viewing) { post in
+                WorkoutDetailView(workout: post.workout, onEdit: {
+                    editingWorkout = post.workout
+                }, readOnly: editableMember(for: post.workout) == nil)
+            }
+            .sheet(item: $editingWorkout) { workout in
+                if let member = editableMember(for: workout) {
+                    if workout.workoutKind == .strength {
+                        StrengthSessionView(member: member, editing: workout)
+                    } else {
+                        LogWorkoutSheet(member: member, editing: workout)
+                    }
+                }
+            }
+            .onChange(of: editingWorkout) { _, workout in
+                if workout == nil { Task { await reload() } }
+            }
+            .sheet(isPresented: $showRenameGroup) {
+                NavigationStack {
+                    Form {
+                        Section("Group name") {
+                            TextField("Group name", text: $groupName)
+                                .textInputAutocapitalization(.words)
+                                .disabled(savingGroupName)
+                            Text("Up to 50 characters. The invite code and members stay the same.")
+                                .font(.footnote).foregroundStyle(.secondary)
+                        }
+                        if let error = store.errorMessage {
+                            Text(error).foregroundStyle(.red)
+                        }
+                    }
+                    .navigationTitle("Edit group name")
+                    .navigationBarTitleDisplayMode(.inline)
+                    .toolbar {
+                        ToolbarItem(placement: .cancellationAction) {
+                            Button("Cancel") { showRenameGroup = false }.disabled(savingGroupName)
+                        }
+                        ToolbarItem(placement: .confirmationAction) {
+                            Button(savingGroupName ? "Saving…" : "Save") {
+                                guard let group else { return }
+                                savingGroupName = true
+                                Task {
+                                    if await store.rename(group, name: groupName, myUserId: family.myUserId) {
+                                        showRenameGroup = false
+                                    }
+                                    savingGroupName = false
+                                }
+                            }.disabled(savingGroupName || groupName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || groupName.trimmingCharacters(in: .whitespacesAndNewlines).count > 50)
+                        }
+                    }
+                }.interactiveDismissDisabled(savingGroupName)
+            }
             .sheet(isPresented: $showAnalysis) {
                 if let group { BuddyAnalysisView(group: group, initialMemberID: filterID ?? me?.id) }
             }
@@ -134,6 +199,11 @@ struct BuddiesView: View {
                         .disabled(!eligible || store.groups.count >= 5)
                     Button("Join with a code", systemImage: "key.fill") { mode = .join; text = "" }
                         .disabled(!eligible || store.groups.count >= 5)
+                    if let group, group.createdBy == family.myUserId {
+                        Button("Edit group name", systemImage: "pencil") {
+                            groupName = group.name; showRenameGroup = true
+                        }
+                    }
                     if group != nil { Button("Leave group", systemImage: "rectangle.portrait.and.arrow.right", role: .destructive) { confirmLeave = true } }
                 } label: {
                     Image(systemName: "ellipsis").readableFont(20, weight: .bold)
