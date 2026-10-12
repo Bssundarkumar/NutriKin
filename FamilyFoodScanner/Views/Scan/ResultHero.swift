@@ -11,12 +11,15 @@ struct ResultHero: View {
     private var worst: Verdict? { results.map(\.verdict).min() }
     private var lowest: Int? { results.map(\.score).min() }
     private var allergyNames: [String] { results.filter(\.blockedByAllergy).map(\.member.name) }
-    private var tint: Color { worst.map(Theme.color(for:)) ?? Theme.brand }
+    private var isAlcoholic: Bool { AlcoholGuidance.isAlcoholic(product) }
+    private var tint: Color { (!allergyNames.isEmpty || isAlcoholic) ? .red : (worst.map(Theme.color(for:)) ?? Theme.brand) }
 
     private var headline: String {
         if !allergyNames.isEmpty { return "Allergy alert" }
+        if isAlcoholic { return "Contains alcohol" }
+        if !product.dataWarnings.isEmpty { return "Check missing information" }
         switch worst {
-        case .okay: return "Good for everyone"
+        case .okay: return "Fits the recorded needs"
         case .caution: return "Fine with some care"
         case .avoid: return "Not great for someone"
         case nil: return "Product details"
@@ -25,13 +28,14 @@ struct ResultHero: View {
 
     private var subline: String {
         if !allergyNames.isEmpty { return "Contains something \(allergyNames.joined(separator: ", ")) is allergic to." }
+        if isAlcoholic { return "Never appropriate for children. Capped for everyone else too." }
         let flagged = results.filter { $0.verdict != .okay }.map(\.member.name)
         if flagged.isEmpty { return results.isEmpty ? "Add family members to see scores." : "Every family member scores well." }
         return "Look closer for \(flagged.joined(separator: ", "))."
     }
 
     private var symbol: String {
-        if !allergyNames.isEmpty { return "exclamationmark.triangle.fill" }
+        if !allergyNames.isEmpty || isAlcoholic { return "exclamationmark.triangle.fill" }
         switch worst {
         case .okay: return "checkmark.seal.fill"
         case .caution: return "exclamationmark.circle.fill"

@@ -33,6 +33,7 @@ struct ResultView: View {
         let results = scores
         let allergyHits = results.filter(\.blockedByAllergy)
         let ingredientAlerts = analyzer.alerts(for: product, members: family.members)
+        let isAlcoholic = AlcoholGuidance.isAlcoholic(product)
 
         List {
             Section { ResultHero(product: product, results: results) }
@@ -136,6 +137,23 @@ struct ResultView: View {
                     }
                     .foregroundStyle(.red)
                     .fontWeight(.semibold)
+                }
+                .listRowBackground(Color.red.opacity(0.12))
+            }
+
+            if isAlcoholic {
+                Section {
+                    Label {
+                        Text("Contains alcohol")
+                    } icon: {
+                        Image(systemName: "exclamationmark.triangle.fill")
+                            .symbolEffect(.pulse, options: .repeat(4))
+                    }
+                    .foregroundStyle(.red)
+                    .fontWeight(.semibold)
+                    Text("Never appropriate for children, regardless of its nutrition. Capped for everyone else too.")
+                        .readableFont(16, weight: .regular, relativeTo: .footnote)
+                        .foregroundStyle(.secondary)
                 }
                 .listRowBackground(Color.red.opacity(0.12))
             }
