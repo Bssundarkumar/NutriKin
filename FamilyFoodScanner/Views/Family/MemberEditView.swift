@@ -11,6 +11,9 @@ struct MemberEditView: View {
     let mode: Mode
     @Environment(FamilyStore.self) private var family
     @Environment(\.dismiss) private var dismiss
+    /// Height/weight are always stored in cm/kg (heightCm/weightKg below); this only changes how they're
+    /// displayed and typed in, converting on the fly - shared across every member edited on this phone.
+    @AppStorage("memberVitalsUseImperial") private var useImperial = false
 
     @State private var name: String
     @State private var isManagedByParent: Bool
@@ -99,8 +102,26 @@ struct MemberEditView: View {
                         }
                     }
                     numericField("Age", suffix: "years", text: $age)
-                    numericField("Height", suffix: "cm", text: $heightCm)
-                    numericField("Weight", suffix: "kg", text: $weightKg, allowsDecimal: true)
+                    Picker("Units", selection: $useImperial) {
+                        Text("cm / kg").tag(false)
+                        Text("ft+in / lb").tag(true)
+                    }.pickerStyle(.segmented)
+                    if useImperial {
+                        HStack {
+                            Text("Height")
+                            Spacer()
+                            TextField("ft", text: heightFeetText).keyboardType(.numberPad)
+                                .multilineTextAlignment(.trailing).frame(width: 40)
+                            Text("ft").foregroundStyle(.secondary).readableFont(16, weight: .regular, relativeTo: .footnote)
+                            TextField("in", text: heightInchesText).keyboardType(.decimalPad)
+                                .multilineTextAlignment(.trailing).frame(width: 40)
+                            Text("in").foregroundStyle(.secondary).readableFont(16, weight: .regular, relativeTo: .footnote)
+                        }
+                        numericField("Weight", suffix: "lb", text: weightLbText, allowsDecimal: true)
+                    } else {
+                        numericField("Height", suffix: "cm", text: $heightCm)
+                        numericField("Weight", suffix: "kg", text: $weightKg, allowsDecimal: true)
+                    }
                 } header: {
                     Label("Body measurements", systemImage: "figure.stand")
                 } footer: {
@@ -250,6 +271,46 @@ struct MemberEditView: View {
 
     private var isEditing: Bool {
         if case .edit = mode { true } else { false }
+    }
+
+    // MARK: Unit conversion for display only - heightCm/weightKg (the canonical, always-metric storage)
+    // stay the source of truth, so switching units mid-edit never loses precision or needs re-syncing.
+
+    private static let cmPerInch = 2.54
+
+    private func formatted(_ value: Double) -> String {
+        value.truncatingRemainder(dividingBy: 1) == 0 ? String(Int(value)) : String(format: "%.1f", value)
+    }
+
+    private func heightComponents() -> (feet: Int, inches: Double) {
+        guard let cm = EntryNumber.parse(heightCm), cm > 0 else { return (0, 0) }
+        let totalInches = cm / Self.cmPerInch
+        let feet = Int(totalInches / 12)
+        return (feet, totalInches - Double(feet * 12))
+    }
+
+    private func setHeight(feet: Double, inches: Double) {
+        let totalInches = feet * 12 + inches
+        guard totalInches > 0 else { heightCm = ""; return }
+        heightCm = formatted(totalInches * Self.cmPerInch)
+    }
+
+    private var heightFeetText: Binding<String> {
+        Binding(
+            get: { heightCm.isEmpty ? "" : String(heightComponents().feet) },
+            set: { setHeight(feet: Double($0) ?? 0, inches: heightComponents().inches) })
+    }
+
+    private var heightInchesText: Binding<String> {
+        Binding(
+            get: { heightCm.isEmpty ? "" : formatted(heightComponents().inches) },
+            set: { setHeight(feet: Double(heightComponents().feet), inches: EntryNumber.parse($0) ?? 0) })
+    }
+
+    private var weightLbText: Binding<String> {
+        Binding(
+            get: { EntryNumber.parse(weightKg).map { formatted($0 / StrengthMath.kgPerLb) } ?? "" },
+            set: { weightKg = EntryNumber.parse($0).map { formatted($0 * StrengthMath.kgPerLb) } ?? "" })
     }
 
     private func numericField(_ title: String, suffix: String, text: Binding<String>, allowsDecimal: Bool = false) -> some View {
