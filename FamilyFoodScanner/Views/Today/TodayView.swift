@@ -146,7 +146,8 @@ struct TodayView: View {
             .sheet(item: $weightHistoryMember) { GrowthView(member: $0) }
             .sheet(isPresented: $showSleepHistory) { SleepHistoryView() }
             .sheet(item: $metricHistory) { req in
-                MetricHistoryView(title: req.title, symbol: req.symbol, tint: req.tint, unit: req.unit, format: req.format, load: req.load)
+                MetricHistoryView(title: req.title, symbol: req.symbol, tint: req.tint, unit: req.unit, format: req.format,
+                                  requiresHealth: req.requiresHealth, load: req.load)
             }
             .task(id: tracking.day) {
                 medications.updateMemberNames(family.members)
@@ -239,42 +240,60 @@ struct TodayView: View {
         let eaten = Int(budget.eaten.calories.rounded())
         let target = Int(budget.limits.calories.rounded())
         let goals = macroGoals(budget.limits.calories)
-        return Button(action: showPlan) {
-            VStack(alignment: .leading, spacing: 14) {
-                ReadableStack(spacing: 16) {
-                    ScoreRingLabel(fraction: budget.calorieShare, color: color,
-                                   primary: abs(left).formatted(), secondary: left >= 0 ? "kcal left" : "kcal over",
-                                   lineWidth: 10, primaryFontSize: 32)
-                        .frame(width: calorieRingSize, height: calorieRingSize).padding(5)
-                    VStack(alignment: .leading, spacing: 8) {
-                        Text("Daily Calories").readableFont(22, weight: .bold, relativeTo: .title3)
-                            .lineLimit(1).minimumScaleFactor(0.85)
-                        Text("\(eaten.formatted()) of \(target.formatted()) kcal")
-                            .readableFont(17).foregroundStyle(.secondary)
-                        Capsule().fill(color.opacity(0.12)).frame(height: 8)
-                            .overlay(alignment: .leading) {
-                                GeometryReader { geo in
-                                    Capsule().fill(color.gradient)
-                                        .frame(width: geo.size.width * min(max(budget.calorieShare, 0), 1))
-                                }
-                            }.accessibilityHidden(true)
-                        HStack(alignment: .top, spacing: 8) {
-                            calorieEndpoint(eaten, caption: "consumed", alignment: .leading)
-                            Spacer(minLength: 0)
-                            calorieEndpoint(target, caption: "daily goal", alignment: .trailing)
-                        }
-                    }.frame(maxWidth: .infinity, alignment: .leading)
+        return VStack(alignment: .leading, spacing: 14) {
+            Button(action: showPlan) {
+                VStack(alignment: .leading, spacing: 14) {
+                    ReadableStack(spacing: 16) {
+                        ScoreRingLabel(fraction: budget.calorieShare, color: color,
+                                       primary: abs(left).formatted(), secondary: left >= 0 ? "kcal left" : "kcal over",
+                                       lineWidth: 10, primaryFontSize: 32)
+                            .frame(width: calorieRingSize, height: calorieRingSize).padding(5)
+                        VStack(alignment: .leading, spacing: 8) {
+                            Text("Daily Calories").readableFont(22, weight: .bold, relativeTo: .title3)
+                                .lineLimit(1).minimumScaleFactor(0.85)
+                            Text("\(eaten.formatted()) of \(target.formatted()) kcal")
+                                .readableFont(17).foregroundStyle(.secondary)
+                            Capsule().fill(color.opacity(0.12)).frame(height: 8)
+                                .overlay(alignment: .leading) {
+                                    GeometryReader { geo in
+                                        Capsule().fill(color.gradient)
+                                            .frame(width: geo.size.width * min(max(budget.calorieShare, 0), 1))
+                                    }
+                                }.accessibilityHidden(true)
+                            HStack(alignment: .top, spacing: 8) {
+                                calorieEndpoint(eaten, caption: "consumed", alignment: .leading)
+                                Spacer(minLength: 0)
+                                calorieEndpoint(target, caption: "daily goal", alignment: .trailing)
+                            }
+                        }.frame(maxWidth: .infinity, alignment: .leading)
+                    }
+                    Text("Calories left includes your recorded exercise allowance. Macro bars use approximate daily targets.")
+                        .font(.footnote).foregroundStyle(.secondary)
                 }
-                Text("Calories left includes your recorded exercise allowance. Macro bars use approximate daily targets.")
-                    .font(.footnote).foregroundStyle(.secondary)
-                SingleRow(spacing: 8) {
-                    MacroBar(symbol: "leaf.fill", tint: .blue, title: "Carbs", value: budget.eaten.carbsG, goal: goals.carbsG)
-                    MacroBar(symbol: "drop.fill", tint: .purple, title: "Protein", value: budget.eaten.proteinG, goal: goals.proteinG)
-                    MacroBar(symbol: "drop.fill", tint: .orange, title: "Fat", value: budget.eaten.fatG, goal: goals.fatG)
-                }
+            }.buttonStyle(.plain).accessibilityHint("Open weight and daily intake plan")
+            SingleRow(spacing: 8) {
+                macroBar("leaf.fill", tint: .blue, title: "Carbs", value: budget.eaten.carbsG, goal: goals.carbsG,
+                         member: member, field: \.carbsG)
+                macroBar("drop.fill", tint: .purple, title: "Protein", value: budget.eaten.proteinG, goal: goals.proteinG,
+                         member: member, field: \.proteinG)
+                macroBar("drop.fill", tint: .orange, title: "Fat", value: budget.eaten.fatG, goal: goals.fatG,
+                         member: member, field: \.fatG)
             }
-            .todaySurface()
-        }.buttonStyle(.plain).accessibilityHint("Open weight and daily intake plan")
+        }
+        .todaySurface()
+    }
+
+    /// A `MacroBar` that opens its own trend chart on tap, querying logged food over the last two weeks
+    /// (not cached like a day's entries, since the macro cards only ever show the day being viewed).
+    private func macroBar(_ symbol: String, tint: Color, title: String, value: Double, goal: Double,
+                           member: Member, field: @escaping (FoodEntry) -> Double) -> some View {
+        Button {
+            metricHistory = .init(title: title, symbol: symbol, tint: tint, unit: "g", requiresHealth: false) {
+                await tracking.nutritionHistory(for: member, field: field)
+            }
+        } label: {
+            MacroBar(symbol: symbol, tint: tint, title: title, value: value, goal: goal)
+        }.buttonStyle(.plain)
     }
 
     private func calorieEndpoint(_ value: Int, caption: String, alignment: HorizontalAlignment) -> some View {
@@ -526,7 +545,10 @@ struct TodayView: View {
                                 action: showsHealth ? { metricHistory = .init(title: "Active kcal", symbol: "flame.fill", tint: .orange, unit: "kcal") {
                                     await health.quantityHistory(.activeEnergyBurned, unit: .kilocalorie())
                                 } } : nil)
-                activitySummary("dumbbell.fill", title: "Workout kcal", value: logged.reduce(0) { $0 + $1.caloriesBurned }.formatted(), tint: .purple)
+                activitySummary("dumbbell.fill", title: "Workout kcal", value: logged.reduce(0) { $0 + $1.caloriesBurned }.formatted(), tint: .purple,
+                                action: { metricHistory = .init(title: "Workout kcal", symbol: "dumbbell.fill", tint: .purple, unit: "kcal", requiresHealth: false) {
+                                    tracking.workoutHistory(for: member) { Double($0.caloriesBurned) }
+                                } })
                 activitySummary("heart.fill", title: "Avg. heart rate",
                                 value: showsHealth ? (health.activity.averageHeartRateBpm.map { "\(Int($0.rounded())) bpm" } ?? "—") : "—",
                                 detail: showsHealth ? (health.activity.restingHeartRateBpm.map { "Resting \(Int($0.rounded())) bpm" } ?? "Resting unavailable") : "Resting unavailable", tint: .pink,
@@ -536,10 +558,12 @@ struct TodayView: View {
             .background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 16))
             .overlay(RoundedRectangle(cornerRadius: 16).stroke(Color.orange.opacity(0.08)))
             SingleRow(spacing: 8) {
-                // Duration is summed from workouts you've logged in NutriKin, not Health, and there's no
-                // multi-day query for that yet (TrackingStore only holds the currently-viewed day) — not
-                // tappable until that exists.
-                activitySummary("clock", title: "Duration", value: "\(minutes) min", tint: .orange)
+                // Duration comes from workouts logged in NutriKin, not Health; workoutHistory() below
+                // reads the already-cached 4-week recentWorkouts window rather than the day-only `workouts`.
+                activitySummary("clock", title: "Duration", value: "\(minutes) min", tint: .orange,
+                                action: { metricHistory = .init(title: "Duration", symbol: "clock", tint: .orange, unit: "min", requiresHealth: false) {
+                                    tracking.workoutHistory(for: member) { Double($0.minutes) }
+                                } })
                 activitySummary("figure.walk", title: "Distance", value: showsHealth ? (health.activity.walkingRunningDistanceMeters.map {
                     ($0 / 1000).formatted(.number.precision(.fractionLength(1))) + " km"
                 } ?? "—") : "—", tint: .green,
@@ -887,6 +911,7 @@ private struct MetricHistoryRequest: Identifiable {
     let tint: Color
     let unit: String
     var format: (Double) -> Double = { $0 }
+    var requiresHealth = true
     let load: () async -> [(date: Date, value: Double)]
 }
 

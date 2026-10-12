@@ -11,10 +11,15 @@ struct MetricTrendChart: View {
     let unit: String
     /// Rounds a raw HealthKit total into the unit this chart displays (e.g. mL \u{2192} glasses, m \u{2192} km).
     var format: (Double) -> Double = { $0 }
+    /// False for a metric that doesn't come from Health at all (workouts/nutrition logged in NutriKin
+    /// itself) - skips the "Connect Apple Health" gating below, since it doesn't apply.
+    var requiresHealth = true
     let load: () async -> [(date: Date, value: Double)]
     @Environment(HealthKitManager.self) private var health
     @State private var history: [(date: Date, value: Double)] = []
     @State private var isLoading = false
+
+    private var hasAccess: Bool { !requiresHealth || health.hasRequestedAccess }
 
     private var daysWithData: [(date: Date, value: Double)] {
         history.filter { $0.value > 0 }.map { ($0.date, format($0.value)) }
@@ -37,14 +42,14 @@ struct MetricTrendChart: View {
                     .accessibilityLabel("\(title) for the last \(history.count) days")
                 }
                 .padding(.horizontal, 24)
-            } else if health.hasRequestedAccess {
+            } else if hasAccess {
                 Text("Not enough data yet to show a trend.")
                     .readableFont(15, weight: .regular, relativeTo: .footnote).foregroundStyle(.secondary)
                     .multilineTextAlignment(.center).padding(.horizontal, 32)
             }
         }
         .task {
-            guard health.hasRequestedAccess, history.isEmpty else { return }
+            guard hasAccess, history.isEmpty else { return }
             isLoading = true
             history = await load()
             isLoading = false
@@ -59,6 +64,7 @@ struct MetricHistoryView: View {
     let tint: Color
     let unit: String
     var format: (Double) -> Double = { $0 }
+    var requiresHealth = true
     let load: () async -> [(date: Date, value: Double)]
     @Environment(HealthKitManager.self) private var health
     @Environment(\.dismiss) private var dismiss
@@ -67,8 +73,8 @@ struct MetricHistoryView: View {
         NavigationStack {
             VStack(spacing: 16) {
                 Image(systemName: symbol).font(.system(size: 40)).foregroundStyle(tint)
-                MetricTrendChart(title: title, tint: tint, unit: unit, format: format, load: load)
-                if !health.hasRequestedAccess {
+                MetricTrendChart(title: title, tint: tint, unit: unit, format: format, requiresHealth: requiresHealth, load: load)
+                if requiresHealth && !health.hasRequestedAccess {
                     Text("Not enough data yet").readableFont(22, weight: .bold, relativeTo: .title3)
                     Text("Connect Apple Health from Activity to see this here.")
                         .readableFont(16, weight: .regular, relativeTo: .footnote).foregroundStyle(.secondary)

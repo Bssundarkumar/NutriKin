@@ -12,6 +12,20 @@ extension TrackingStore {
         return await add(w)
     }
 
+    /// A daily-total trend for one member from the already-cached 4-week `recentWorkouts` window - no
+    /// extra network call. One entry per day (oldest first), zero-filled on days with no workout, so it
+    /// matches `MetricTrendChart`'s expected shape for a Health-backed metric.
+    func workoutHistory(for member: Member, days: Int = 14, value: @escaping (Workout) -> Double) -> [(date: Date, value: Double)] {
+        let cal = Calendar.current
+        let recent = recentWorkouts.filter { $0.memberId == member.id }
+        let byDay = Dictionary(grouping: recent) { cal.startOfDay(for: $0.doneAt) }
+        return stride(from: days - 1, through: 0, by: -1).compactMap { offset -> (date: Date, value: Double)? in
+            guard let day = cal.date(byAdding: .day, value: -offset, to: cal.startOfDay(for: Date())) else { return nil }
+            let total = (byDay[day] ?? []).reduce(0) { $0 + value($1) }
+            return (day, total)
+        }
+    }
+
     func loadWeek(_ householdId: UUID) async {
         let start = Self.recentCutoff
         let gen = generation

@@ -83,6 +83,29 @@ final class TrackingStore {
         }
     }
 
+    /// A daily-total trend for one macro over the last `days`, queried fresh (unlike workouts, logged
+    /// food isn't cached beyond the day being viewed). One entry per day, zero-filled on days with
+    /// nothing logged, matching `MetricTrendChart`'s expected shape for a Health-backed metric.
+    func nutritionHistory(for member: Member, days: Int = 14, field: @escaping (FoodEntry) -> Double) async -> [(date: Date, value: Double)] {
+        let cal = Calendar.current
+        let todayStart = cal.startOfDay(for: Date())
+        guard let householdId, let start = cal.date(byAdding: .day, value: -(days - 1), to: todayStart) else { return [] }
+        if Demo.isOn { return [] }
+        let end = cal.date(byAdding: .day, value: 1, to: todayStart) ?? todayStart
+        guard let rows: [FoodEntry] = try? await Backend.withRetry({
+            try await client.from("food_log").select()
+                .eq("household_id", value: householdId).eq("member_id", value: member.id)
+                .gte("eaten_at", value: Self.iso(start)).lt("eaten_at", value: Self.iso(end))
+                .execute().value
+        }) else { return [] }
+        let byDay = Dictionary(grouping: rows) { cal.startOfDay(for: $0.eatenAt) }
+        return stride(from: days - 1, through: 0, by: -1).compactMap { offset -> (date: Date, value: Double)? in
+            guard let day = cal.date(byAdding: .day, value: -offset, to: todayStart) else { return nil }
+            let total = (byDay[day] ?? []).reduce(0) { $0 + field($1) }
+            return (day, total)
+        }
+    }
+
     func moveDay(by days: Int) async {
         guard let target = Calendar.current.date(byAdding: .day, value: days, to: day), target <= Date() else { return }
         await load(householdId: householdId, day: target)
@@ -100,6 +123,7 @@ final class TrackingStore {
     // MARK: Food
 
     struct NewFood: Encodable {
+        var id: UUID
         var householdId: UUID, memberId: UUID, eatenAt: Date, label: String, barcode: String?, source: String
         var calories: Double, sugarG: Double, carbsG: Double, sodiumMg: Double, satFatG: Double, proteinG: Double
         var fiberG: Double, fatG: Double
@@ -109,17 +133,20 @@ final class TrackingStore {
     func add(_ entry: FoodEntry) async -> Bool {
         guard let householdId = householdId ?? entry.householdId else { return false }
         errorMessage = nil
-        if Demo.isOn { entries.append(entry); return true }
-        let payload = NewFood(householdId: householdId, memberId: entry.memberId, eatenAt: entry.eatenAt,
+        if Demo.isOn { if !entries.contains(where: { $0.id == entry.id }) { entries.append(entry) }; return true }
+        let payload = NewFood(id: entry.id, householdId: householdId, memberId: entry.memberId, eatenAt: entry.eatenAt,
                               label: AIGuardrails.sanitize(entry.label, max: 120), barcode: entry.barcode, source: entry.source.rawValue,
                               calories: clamp(entry.calories, 5000), sugarG: clamp(entry.sugarG, 1000), carbsG: clamp(entry.carbsG, 1000),
                               sodiumMg: clamp(entry.sodiumMg, 50000), satFatG: clamp(entry.satFatG, 1000), proteinG: clamp(entry.proteinG, 1000),
                               fiberG: clamp(entry.fiberG, 1000), fatG: clamp(entry.fatG, 1000))
         do {
             let saved: FoodEntry = try await Backend.withRetry {
-                try await client.from("food_log").insert(payload).select().single().execute().value
+                try await client.from("food_log").upsert(payload, onConflict: "id").select().single().execute().value
             }
-            if Calendar.current.isDate(saved.eatenAt, inSameDayAs: day) { entries.append(saved) }
+            if Calendar.current.isDate(saved.eatenAt, inSameDayAs: day) {
+                if let index = entries.firstIndex(where: { $0.id == saved.id }) { entries[index] = saved }
+                else { entries.append(saved) }
+            }
             healthSync?.enqueue(HealthSync.food(saved))
             // So the Getting Started checklist can tell this has been tried, without a dedicated
             // lifetime-history query - set once, the first time any meal (scan, barcode or manual) saves.
