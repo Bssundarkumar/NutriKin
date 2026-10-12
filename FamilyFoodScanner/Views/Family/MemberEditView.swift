@@ -1,0 +1,347 @@
+import SwiftUI
+
+/// Add or edit a family member: their vitals, conditions, allergies
+/// (built-in or custom) and daily goals.
+struct MemberEditView: View {
+    enum Mode {
+        case add
+        case edit(Member)
+    }
+
+    let mode: Mode
+    @Environment(FamilyStore.self) private var family
+    @Environment(\.dismiss) private var dismiss
+
+    @State private var name: String
+    @State private var isManagedByParent: Bool
+    @State private var thisIsMe = false
+    @State private var age: String
+    @State private var heightCm: String
+    @State private var weightKg: String
+    @State private var sex: Sex?
+
+    @State private var hasDiabetes: Bool
+    @State private var hasHypertension: Bool
+    @State private var hasHighCholesterol: Bool
+    @State private var isPregnant: Bool
+    @State private var customConditions: [String]
+    @State private var newCustomCondition = ""
+
+    @State private var allergies: Set<Allergen>
+    @State private var customAllergies: [String]
+    @State private var newCustomAllergy = ""
+
+    @State private var calories: String
+    @State private var sugar: String
+    @State private var sodium: String
+    @State private var satFat: String
+    @State private var steps: String
+    @State private var weeklyMinutes: String
+    @State private var isSaving = false
+
+    init(mode: Mode) {
+        self.mode = mode
+        let existing: Member? = if case .edit(let m) = mode { m } else { nil }
+        _name = State(initialValue: existing?.name ?? "")
+        _isManagedByParent = State(initialValue: existing?.isManagedByParent ?? false)
+        _age = State(initialValue: existing?.age.map(String.init) ?? "")
+        _heightCm = State(initialValue: existing?.heightCm.map { String(Int($0)) } ?? "")
+        _weightKg = State(initialValue: existing?.weightKg.map { $0.truncatingRemainder(dividingBy: 1) == 0 ? String(Int($0)) : String(format: "%.1f", $0) } ?? "")
+        _sex = State(initialValue: existing?.sex)
+
+        _hasDiabetes = State(initialValue: existing?.has(.diabetes) ?? false)
+        _hasHypertension = State(initialValue: existing?.has(.hypertension) ?? false)
+        _hasHighCholesterol = State(initialValue: existing?.has(.highCholesterol) ?? false)
+        _isPregnant = State(initialValue: existing?.isPregnant ?? false)
+        _customConditions = State(initialValue: existing?.customConditionNames ?? [])
+
+        _allergies = State(initialValue: Set(existing?.allergies ?? []))
+        _customAllergies = State(initialValue: existing?.customAllergyNames ?? [])
+
+        _calories = State(initialValue: existing?.goals.dailyCalories.map { String(Int($0)) } ?? "")
+        _sugar = State(initialValue: existing?.goals.dailySugarGrams.map { String(Int($0)) } ?? "")
+        _sodium = State(initialValue: existing?.goals.dailySodiumMg.map { String(Int($0)) } ?? "")
+        _satFat = State(initialValue: existing?.goals.dailySatFatGrams.map { String(Int($0)) } ?? "")
+        _steps = State(initialValue: existing?.goals.dailySteps.map(String.init) ?? "")
+        _weeklyMinutes = State(initialValue: existing?.goals.weeklyWorkoutMinutes.map(String.init) ?? "")
+    }
+
+    var body: some View {
+        NavigationStack {
+            Form {
+                Section {
+                    HStack(spacing: 14) {
+                        Avatar(name: name.isEmpty ? "?" : name, size: 60)
+                        VStack(alignment: .leading, spacing: 5) {
+                            Text(name.isEmpty ? "New family member" : name).readableFont(25, weight: .bold)
+                            Text("Profile, health needs and daily goals").readableFont(17).foregroundStyle(.secondary)
+                        }
+                    }
+                    .padding(.vertical, 12)
+                    .listRowBackground(Theme.brand.opacity(0.08))
+                }
+                Section("Profile & care") {
+                    TextField("Name", text: $name)
+                    Toggle("Managed by a parent or carer", isOn: $isManagedByParent)
+                    if canLinkToMe {
+                        Toggle("This is me", isOn: $thisIsMe)
+                            .onChange(of: thisIsMe) { _, on in if on { isManagedByParent = false } }
+                    } else {
+                        Text(linkNote).readableFont(16, weight: .regular, relativeTo: .footnote).foregroundStyle(.secondary)
+                    }
+                }
+
+                Section {
+                    Picker("Sex", selection: $sex) {
+                        Text("Not set").tag(Sex?.none)
+                        ForEach(Sex.allCases) { s in
+                            Text(s.displayName).tag(Sex?.some(s))
+                        }
+                    }
+                    numericField("Age", suffix: "years", text: $age)
+                    numericField("Height", suffix: "cm", text: $heightCm)
+                    numericField("Weight", suffix: "kg", text: $weightKg, allowsDecimal: true)
+                } header: {
+                    Label("Body measurements", systemImage: "figure.stand")
+                } footer: {
+                    Text("Sex is used only to pick a more accurate default daily target (calories, added sugar) when no goal is set below — it's optional.")
+                }
+
+                Section {
+                    Toggle("Diabetes", isOn: $hasDiabetes)
+                    Toggle("High blood pressure", isOn: $hasHypertension)
+                    Toggle("High cholesterol", isOn: $hasHighCholesterol)
+                    if sex != .male {
+                        Toggle("Pregnant", isOn: $isPregnant)
+                        if isPregnant {
+                            Text("NutriKin will flag foods commonly advised against in pregnancy, such as alcohol, raw fish or eggs, unpasteurised dairy and liver, and won't suggest weight plans. It's general guidance, not medical advice: ask your midwife or doctor.")
+                                .readableFont(16, weight: .regular, relativeTo: .footnote).foregroundStyle(.secondary)
+                        }
+                    }
+
+                    ForEach(customConditions, id: \.self) { condition in
+                        HStack {
+                            Text(condition)
+                            Spacer()
+                            Button { customConditions.removeAll { $0 == condition } } label: { Image(systemName: "trash").foregroundStyle(.secondary) }
+                                .buttonStyle(.plain).frame(width: 44, height: 44)
+                                .accessibilityLabel("Remove \(condition)")
+                        }
+                    }
+                    .onDelete { customConditions.remove(atOffsets: $0) }
+
+                    HStack {
+                        TextField("Add a condition (e.g. Celiac disease)", text: $newCustomCondition)
+                        Button("Add") { addCustomCondition() }
+                            .disabled(newCustomCondition.trimmingCharacters(in: .whitespaces).isEmpty)
+                    }
+                } header: { Label("Health conditions", systemImage: "heart.text.square") }
+
+                Section {
+                    ForEach(Allergen.allCases) { allergen in
+                        Toggle(allergen.displayName, isOn: Binding(
+                            get: { allergies.contains(allergen) },
+                            set: { isOn in
+                                if isOn { allergies.insert(allergen) } else { allergies.remove(allergen) }
+                            }
+                        ))
+                    }
+
+                    ForEach(customAllergies, id: \.self) { allergy in
+                        HStack {
+                            Text(allergy)
+                            Spacer()
+                            Button { customAllergies.removeAll { $0 == allergy } } label: { Image(systemName: "trash").foregroundStyle(.secondary) }
+                                .buttonStyle(.plain).frame(width: 44, height: 44)
+                                .accessibilityLabel("Remove \(allergy)")
+                        }
+                    }
+                    .onDelete { customAllergies.remove(atOffsets: $0) }
+
+                    HStack {
+                        TextField("Add an allergy (e.g. kiwi)", text: $newCustomAllergy)
+                        Button("Add") { addCustomAllergy() }
+                            .disabled(newCustomAllergy.trimmingCharacters(in: .whitespaces).isEmpty)
+                    }
+                } header: {
+                    Text("Allergies")
+                } footer: {
+                    Text("A custom allergy is matched against the product's ingredient text, not the stricter allergen-tag lookup the built-in list uses.")
+                }
+
+                Section {
+                    numericField("Calories", suffix: "kcal/day", text: $calories)
+                    numericField("Sugar", suffix: "g/day", text: $sugar)
+                    numericField("Sodium", suffix: "mg/day", text: $sodium)
+                    numericField("Saturated fat", suffix: "g/day", text: $satFat)
+                } header: {
+                    Text("Daily goals")
+                } footer: {
+                    Text("Leave blank if this doesn't apply.")
+                }
+
+                Section {
+                    numericField("Steps", suffix: "per day", text: $steps)
+                    numericField("Workouts", suffix: "min/week", text: $weeklyMinutes)
+                    Button("Use suggested goals") {
+                        let s = ActivityGoals.suggested(for: draftMember)
+                        steps = String(s.steps); weeklyMinutes = String(s.weeklyMinutes)
+                    }
+                } header: {
+                    Text("Activity goals")
+                } footer: {
+                    Text("Progress shows on Today. Suggestions are general guidance for the age (for children about an hour of play a day); pregnant or unwell people should follow their doctor's advice.")
+                }
+
+                if case .edit(let existing) = mode {
+                    Section {
+                        Button("Remove from family", role: .destructive) {
+                            Task {
+                                await family.deleteMember(existing)
+                                dismiss()
+                            }
+                        }
+                    }
+                }
+
+                if let errorMessage = family.errorMessage {
+                    Section {
+                        Text(errorMessage).foregroundStyle(.red).readableFont(16, weight: .regular, relativeTo: .footnote)
+                    }
+                }
+            }
+            .onAppear {
+                if let e = existingMember, let me = family.myUserId, e.userId == me { thisIsMe = true }
+            }
+            .navigationTitle(isEditing ? "Edit member" : "Add member")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cancel") { dismiss() }
+                }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Save") { Task { await save() } }
+                        .disabled(name.trimmingCharacters(in: .whitespaces).isEmpty || isSaving)
+                }
+            }
+        }
+    }
+
+    /// Just enough of the form to ask for suggested goals by age.
+    private var draftMember: Member {
+        Member(name: name, conditions: [], isManagedByParent: isManagedByParent, age: Int(age))
+    }
+
+    private var existingMember: Member? { if case .edit(let m) = mode { m } else { nil } }
+
+    /// Offered when adding (and not yet linked to anyone), or when editing the person who is already you or nobody yet.
+    private var canLinkToMe: Bool {
+        guard let e = existingMember else { return family.myMember == nil }
+        if let me = family.myUserId, e.userId == me { return true }
+        return e.userId == nil && family.myMember == nil
+    }
+
+    /// Why "This is me" isn't offered, so it never just goes missing.
+    private var linkNote: String {
+        if let mine = family.myMember, mine.id != existingMember?.id { return "You're linked to \(mine.name). To change that, open \(mine.name) and turn off \"This is me\"." }
+        if let e = existingMember, e.userId != nil { return "This person is linked to their own phone." }
+        return "Still loading your account. Close this and open it again in a moment."
+    }
+
+    private var isEditing: Bool {
+        if case .edit = mode { true } else { false }
+    }
+
+    private func numericField(_ title: String, suffix: String, text: Binding<String>, allowsDecimal: Bool = false) -> some View {
+        HStack {
+            Text(title)
+            Spacer()
+            TextField("—", text: text)
+                .keyboardType(allowsDecimal ? .decimalPad : .numberPad)
+                .multilineTextAlignment(.trailing)
+                .frame(width: 70)
+            Text(suffix).foregroundStyle(.secondary).readableFont(16, weight: .regular, relativeTo: .footnote)
+        }
+    }
+
+    private func addCustomCondition() {
+        let trimmed = newCustomCondition.trimmingCharacters(in: .whitespaces)
+        guard !trimmed.isEmpty, !customConditions.contains(trimmed) else { return }
+        customConditions.append(trimmed)
+        newCustomCondition = ""
+    }
+
+    private func addCustomAllergy() {
+        let trimmed = newCustomAllergy.trimmingCharacters(in: .whitespaces)
+        guard !trimmed.isEmpty, !customAllergies.contains(trimmed) else { return }
+        customAllergies.append(trimmed)
+        newCustomAllergy = ""
+    }
+
+    private func save() async {
+        isSaving = true
+        defer { isSaving = false }
+
+        var conditions: [Condition] = []
+        if hasDiabetes { conditions.append(.diabetes) }
+        if hasHypertension { conditions.append(.hypertension) }
+        if hasHighCholesterol { conditions.append(.highCholesterol) }
+        if isPregnant && sex != .male { conditions.append(.pregnancy) }
+        conditions.append(contentsOf: allergies.map(Condition.allergy))
+        conditions.append(contentsOf: customAllergies.map(Condition.customAllergy))
+        conditions.append(contentsOf: customConditions.map(Condition.custom))
+
+        let goals = Goals(
+            dailyCalories: Double(calories),
+            dailySugarGrams: Double(sugar),
+            dailySodiumMg: Double(sodium),
+            dailySatFatGrams: Double(satFat),
+            dailySteps: Int(steps).map { min(max($0, 0), 100_000) },
+            weeklyWorkoutMinutes: Int(weeklyMinutes).map { min(max($0, 0), 3_000) }
+        )
+
+        let ageValue = Int(age)
+        let heightValue = Double(heightCm)
+        let weightValue = Double(weightKg)
+
+        var savedMember: Member?
+        switch mode {
+        case .add:
+            let added = await family.addMember(
+                name: name.trimmingCharacters(in: .whitespaces),
+                conditions: conditions,
+                goals: goals,
+                isManagedByParent: isManagedByParent,
+                age: ageValue,
+                heightCm: heightValue,
+                weightKg: weightValue,
+                sex: sex
+            )
+            if thisIsMe, let added { await family.claimMember(added) }
+            savedMember = added
+        case .edit(var existing):
+            existing.name = name.trimmingCharacters(in: .whitespaces)
+            existing.conditions = conditions
+            existing.goals = goals
+            existing.isManagedByParent = isManagedByParent
+            existing.age = ageValue
+            existing.heightCm = heightValue
+            existing.weightKg = weightValue
+            existing.sex = sex
+            await family.updateMember(existing)
+            let mine = family.myUserId != nil && existing.userId == family.myUserId
+            if thisIsMe && !mine && canLinkToMe { await family.claimMember(existing) }
+            else if !thisIsMe && mine { await family.releaseMember(existing) }
+            savedMember = existing
+        }
+        // Keep this in step with the Weight/Growth trend charts: without this, a height or weight set
+        // here (the normal path for most people) never shows up as a reading, and a chart that needs at
+        // least two readings never has any.
+        if let savedMember, heightValue != nil || weightValue != nil {
+            let growthStore = GrowthStore()
+            await growthStore.add(member: savedMember, householdId: family.householdId, on: Date(), heightCm: heightValue, weightKg: weightValue)
+        }
+
+        if family.errorMessage == nil { dismiss() }
+    }
+}

@@ -59,6 +59,21 @@ enum Allergen: String, CaseIterable, Codable, Identifiable, Hashable {
     }
 }
 
+// MARK: - Pregnancy
+
+extension Condition {
+    static let pregnancyLabel = "Pregnancy"
+
+    /// Stored as a typed condition named "Pregnancy". That keeps older app versions on other family phones able
+    /// to read the family (they just show it as text); this version recognises it and changes its advice.
+    static var pregnancy: Condition { .custom(pregnancyLabel) }
+
+    var isPregnancy: Bool {
+        if case .custom(let name) = self { return name.lowercased().hasPrefix("pregnan") }
+        return false
+    }
+}
+
 // MARK: - Member
 
 enum Condition: Hashable, Codable, Identifiable {
@@ -92,6 +107,12 @@ struct Goals: Codable, Hashable {
     var dailySugarGrams: Double?
     var dailySodiumMg: Double?
     var dailySatFatGrams: Double?
+    /// Activity goals. Older versions of the app ignore these two.
+    var dailySteps: Int?
+    var weeklyWorkoutMinutes: Int?
+    /// A weight this person chose for themself (e.g. during onboarding), in kilograms. When set,
+    /// NutritionPlanner aims for this instead of its own BMI-based default — it's their call, not ours.
+    var targetWeightKg: Double?
 }
 
 /// Biological sex, used only to pick a more accurate default daily target
@@ -122,6 +143,8 @@ struct Member: Identifiable, Codable, Hashable {
     var heightCm: Double?
     var weightKg: Double?
     var sex: Sex?
+    /// The account this person is linked to ("this is me"), set only by the database.
+    var userId: UUID? = nil
 
     var allergies: [Allergen] {
         conditions.compactMap { if case .allergy(let a) = $0 { a } else { nil } }
@@ -132,10 +155,14 @@ struct Member: Identifiable, Codable, Hashable {
     }
 
     var customConditionNames: [String] {
-        conditions.compactMap { if case .custom(let name) = $0 { name } else { nil } }
+        conditions.compactMap { if case .custom(let name) = $0, !$0.isPregnancy { name } else { nil } }
     }
 
-    func has(_ condition: Condition) -> Bool { conditions.contains(condition) }
+    var isPregnant: Bool { conditions.contains { $0.isPregnancy } }
+
+    func has(_ condition: Condition) -> Bool {
+        condition.isPregnancy ? isPregnant : conditions.contains(condition)
+    }
 }
 
 // MARK: - Product
@@ -273,4 +300,15 @@ struct MemberScore: Identifiable {
     var verdict: Verdict
     var reasons: [String]
     var blockedByAllergy: Bool
+}
+
+/// Who may change a person's medicines. The database enforces the same rule (`can_manage_member`);
+/// this copy only decides what the screens offer.
+enum MemberAccess {
+    static func canManage(_ member: Member, myUserId: UUID?, myMember: Member?, isOwner: Bool) -> Bool {
+        if let myUserId, member.userId == myUserId { return true }
+        if member.userId == nil && isOwner { return true }
+        if member.isManagedByParent { return isOwner || (myMember?.age ?? 0) >= 18 }
+        return false
+    }
 }

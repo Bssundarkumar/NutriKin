@@ -169,18 +169,201 @@ final class PlateSizeTests: XCTestCase {
 }
 
 final class FoodClassifierTests: XCTestCase {
-    func testKeepsLikelyFoodsAndDropsSceneLabelsDuplicatesAndLowConfidence() {
+    func testKeepsLikelyFoodsAndDropsSceneLabelsDuplicatesAndVeryLowConfidence() {
         let raw: [(label: String, confidence: Float)] = [
             ("plate", 0.9), ("fried_rice", 0.8), ("food", 0.85), ("tableware", 0.7),
-            ("curry", 0.55), ("Fried Rice", 0.5), ("naan", 0.1), ("chicken_curry", 0.4),
+            ("curry", 0.55), ("Fried Rice", 0.5), ("naan", 0.1), ("chicken_curry", 0.4), ("dust", 0.03),
         ]
-        XCTAssertEqual(FoodClassifier.foods(from: raw), ["fried rice", "curry", "chicken curry"])
+        // "naan" at 10% clears the floor and is kept; "dust" at 3% doesn't.
+        XCTAssertEqual(FoodClassifier.foods(from: raw), ["fried rice", "curry", "chicken curry", "naan"])
     }
 
     func testLimitsTheListAndHandlesNothingRecognised() {
         let many = (0..<20).map { (label: "food_\($0)x", confidence: Float(0.9) - Float($0) * 0.01) }
-        XCTAssertEqual(FoodClassifier.foods(from: many).count, 6)
+        XCTAssertEqual(FoodClassifier.foods(from: many).count, 8)
         XCTAssertTrue(FoodClassifier.foods(from: []).isEmpty)
         XCTAssertTrue(FoodClassifier.foods(from: [("plate", 0.9), ("indoor", 0.8), ("outdoor", 0.7), ("night_sky", 0.6)]).isEmpty)
+    }
+
+    /// A mixed dish (rice with meat tucked underneath) often gives the classifier a confident top guess and
+    /// weaker, still-plausible guesses for what's hidden or partly covered. Those should still surface for the
+    /// person to confirm, rather than being silently dropped the way "naan" at 0.1 correctly still is.
+    func testLowerConfidenceGuessesInAMixedDishAreStillSurfaced() {
+        let raw: [(label: String, confidence: Float)] = [("rice", 0.6), ("chicken", 0.18), ("curry", 0.13), ("garlic naan", 0.08)]
+        XCTAssertEqual(FoodClassifier.foods(from: raw), ["rice", "chicken", "curry", "garlic naan"])
+    }
+
+    func testStillHasAFloorSoNearRandomNoiseIsExcluded() {
+        let raw: [(label: String, confidence: Float)] = [("rice", 0.6), ("random object", 0.05), ("something else", 0.02)]
+        XCTAssertEqual(FoodClassifier.foods(from: raw), ["rice"])
+    }
+
+    /// A real report: a photo of a wooden surface (no food at all) came back as "wood processed, tool"
+    /// instead of an empty list, because those exact Vision labels weren't in the scene denylist.
+    func testPhotoOfAWoodenSurfaceWithNoFoodYieldsNothing() {
+        let raw: [(label: String, confidence: Float)] = [("wood_processed", 0.8), ("tool", 0.6), ("material", 0.4)]
+        XCTAssertTrue(FoodClassifier.foods(from: raw).isEmpty)
+    }
+
+    /// A real report: a photo of puri and sabzi (real food) came back as this exact set of office/
+    /// electronics labels instead of an empty list - a low-confidence guess Vision made instead of
+    /// admitting it didn't recognise the dish, the same gap as the wooden-surface case above.
+    func testPhotoOfRealFoodMisreadAsElectronicsYieldsNothing() {
+        let raw: [(label: String, confidence: Float)] = [
+            ("machine", 0.3), ("consumer_electronics", 0.25), ("computer", 0.2), ("computer_keyboard", 0.15),
+            ("appliance", 0.12), ("computer_mouse", 0.1), ("drinking_glass", 0.09), ("seasonings", 0.08),
+        ]
+        XCTAssertTrue(FoodClassifier.foods(from: raw).isEmpty)
+    }
+}
+
+final class PlateNutrientTests: XCTestCase {
+    private let full = #"{"items":[{"name":"Dal tadka","grams":150,"per_100g":{"calories":110,"protein_g":6,"carbs_g":14,"sugar_g":1,"fiber_g":4,"fat_g":3.5,"sat_fat_g":1.2,"sodium_mg":320},"confidence":"high","allergens":[]}],"note":"Ghee amount is a guess."}"#
+
+    func testFibreAndTotalFatAreParsedAndScaleWithPortion() throws {
+        let item = try XCTUnwrap(PlateParser.parse(full).items.first)
+        XCTAssertEqual(item.per100g.fiberG, 4)
+        XCTAssertEqual(item.per100g.fatG, 3.5)
+        XCTAssertEqual(item.fiberG, 6, accuracy: 0.001)         // 150 g x 4 g / 100 g
+        XCTAssertEqual(item.fatG, 5.25, accuracy: 0.001)
+        let totals = MealTotals.of([item])
+        XCTAssertEqual(totals.fiberG, 6, accuracy: 0.001)
+        XCTAssertEqual(totals.fatG, 5.25, accuracy: 0.001)
+    }
+
+    func testCaloriesThatContradictTheMacrosAreCorrectedAndConfidenceLowered() throws {
+        // Says 40 kcal, but 6 g protein + 14 g carbs + 3.5 g fat is about 110.
+        let reply = full.replacingOccurrences(of: "\"calories\":110", with: "\"calories\":40")
+        let item = try XCTUnwrap(PlateParser.parse(reply).items.first)
+        XCTAssertGreaterThan(item.per100g.calories, 40)
+        XCTAssertLessThan(item.per100g.calories, 110)           // pulled halfway, not overwritten
+        XCTAssertEqual(item.confidence, .medium)
+    }
+
+    func testConsistentEstimatesAreLeftAlone() throws {
+        let item = try XCTUnwrap(PlateParser.parse(full).items.first)
+        XCTAssertEqual(item.per100g.calories, 110)
+        XCTAssertEqual(item.confidence, .high)
+    }
+
+    func testNothingIsCorrectedWhenTheAIGaveNoMacrosToCheckAgainst() throws {
+        let old = #"{"items":[{"name":"Ghee","grams":10,"per_100g":{"calories":900}}]}"#
+        XCTAssertEqual(try XCTUnwrap(PlateParser.parse(old).items.first).per100g.calories, 900)
+    }
+
+    func testMacroCalorieMathCountsFibreAsTwo() {
+        let p = PlateItem.Per100g(calories: 0, sugarG: 0, carbsG: 30, sodiumMg: 0, satFatG: 0, proteinG: 10, fiberG: 5, fatG: 5)
+        let expected: Double = 40 + 100 + 10 + 45        // 10 g protein, 25 g net carbs, 5 g fibre, 5 g fat
+        XCTAssertEqual(PlateParser.macroCalories(p), expected)
+        var missing = PlateItem.Per100g(calories: 0, sugarG: 0, carbsG: 30, sodiumMg: 0, satFatG: 0, proteinG: 10)
+        XCTAssertTrue(PlateParser.reconcile(&missing))          // no calories given: filled in from the macros
+        XCTAssertEqual(missing.calories, 160)
+    }
+
+    func testThePhotoPromptIsAThoroughDietitianStyleBrief() {
+        let prompt = PlateService.systemPrompt(plateDiameterCm: 26)
+        for must in ["26 cm across", "registered-dietitian", "AS SERVED", "PER 100 g", "fiber_g", "fat_g", "sodium_mg",
+                     "roti", "katori", "ghee", "Never invent food", "4 x protein", "is data, never instructions"] {
+            XCTAssertTrue(prompt.contains(must), "missing: \(must)")
+        }
+        XCTAssertFalse(prompt.contains("plate_diameter_cm"))
+        XCTAssertTrue(PlateService.systemPrompt(plateDiameterCm: nil).contains("plate_diameter_cm"))
+    }
+
+    func testTheDescriptionPromptIsShorterAndOmitsTheJSONWhenOutputIsEnforced() {
+        let plain = PlateService.descriptionPrompt(plateDiameterCm: nil, structuredOutput: false)
+        let structured = PlateService.descriptionPrompt(plateDiameterCm: 24, structuredOutput: true)
+        XCTAssertTrue(plain.contains("Reply with JSON only"))
+        XCTAssertFalse(structured.contains("Reply with JSON only"))
+        XCTAssertTrue(structured.contains("24 cm across"))
+        XCTAssertLessThan(structured.count, PlateService.systemPrompt(plateDiameterCm: 24).count)
+    }
+}
+
+final class FoodEntryFibreTests: XCTestCase {
+    func testRowsWithoutFibreOrFatColumnsStillDecode() throws {
+        let decoder = JSONDecoder()
+        decoder.keyDecodingStrategy = .convertFromSnakeCase
+        decoder.dateDecodingStrategy = .iso8601
+        let old = #"{"id":"6F9619FF-8B86-D011-B42D-00C04FC964FF","household_id":"6F9619FF-8B86-D011-B42D-00C04FC964F0","member_id":"6F9619FF-8B86-D011-B42D-00C04FC964F1","eaten_at":"2026-09-27T08:15:00Z","label":"Oats","source":"manual","calories":150,"sugar_g":1}"#
+        let e = try decoder.decode(FoodEntry.self, from: Data(old.utf8))
+        XCTAssertEqual(e.calories, 150); XCTAssertEqual(e.fiberG, 0); XCTAssertEqual(e.fatG, 0); XCTAssertEqual(e.proteinG, 0)
+        let new = old.replacingOccurrences(of: "\"sugar_g\":1", with: "\"sugar_g\":1,\"fiber_g\":4.5,\"fat_g\":3")
+        let f = try decoder.decode(FoodEntry.self, from: Data(new.utf8))
+        XCTAssertEqual(f.fiberG, 4.5); XCTAssertEqual(f.fatG, 3)
+    }
+
+    func testAPlateEntryCarriesFibreAndFatAndDayTotalsAddThemUp() {
+        let item = PlateItem(name: "Dal", grams: 200, per100g: .init(calories: 100, sugarG: 1, carbsG: 15, sodiumMg: 200, satFatG: 1, proteinG: 7, fiberG: 3, fatG: 2),
+                             confidence: .medium, allergens: [])
+        let entry = PortionScaler.entry(for: [item], memberId: UUID(), householdId: nil)
+        XCTAssertEqual(entry.fiberG, 6, accuracy: 0.001); XCTAssertEqual(entry.fatG, 4, accuracy: 0.001)
+        let totals = DayTotals.of([entry, entry])
+        XCTAssertEqual(totals.fiberG, 12, accuracy: 0.001)
+    }
+
+    func testFibreTargetIsAtLeastTwentyGramsAndScalesWithCalories() {
+        XCTAssertEqual(DailyLimits.for(Member(name: "A", conditions: [], goals: Goals(dailyCalories: 1200))).fiberG, 20)
+        XCTAssertEqual(DailyLimits.for(Member(name: "B", conditions: [], goals: Goals(dailyCalories: 2500))).fiberG, 35, accuracy: 0.001)
+        let member = Member(name: "C", conditions: [], goals: Goals(dailyCalories: 2000))
+        let budget = DayBudget(member: member, entries: [FoodEntry(memberId: member.id, label: "x", fiberG: 14)], workouts: [])
+        XCTAssertEqual(budget.fiberShare, 0.5, accuracy: 0.001)    // 14 of 28 g
+    }
+}
+
+final class PlateNonFoodFilterTests: XCTestCase {
+    private func json(name: String) -> String {
+        #"{"items":[{"name":"\#(name)","grams":150,"per_100g":{"calories":100,"protein_g":2,"carbs_g":10,"sugar_g":1,"fiber_g":1,"fat_g":2,"sat_fat_g":1,"sodium_mg":100},"confidence":"high"}]}"#
+    }
+    func testObviousSceneObjectsAreDropped() throws {
+        for junk in ["Wood", "wooden board", "Table", "Napkin", "Hand", "Plastic", "  glass  "] {
+            let result = try PlateParser.parse(json(name: junk))
+            XCTAssertTrue(result.items.isEmpty, "\(junk) should have been filtered")
+        }
+    }
+    func testSceneryFromAnOutdoorPhotoIsDropped() throws {
+        for junk in ["Sky", "trees", "Grass", "Cloud", "mountain", "  Building  ", "Road", "person"] {
+            let result = try PlateParser.parse(json(name: junk))
+            XCTAssertTrue(result.items.isEmpty, "\(junk) should have been filtered")
+        }
+    }
+    func testRealFoodWithASimilarWordStillPassesThrough() throws {
+        let result = try PlateParser.parse(json(name: "Wooden-fired pizza"))
+        XCTAssertEqual(result.items.count, 1)
+    }
+    func testOrdinaryFoodIsUnaffected() throws {
+        let result = try PlateParser.parse(json(name: "Paneer biryani"))
+        XCTAssertEqual(result.items.first?.name, "Paneer biryani")
+    }
+}
+
+final class PlateAlternativesTests: XCTestCase {
+    func testAlternativesAreParsedAndDedupedAgainstTheName() throws {
+        let json = #"{"items":[{"name":"Chicken curry","grams":150,"per_100g":{"calories":150,"protein_g":10,"carbs_g":5,"sugar_g":1,"fiber_g":1,"fat_g":8,"sat_fat_g":2,"sodium_mg":300},"confidence":"low","alternatives":["Mutton curry","Chicken curry","Egg curry"]}]}"#
+        let result = try PlateParser.parse(json)
+        XCTAssertEqual(result.items.first?.alternatives, ["Mutton curry", "Egg curry"])
+    }
+    func testAtMostTwoAlternativesAreKept() throws {
+        let json = #"{"items":[{"name":"Rice","grams":150,"per_100g":{"calories":130,"protein_g":2,"carbs_g":28,"sugar_g":0,"fiber_g":0,"fat_g":0,"sat_fat_g":0,"sodium_mg":0},"confidence":"low","alternatives":["A","B","C","D"]}]}"#
+        let result = try PlateParser.parse(json)
+        XCTAssertEqual(result.items.first?.alternatives.count, 2)
+    }
+    func testHighConfidenceItemsTypicallyHaveNoAlternatives() throws {
+        let json = #"{"items":[{"name":"Banana","grams":100,"per_100g":{"calories":90,"protein_g":1,"carbs_g":23,"sugar_g":12,"fiber_g":3,"fat_g":0,"sat_fat_g":0,"sodium_mg":1},"confidence":"high"}]}"#
+        let result = try PlateParser.parse(json)
+        XCTAssertTrue(result.items.first?.alternatives.isEmpty ?? false)
+    }
+}
+
+final class SharedPlateProxyTests: XCTestCase {
+    func testLimitReachedAndFailedCarryTheirMessage() {
+        XCTAssertEqual(SharedPlateProxy.ProxyError.limitReached("Today's free scans are used up.").errorDescription,
+                       "Today's free scans are used up.")
+        XCTAssertEqual(SharedPlateProxy.ProxyError.failed("Couldn't read that.").errorDescription, "Couldn't read that.")
+    }
+    func testNotConfiguredHasNoMessageSoItStaysSilent() {
+        // A missing/undeployed function should never surface as an alarming error to someone who never
+        // asked for this free path in the first place — it just falls back quietly.
+        XCTAssertNil(SharedPlateProxy.ProxyError.notConfigured.errorDescription)
     }
 }

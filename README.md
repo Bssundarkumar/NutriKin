@@ -58,6 +58,10 @@ SwiftUI, iOS 17+, backed by Supabase for shared family data.
   fixed, human-written reply and never reach the AI; product, label and family text is passed as data, not
   instructions; replies have links and dosing advice removed, allergen mentions flagged and length capped; AI meal
   plans are re-checked against allergies; and model-written fields are sanitised. All of it is unit tested.
+- **Today** dashboard: log food (from a scan, a plate photo, a typed or AI-estimated description) and workouts per
+  person, with calories left (half of exercise calories is added back) and daily sugar, sodium and saturated-fat limits.
+- **Groceries**: one shared list for the family; buying an item removes it for everyone, with undo. Items can be added
+  from a scan result or a meal plan.
 - **History** of past scans, one entry per product, with each member's verdict at the time.
 - **Apple Health** read access for the device owner (weight, glucose, blood
   pressure, calories).
@@ -68,8 +72,8 @@ SwiftUI, iOS 17+, backed by Supabase for shared family data.
 |---|---|
 | `FamilyFoodScanner/App` | App entry point |
 | `FamilyFoodScanner/Models` | Members, conditions, allergens, products, scores |
-| `FamilyFoodScanner/Services` | Scoring, ingredient analysis, Open Food Facts, Supabase, HealthKit, nutrition planner, AI client |
-| `FamilyFoodScanner/Views` | Scan, result, family, onboarding and edit screens |
+| `FamilyFoodScanner/Services` | Grouped by feature: `Core`, `Scoring`, `Products`, `Activity`, `Medications`, `AI` (see `ARCHITECTURE.md`) |
+| `FamilyFoodScanner/Views` | Grouped by feature: `Today`, `Scan`, `Family`, `Medications`, `AI`, `Lists`, `Buddies`, `Shared` |
 | `FamilyFoodScanner/Tests` | Unit tests (scoring, ingredient alerts, scanner parsing) |
 | `FamilyFoodScanner/Assets.xcassets` | App icon and images |
 | `NutriKin/project.yml` | XcodeGen spec that generates the Xcode project |
@@ -107,6 +111,7 @@ Xcode project are called NutriKin.)
       (`https://<project>.supabase.co/auth/v1/callback`) as the authorized redirect, enable
       Google in Supabase with that client ID and secret, and add `nutrikin://login-callback`
       under URL Configuration, Redirect URLs. Keep the client secret out of the repo.
+   4b. Run `migration_007_tracking_workouts_groceries.sql` then `migration_008_fiber_and_fat.sql` (Today, Workouts and Groceries in 1.1), then `migration_009_medications.sql` and `migration_010_health_workouts.sql` (1.2), then `migration_011_strength_exercises.sql` and `migration_012_member_ownership.sql` and `migration_013_edit_workouts.sql` and `migration_014_workout_templates.sql` and `migration_015_body_measurements.sql` and `migration_016_activity_schedules.sql` and `migration_017_gym_buddies.sql` and `migration_018_edit_food_log.sql` and `migration_019_shared_plate_scans.sql` and `migration_020_fix_plate_scan_ambiguity.sql` (1.2).
    5. Install a build that has sign-in, **then** run `migration_005_auth.sql`.
       It locks the data down, so an older build stops working once it runs.
    6. Optional: `claim_existing_household.sql` re-attaches a family created

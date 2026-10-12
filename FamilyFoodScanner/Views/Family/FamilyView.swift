@@ -1,0 +1,349 @@
+import SwiftUI
+import UIKit
+
+struct FamilyView: View {
+    @Environment(AuthStore.self) private var auth
+    @Environment(FamilyStore.self) private var family
+    @Environment(HealthKitManager.self) private var health
+    @Environment(AIConnection.self) private var ai
+    @Environment(HistoryStore.self) private var history
+    @AppStorage("healthMemberID") private var healthMemberID = ""
+    @State private var showConnectAI = false
+    @State private var showAskAI = false
+    @State private var isAdding = false
+    @State private var editingMember: Member?
+    @State private var didCopyCode = false
+    @State private var confirmDelete = false
+    @State private var isRefreshingHealth = false
+    @State private var refreshedJustNow = false
+
+    var body: some View {
+        NavigationStack {
+            List {
+                Section {
+                    VStack(alignment: .leading, spacing: 12) {
+                        HStack(spacing: 12) {
+                            Image(systemName: "person.3.fill").readableFont(30, weight: .semibold).foregroundStyle(Theme.brand)
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text("Your family, together").readableFont(25, weight: .bold)
+                                Text("\(family.members.count) members · Shared care and daily goals")
+                                    .readableFont(16).foregroundStyle(.secondary)
+                            }
+                        }
+                        Button { isAdding = true } label: {
+                            Label("Add family member", systemImage: "plus.circle.fill")
+                                .readableFont(18, weight: .semibold).frame(maxWidth: .infinity, minHeight: 48)
+                        }
+                        .buttonStyle(.borderedProminent).buttonBorderShape(.capsule)
+                    }
+                    .padding(.vertical, 8)
+                    .listRowBackground(Theme.brand.opacity(0.08))
+                }
+                inviteSection
+                Section {
+                    if family.members.isEmpty && !family.isLoading {
+                        Text("Add your first family member to start sharing daily goals.").foregroundStyle(.secondary)
+                    }
+                    ForEach(family.members) { m in
+                        Button { editingMember = m } label: { memberCard(m) }
+                            .buttonStyle(.plain)
+                            .listRowSeparator(.hidden)
+                            .listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 8, trailing: 16))
+                            .swipeActions {
+                                Button("Delete", role: .destructive) { Task { await family.deleteMember(m) } }
+                            }
+                    }
+                } header: {
+                    Text("Members & goals").readableFont(20, weight: .bold).textCase(nil)
+                } footer: {
+                    Text("Tap a member to manage their profile, health needs and nutrition goals.")
+                }
+
+                Section {
+                    Toggle(isOn: Binding(get: { FamilyReminders.shared.enabled }, set: { value in Task { await FamilyReminders.shared.setEnabled(value) } })) {
+                        Label("Receive family reminders", systemImage: "bell.badge.fill")
+                    }
+                    if let message = FamilyReminders.shared.message { Text(message).readableFont(16).foregroundStyle(.secondary) }
+                } header: { Text("Family reminders").textCase(nil) } footer: {
+                    Text("Let family members nudge you about a due or missed medicine. Medicine names stay hidden in notifications. You can turn this off anytime.")
+                }
+
+                Section("My Apple Health") {
+                    if health.hasRequestedAccess && health.linkedMemberID != nil {
+                        healthRow("Weight", health.snapshot.weightKg, unit: "kg")
+                        healthRow("Height", health.snapshot.heightCm, unit: "cm")
+                        healthRow("Blood glucose", health.snapshot.bloodGlucoseMgDl, unit: "mg/dL")
+                        healthRow("Systolic", health.snapshot.systolic, unit: "mmHg")
+                        healthRow("Diastolic", health.snapshot.diastolic, unit: "mmHg")
+                        healthRow("Calories today", health.snapshot.caloriesToday, unit: "kcal")
+                        Button {
+                            Task {
+                                isRefreshingHealth = true
+                                await health.refresh()
+                                isRefreshingHealth = false
+                                refreshedJustNow = true
+                                try? await Task.sleep(for: .seconds(2))
+                                refreshedJustNow = false
+                            }
+                        } label: {
+                            HStack {
+                                Text("Refresh")
+                                Spacer()
+                                if isRefreshingHealth { ProgressView() }
+                                else if refreshedJustNow { Image(systemName: "checkmark").foregroundStyle(Theme.brand) }
+                            }
+                        }
+                        .disabled(isRefreshingHealth)
+                        // Once you've answered the system prompt, HealthKit never shows it again — the
+                        // only way to actually change permissions afterward is in Settings, so this opens
+                        // that instead of silently re-calling an API that would do nothing.
+                        Button("Change permissions in Settings") {
+                            if let url = URL(string: UIApplication.openSettingsURLString) { UIApplication.shared.open(url) }
+                        }
+                        Text("To change what NutriKin can read or write in Health, use Settings \u{2192} Health \u{2192} Data Access & Devices \u{2192} NutriKin \u{2014} iOS only shows the permission prompt once, so re-asking here can't open it again.")
+                            .readableFont(15, weight: .regular, relativeTo: .caption).foregroundStyle(.secondary)
+                    } else {
+                        Button("Connect Apple Health") { Task {
+                            guard let me = family.members.first(where: { $0.userId == family.myUserId && family.myUserId != nil }) else { return }
+                            healthMemberID = me.id.uuidString
+                            await health.configure(userID: family.myUserId, memberID: me.id)
+                            await health.requestAccess()
+                        } }
+                        .disabled(!family.members.contains { $0.userId == family.myUserId && family.myUserId != nil })
+                    }
+                    if let err = health.errorMessage {
+                        Text(err).readableFont(16, weight: .regular, relativeTo: .footnote).foregroundStyle(.red)
+                    }
+                }
+
+                Section {
+                    switch ai.appleStatus {
+                    case .available:
+                        Label("Apple Intelligence on this iPhone", systemImage: "checkmark.seal.fill").foregroundStyle(Theme.brand)
+                    case .unavailable(let reason):
+                        Label(reason, systemImage: "apple.intelligence").readableFont(16, weight: .regular, relativeTo: .footnote).foregroundStyle(.secondary)
+                    case .unsupportedOS:
+                        Label("Apple's on-device AI needs iOS 26 or later.", systemImage: "apple.intelligence")
+                            .readableFont(16, weight: .regular, relativeTo: .footnote).foregroundStyle(.secondary)
+                    }
+                    ForEach(AIProvider.keyVendors) { vendor in
+                        if ai.isLinked(vendor) {
+                            HStack {
+                                Label("\(vendor.shortName) key linked", systemImage: "key.fill").foregroundStyle(Theme.brand)
+                                Spacer()
+                                Button("Remove", role: .destructive) { ai.disconnect(vendor) }.readableFont(16, weight: .regular, relativeTo: .footnote)
+                            }
+                        }
+                    }
+                    if ai.isConnected && (ai.linked.count > 1 || ai.appleStatus.isAvailable) {
+                        Picker("Chat and meals use", selection: Bindable(ai).preference) {
+                            if ai.appleStatus.isAvailable { Text(AIProvider.apple.title).tag(AIProvider.apple) }
+                            ForEach(AIProvider.keyVendors.filter(ai.isLinked)) { Text($0.title).tag($0) }
+                        }
+                    }
+                    if ai.linked.count < AIProvider.keyVendors.count {
+                        Button { showConnectAI = true } label: {
+                            Label(ai.isConnected ? "Add another AI key" : "Add your own AI key (optional)", systemImage: "key")
+                        }
+                    }
+                    if ai.textProvider != nil {
+                        Button { showAskAI = true } label: { Label("Ask NutriKin AI", systemImage: "bubble.left.and.text.bubble.right") }
+                    }
+                } header: {
+                    Text("AI assistant")
+                } footer: {
+                    Text("Chat and meal ideas run on Apple's on-device AI when your iPhone supports it: free, private and nothing leaves the phone. Plate scanning and label reading also work on Apple's on-device AI: your iPhone recognises the photo and you confirm the result. A linked AI key (Claude, OpenAI, Grok or Gemini) lets the AI see the photo directly for better accuracy. Keys stay on this iPhone.")
+                }
+
+                Section {
+                    Button("Leave this family", role: .destructive) {
+                        history.wipeLocal()
+                        Task { await family.leaveHousehold() }
+                    }
+                }
+
+                Section {
+                    Text("Product names, ingredients, nutrition facts and photos come from Open Food Facts, a free database built by volunteers around the world. The data is available under the Open Database License (ODbL) and product photos under CC BY-SA.")
+                        .readableFont(16, weight: .regular, relativeTo: .footnote)
+                    Link("Open Food Facts", destination: URL(string: "https://world.openfoodfacts.org")!)
+                    Link("About the licences", destination: URL(string: "https://world.openfoodfacts.org/terms-of-use")!)
+                } header: {
+                    Text("Credits")
+                } footer: {
+                    Text("Product data can be incomplete or out of date. Always check the package label, especially for allergies.")
+                }
+
+                Section {
+                    if case .signedIn(let email) = auth.state {
+                        LabeledContent("Signed in as", value: email)
+                    }
+                    Button("Sign out") { ai.disconnect(); Task { await FamilyReminders.shared.disconnect(); await auth.signOut() } }
+                    Button("Delete account", role: .destructive) { confirmDelete = true }
+                } header: {
+                    Text("Account")
+                } footer: {
+                    Text("NutriKin gives general guidance based on the information you enter. It is not medical advice and doesn't replace a doctor or dietitian.")
+                }
+
+                if let errorMessage = family.errorMessage ?? auth.errorMessage {
+                    Section { Text(errorMessage).readableFont(16, weight: .regular, relativeTo: .footnote).foregroundStyle(.red) }
+                }
+            }
+            .animation(.snappy, value: family.members)
+            .softList()
+            .navigationTitle(family.householdName.isEmpty ? "Family" : family.householdName)
+            .toolbar {
+                ToolbarItem(placement: .primaryAction) {
+                    Button { isAdding = true } label: { Image(systemName: "plus") }
+                }
+            }
+            .sheet(isPresented: $isAdding) { MemberEditView(mode: .add) }
+            .sheet(isPresented: $showConnectAI) { ConnectAIView() }
+            .sheet(isPresented: $showAskAI) { AskAIView(product: nil) }
+            .sheet(item: $editingMember) { MemberEditView(mode: .edit($0)) }
+            .alert("Delete your account?", isPresented: $confirmDelete) {
+                Button("Delete account", role: .destructive) { Task { if await auth.deleteAccount() { ai.disconnect() } } }
+                Button("Cancel", role: .cancel) {}
+            } message: {
+                Text("This permanently deletes your login. If you're the only person in your family, its members and scan history are deleted too. This can't be undone.")
+            }
+            .refreshable { await family.refresh() }
+            .task { if family.members.isEmpty { await family.refresh() } }
+            .onAppear { ai.refreshApple() }
+        }
+    }
+
+    private func memberCard(_ member: Member) -> some View {
+        HStack(alignment: .top, spacing: 14) {
+            VStack(alignment: .leading, spacing: 8) {
+                HStack {
+                    Text(member.name).readableFont(22, weight: .bold)
+                    Spacer(minLength: 4)
+                    Image(systemName: "chevron.right").readableFont(17, weight: .semibold).foregroundStyle(.secondary)
+                }
+                Label(linkText(member), systemImage: member.userId == nil ? "person.crop.circle" : "iphone")
+                    .readableFont(15, weight: .medium).foregroundStyle(Theme.brand)
+                if let vitals = vitalsText(member) {
+                    Text(vitals).readableFont(16).foregroundStyle(.secondary)
+                }
+                if !member.conditions.isEmpty {
+                    ReadableTagFlow {
+                        ForEach(member.conditions, id: \.self) { condition in
+                            Text(condition.displayName).readableFont(15, weight: .medium)
+                                .padding(.horizontal, 10).padding(.vertical, 5)
+                                .background(Theme.brand.opacity(0.08), in: Capsule())
+                        }
+                    }
+                }
+                if let goal = goalText(member.goals) {
+                    Text(goal).readableFont(16).foregroundStyle(.secondary)
+                }
+            }
+        }
+        .padding(.vertical, 8)
+        .accessibilityElement(children: .combine)
+        .accessibilityHint("Edit profile and goals")
+    }
+
+    private func linkText(_ m: Member) -> String {
+        if let me = family.myUserId, m.userId == me { return "This is you" }
+        if m.userId != nil { return "Has NutriKin on their own phone" }
+        return m.isManagedByParent ? "Managed by a parent or carer" : "No phone linked yet"
+    }
+
+    private var inviteSection: some View {
+        Section {
+            if !family.inviteCode.isEmpty && family.members.count > 1 {
+                // Once the family has grown, a slim row is enough: the big card is only useful when you're just starting.
+                HStack {
+                    Label("Invite code \(family.inviteCode)", systemImage: "person.badge.plus").readableFont(17, weight: .regular, relativeTo: .subheadline)
+                    Spacer()
+                    Button(didCopyCode ? "Copied" : "Copy") {
+                        UIPasteboard.general.string = family.inviteCode
+                        didCopyCode = true
+                        Task { try? await Task.sleep(for: .seconds(1.5)); didCopyCode = false }
+                    }
+                    .readableFont(17, weight: .semibold, relativeTo: .subheadline).buttonStyle(.borderless)
+                    ShareLink(item: InviteLink.message(familyName: family.householdName, code: family.inviteCode), subject: Text("Join our family on NutriKin")) {
+                        Image(systemName: "square.and.arrow.up")
+                    }
+                    .buttonStyle(.borderless)
+                }
+            } else if !family.inviteCode.isEmpty {
+                VStack(spacing: 12) {
+                    Text("FAMILY INVITE CODE")
+                        .readableFont(15, weight: .semibold, relativeTo: .caption)
+                        .tracking(1.5)
+                        .opacity(0.85)
+                    Text(family.inviteCode)
+                        .font(.system(size: 36, weight: .bold, design: .rounded).monospaced())
+                        .tracking(6)
+                        .textSelection(.enabled)
+                    HStack(spacing: 10) {
+                        Button {
+                            UIPasteboard.general.string = family.inviteCode
+                            didCopyCode = true
+                            Task {
+                                try? await Task.sleep(for: .seconds(1.5))
+                                didCopyCode = false
+                            }
+                        } label: {
+                            Label(didCopyCode ? "Copied" : "Copy", systemImage: didCopyCode ? "checkmark" : "doc.on.doc")
+                                .contentTransition(.symbolEffect(.replace))
+                                .readableFont(17, weight: .semibold, relativeTo: .subheadline)
+                                .padding(.horizontal, 16).padding(.vertical, 9)
+                                .background(.white.opacity(0.22), in: Capsule())
+                        }
+                        ShareLink(
+                            item: InviteLink.message(familyName: family.householdName, code: family.inviteCode),
+                            subject: Text("Join our family on NutriKin")
+                        ) {
+                            Label("Invite", systemImage: "square.and.arrow.up")
+                                .readableFont(17, weight: .semibold, relativeTo: .subheadline)
+                                .padding(.horizontal, 16).padding(.vertical, 9)
+                                .background(.white, in: Capsule())
+                                .foregroundStyle(Theme.brand)
+                        }
+                    }
+                    .buttonStyle(.plain)
+                    .animation(.snappy, value: didCopyCode)
+                }
+                .foregroundStyle(.white)
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 18)
+                .listRowBackground(
+                    RoundedRectangle(cornerRadius: 22, style: .continuous).fill(Theme.brandGradient)
+                        .shadow(color: Theme.brand.opacity(0.35), radius: 12, y: 6)
+                )
+                Text("Share this code so another family member can sign in on their own iPhone and join.")
+                    .readableFont(15, weight: .regular, relativeTo: .caption)
+                    .foregroundStyle(.secondary)
+                    .listRowBackground(Color.clear)
+            }
+        }
+    }
+
+    private func healthRow(_ title: String, _ value: Double?, unit: String) -> some View {
+        LabeledContent(title, value: value.map { String(format: "%.0f \(unit)", $0) } ?? "No data")
+    }
+
+    private func vitalsText(_ m: Member) -> String? {
+        var parts: [String] = []
+        if let sex = m.sex { parts.append(sex.displayName) }
+        if let age = m.age { parts.append("\(age) yrs") }
+        if let h = m.heightCm { parts.append("\(Int(h)) cm") }
+        if let w = m.weightKg {
+            parts.append(w.truncatingRemainder(dividingBy: 1) == 0 ? "\(Int(w)) kg" : String(format: "%.1f kg", w))
+        }
+        return parts.isEmpty ? nil : parts.joined(separator: " · ")
+    }
+
+    private func goalText(_ g: Goals) -> String? {
+        var parts: [String] = []
+        if let c = g.dailyCalories { parts.append("\(Int(c)) kcal/day") }
+        if let s = g.dailySugarGrams { parts.append("under \(Int(s)) g sugar/day") }
+        if let na = g.dailySodiumMg { parts.append("under \(Int(na)) mg sodium/day") }
+        if let f = g.dailySatFatGrams { parts.append("under \(Int(f)) g sat. fat/day") }
+        return parts.isEmpty ? nil : parts.joined(separator: ", ")
+    }
+}

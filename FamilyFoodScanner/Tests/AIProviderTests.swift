@@ -34,7 +34,7 @@ final class AIProviderTests: XCTestCase {
 
     func testGrokAndGeminiWorkAsKeyProviders() {
         XCTAssertEqual(AIProvider.choose(preference: .gemini, appleAvailable: true, linked: [.gemini, .grok]), .gemini)
-        XCTAssertEqual(AIProvider.choose(preference: .apple, appleAvailable: false, linked: [.gemini, .grok]), .grok)
+        XCTAssertEqual(AIProvider.choose(preference: .apple, appleAvailable: false, linked: [.gemini, .grok]), .gemini)
         XCTAssertEqual(AIProvider.chooseKey(preference: .grok, linked: [.claude, .grok]), .grok)
         XCTAssertTrue(AIProvider.keyVendors.allSatisfy(\.usesKey))
         XCTAssertEqual(Set(AIProvider.keyVendors.map { AIConnection.account(for: $0) }).count, 4)   // separate Keychain slots
@@ -68,5 +68,37 @@ final class AIProviderTests: XCTestCase {
         let compact = AskAI.systemPrompt(family: [], product: p, compact: true)
         XCTAssertLessThan(compact.count, full.count)
         XCTAssertTrue(compact.contains("Never say a food is safe for an allergy"))
+    }
+}
+
+final class StartTabTests: XCTestCase {
+    func testTheAppOpensOnToday() {
+        // Real launches (no demo arguments) must land on the Today dashboard.
+        XCTAssertEqual(Demo.startTab, "today")
+    }
+}
+
+final class KeyCleaningTests: XCTestCase {
+    func testZeroWidthAndNoBreakSpaceCharactersAreStripped() {
+        let real = "AIzaSyabcdefghijklmnopqrstuvwxyz"
+        for wrapped in ["\u{FEFF}" + real, real + "\u{200B}", "\u{00A0}" + real + "\u{00A0}", "\u{200C}\u{200D}" + real] {
+            let cleaned = AIConnection.cleaned(wrapped)
+            XCTAssertEqual(cleaned, real, "failed for a copy containing an invisible character")
+            XCTAssertTrue(AIConnection.looksLikeKey(cleaned, for: .gemini))
+        }
+    }
+    func testOrdinaryWhitespaceStillTrimmed() {
+        XCTAssertEqual(AIConnection.cleaned("  sk-ant-x \n"), "sk-ant-x")
+    }
+}
+
+final class GeminiKeyFormatTests: XCTestCase {
+    func testBothKnownGeminiKeyShapesAreAccepted() {
+        XCTAssertTrue(AIConnection.looksLikeKey("AIzaSyabcdefghijklmnopqrstuvwxyz", for: .gemini))         // older format
+        XCTAssertTrue(AIConnection.looksLikeKey("AQ.Ab8RN6Jx4example2ARDxL_RrvlDEmp8oQMPTlfetd-QA5i7Vpq", for: .gemini))   // newer format
+    }
+    func testUnrelatedProviderPrefixesAreStillRejectedForGemini() {
+        XCTAssertFalse(AIConnection.looksLikeKey("sk-ant-api03-abcdefghijklmnop", for: .gemini))
+        XCTAssertFalse(AIConnection.looksLikeKey("xai-abcdefghijklmnopqrstuvwxyz", for: .gemini))
     }
 }

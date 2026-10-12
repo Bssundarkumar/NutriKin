@@ -32,6 +32,21 @@ final class NutritionPlannerTests: XCTestCase {
         XCTAssertEqual(p.dailyKcal, 1815)
     }
 
+    func testUserChosenTargetWeightOverridesTheBMIDefault() throws {
+        var man = Member(name: "Ravi", conditions: [], age: 30, heightCm: 180, weightKg: 90, sex: .male)
+        man.goals.targetWeightKg = 80   // above the BMI-22 default of ~71.28, still a "lose" direction
+        let p = try XCTUnwrap(plan(man))
+        XCTAssertEqual(p.targetKg, 80)
+        XCTAssertEqual(p.direction, .lose)
+    }
+
+    func testUnrealisticChosenTargetWeightFallsBackToTheBMIDefault() throws {
+        var man = Member(name: "Ravi", conditions: [], age: 30, heightCm: 180, weightKg: 90, sex: .male)
+        man.goals.targetWeightKg = 5   // nonsense, out of the accepted 25...300 range
+        let p = try XCTUnwrap(plan(man))
+        XCTAssertEqual(p.targetKg, 71.28, accuracy: 0.01)
+    }
+
     func testUnderweightGetsASurplus() throws {
         let man = Member(name: "Kiran", conditions: [], age: 25, heightCm: 180, weightKg: 55, sex: .male)
         let p = try XCTUnwrap(plan(man))

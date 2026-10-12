@@ -190,3 +190,15 @@ final class AlternativeIdeasTests: XCTestCase {
         XCTAssertTrue(text.contains("NEVER suggest anything containing an ingredient a family member is allergic to"))
     }
 }
+
+final class BestFirstTests: XCTestCase {
+    private func alt(_ name: String, score: Int, grade: String?, nova: Int? = nil) -> Alternative {
+        var p = Product(barcode: name, name: name, brand: nil, imageURL: nil, ingredientsText: "oats", allergenTags: [], nutrition: Nutrition(calories: 100, sugarG: 5, carbsG: 20, sodiumMg: 100, satFatG: 1, transFatG: 0, proteinG: 4, basis: "per 100 g"))
+        p.nutriScore = grade; p.novaGroup = nova
+        return Alternative(product: p, worstScore: score)
+    }
+    func testHighestScoreComesFirstThenBetterNutriScoreThenLessProcessed() {
+        let list = [alt("low", score: 70, grade: "a"), alt("best", score: 90, grade: "c"), alt("tieB", score: 80, grade: "b", nova: 4), alt("tieA", score: 80, grade: "a", nova: 4), alt("tieAnova", score: 80, grade: "a", nova: 1)]
+        XCTAssertEqual(AlternativeRanker.sortedBestFirst(list).map(\.product.name), ["best", "tieAnova", "tieA", "tieB", "low"])
+    }
+}

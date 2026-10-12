@@ -29,6 +29,8 @@ Add your family members with their allergies and health needs. Then scan a produ
 - Can't scan a barcode? Photograph the pack and, with your own AI key (Claude, OpenAI, Grok or Gemini), the AI reads the name, ingredients and nutrition for you to confirm.
 - BMI-based target weight and suggested daily intake for adults.
 - Nutri-Score and NOVA grades, and better-scoring alternatives.
+- Today: track what each person eats and their workouts, with calories left for the day and daily sugar, sodium and saturated-fat limits.
+- Shared grocery list for the whole family. Add items from anywhere, and buying one removes it for everyone.
 - Scan history shared across your family's phones.
 
 Product information comes from Open Food Facts, a free, community-built food database.

@@ -5,7 +5,7 @@ import Foundation
 enum Demo {
     #if DEBUG
     static let isOn = CommandLine.arguments.contains("-demoMode")
-    static var startTab: String { CommandLine.arguments.drop { $0 != "-demoTab" }.dropFirst().first ?? "scan" }
+    static var startTab: String { CommandLine.arguments.drop { $0 != "-demoTab" }.dropFirst().first ?? "today" }
     static var opensProduct: Bool { CommandLine.arguments.contains("-demoProduct") }
     static var opensAsk: Bool { CommandLine.arguments.contains("-demoAsk") }
     static var opensMeals: Bool { CommandLine.arguments.contains("-demoMeals") }
@@ -25,20 +25,96 @@ enum Demo {
         MealSlot(name: "Dinner", dishes: [MealDish(name: "Grilled fish with sauteed greens", kcal: 380, ingredients: ["fish", "spinach", "olive oil"], why: "Lean protein, low in saturated fat.")]),
         MealSlot(name: "Snacks", dishes: [MealDish(name: "Roasted chana and an apple", kcal: 180, ingredients: ["chickpeas", "apple"], why: "Keeps you full between meals.")]),
     ], tips: ["Drink a glass of water before each meal.", "Swap sugary tea for unsweetened tea with cinnamon."], removedForAllergy: 1)
+    static var opensLogFood: Bool { CommandLine.arguments.contains("-demoLogFood") }
+    static func measurements(for member: Member) -> [BodyMeasurement] {
+        let base = member.weightKg ?? 30
+        return (0..<8).map { i in
+            let d = Calendar.current.date(byAdding: .month, value: -(7 - i), to: Date()) ?? Date()
+            return BodyMeasurement(memberId: member.id, measuredOn: BodyMeasurement.day(d),
+                                   heightCm: (member.heightCm ?? 120) - Double(7 - i) * 0.6, weightKg: base - Double(7 - i) * 0.4)
+        }
+    }
+    static var opensGrowth: Bool { CommandLine.arguments.contains("-demoGrowth") }
+    static var opensActivity: Bool { CommandLine.arguments.contains("-demoActivity") }
+    static var opensLogWorkout: Bool { CommandLine.arguments.contains("-demoLogWorkout") }
+    /// Opens Log workout already on Strength with a couple of sample exercises (for screenshots).
+    static var strengthSample: [StrengthExercise]? {
+        CommandLine.arguments.contains("-demoStrength") ? [
+            StrengthExercise(name: "Bench press", sets: [StrengthSet(reps: 10, weightKg: 40), StrengthSet(reps: 8, weightKg: 45)]),
+            StrengthExercise(name: "Squat", sets: [StrengthSet(reps: 8, weightKg: 60)]),
+        ] : nil
+    }
+    static var opensLogProduct: Bool { CommandLine.arguments.contains("-demoLogProduct") }
+    /// Which card the debug screenshots should scroll to ("meds" or "health").
+    static var scrollTarget: String? { CommandLine.arguments.drop { $0 != "-demoScroll" }.dropFirst().first }
+    /// Which sample family member Today starts on (-demoMember 1 is Arjun, age 8).
+    static var memberIndex: Int? { CommandLine.arguments.drop { $0 != "-demoMember" }.dropFirst().first.flatMap(Int.init) }
+    static var opensMeds: Bool { CommandLine.arguments.contains("-demoMeds") }
+    static var opensMedEdit: Bool { CommandLine.arguments.contains("-demoMedEdit") }
     static var opensPlan: Bool { CommandLine.arguments.contains("-demoPlan") }
     static var opensPlate: Bool { CommandLine.arguments.contains("-demoPlate") }
+    static var opensHistory: Bool { CommandLine.arguments.contains("-demoHistory") }
     static var plateResults: Bool { CommandLine.arguments.contains("-demoPlateResults") }
+
+    static var foodEntries: [FoodEntry] {
+        let now = Date(), cal = Calendar.current
+        func at(_ h: Int, _ m: Int = 0) -> Date { cal.date(bySettingHour: h, minute: m, second: 0, of: now) ?? now }
+        let a = members[0].id, k = members[1].id
+        return [
+            FoodEntry(memberId: a, eatenAt: at(8, 10), label: "Vegetable upma with curd", source: .ai, calories: 320, sugarG: 4, carbsG: 48, sodiumMg: 420, satFatG: 2, proteinG: 9, fiberG: 6, fatG: 9),
+            FoodEntry(memberId: a, eatenAt: at(10, 45), label: "Apple and almonds", source: .manual, calories: 180, sugarG: 15, carbsG: 24, sodiumMg: 2, satFatG: 1, proteinG: 4, fiberG: 5, fatG: 8),
+            FoodEntry(memberId: a, eatenAt: at(13, 15), label: "Dal, brown rice, cucumber salad", source: .plate, calories: 470, sugarG: 6, carbsG: 78, sodiumMg: 520, satFatG: 2, proteinG: 16, fiberG: 9, fatG: 8),
+            FoodEntry(memberId: k, eatenAt: at(8, 30), label: "Oat porridge with banana", source: .manual, calories: 260, sugarG: 12, carbsG: 46, sodiumMg: 90, satFatG: 1, proteinG: 8),
+        ]
+    }
+
+    static var workouts: [Workout] {
+        let cal = Calendar.current
+        let morning = cal.date(bySettingHour: 6, minute: 45, second: 0, of: Date()) ?? Date()
+        return [Workout(memberId: members[0].id, doneAt: morning, kind: "walking", minutes: 40, intensity: .moderate, caloriesBurned: 165, note: "Morning walk")]
+    }
+
+    static let medications: [Medication] = {
+        let a = members[0].id
+        return [
+            Medication(memberId: a, name: "Vitamin D3", dose: "1 tablet", times: ["08:00"]),
+            Medication(memberId: a, name: "Blood pressure tablet", dose: "5 mg", times: ["08:00", "20:00"]),
+            Medication(memberId: a, name: "Calcium", dose: "1 tablet", times: ["13:00"], daysOfWeek: [1, 3, 5]),
+        ]
+    }()
+
+    static var doseRecords: [DoseRecord] {
+        let at8 = Calendar.current.date(bySettingHour: 8, minute: 0, second: 0, of: Date()) ?? Date()
+        return [DoseRecord(medicationId: medications[0].id, memberId: members[0].id, dueAt: at8, status: .taken),
+                DoseRecord(medicationId: medications[1].id, memberId: members[0].id, dueAt: at8, status: .taken)]
+    }
+
+    static var healthActivity: HealthActivity {
+        let cal = Calendar.current
+        let morning = cal.date(bySettingHour: 6, minute: 45, second: 0, of: Date()) ?? Date()
+        let evening = cal.date(bySettingHour: 17, minute: 30, second: 0, of: Date()) ?? Date()
+        return HealthActivity(steps: 7842, activeKcal: 312, exerciseMinutes: 46, workouts: [
+            HealthWorkout(id: UUID(), kind: .walking, start: morning, minutes: 40, activeKcal: 165, sourceName: "Apple Watch"),
+            HealthWorkout(id: UUID(), kind: .yoga, start: evening, minutes: 30, activeKcal: 90, sourceName: "Fitness"),
+        ])
+    }
+
+    static let groceries: [GroceryItem] = [
+        GroceryItem(name: "Whole wheat atta", quantity: "5 kg"), GroceryItem(name: "Curd", quantity: "1 kg"),
+        GroceryItem(name: "Spinach", quantity: "2 bunches"), GroceryItem(name: "Lentils (toor dal)", quantity: "1 kg"),
+        GroceryItem(name: "Unsweetened almond milk"), GroceryItem(name: "Bananas", quantity: "6"),
+    ]
 
     static let plateItems: [PlateItem] = [
         PlateItem(name: "Basmati rice", grams: 180,
-                  per100g: .init(calories: 130, sugarG: 0.1, carbsG: 28, sodiumMg: 1, satFatG: 0.1, proteinG: 2.7),
+                  per100g: .init(calories: 130, sugarG: 0.1, carbsG: 28, sodiumMg: 1, satFatG: 0.1, proteinG: 2.7, fiberG: 0.4, fatG: 0.3),
                   confidence: .high, allergens: []),
         PlateItem(name: "Chicken curry", grams: 150,
-                  per100g: .init(calories: 165, sugarG: 3, carbsG: 6, sodiumMg: 420, satFatG: 3.2, proteinG: 14),
+                  per100g: .init(calories: 165, sugarG: 3, carbsG: 6, sodiumMg: 420, satFatG: 3.2, proteinG: 14, fiberG: 1.2, fatG: 10),
                   confidence: .medium, allergens: [.milk]),
         PlateItem(name: "Peanut chutney", grams: 30,
-                  per100g: .init(calories: 320, sugarG: 5, carbsG: 12, sodiumMg: 500, satFatG: 5, proteinG: 12),
-                  confidence: .low, allergens: [.peanuts]),
+                  per100g: .init(calories: 320, sugarG: 5, carbsG: 12, sodiumMg: 500, satFatG: 5, proteinG: 12, fiberG: 6, fatG: 26),
+                  confidence: .low, allergens: [.peanuts], alternatives: ["Coconut chutney", "Groundnut chutney"]),
     ]
 
     static let members: [Member] = [
@@ -82,16 +158,34 @@ enum Demo {
     ]
     #else
     static let isOn = false
-    static let startTab = "scan"
+    static let startTab = "today"
     static let opensProduct = false
     static let opensPlate = false
+    static let opensHistory = false
     static let opensPlan = false
+    static let opensMeds = false
+    static let memberIndex: Int? = nil
+    static let scrollTarget: String? = nil
+    static let opensMedEdit = false
+    static let medications: [Medication] = []
+    static var doseRecords: [DoseRecord] { [] }
+    static let opensLogFood = false
+    static let opensActivity = false
+    static let opensLogWorkout = false
+    static func measurements(for member: Member) -> [BodyMeasurement] { [] }
+    static let opensGrowth = false
+    static let strengthSample: [StrengthExercise]? = nil
+    static let opensLogProduct = false
     static let opensAsk = false
     static let opensMeals = false
     static let askMessages: [(String, String)] = []
     static let mealIdeas = MealIdeas(slots: [], tips: [], removedForAllergy: 0)
     static let plateResults = false
     static let plateItems: [PlateItem] = []
+    static let foodEntries: [FoodEntry] = []
+    static let workouts: [Workout] = []
+    static let groceries: [GroceryItem] = []
+    static var healthActivity: HealthActivity { HealthActivity() }
     static let members: [Member] = []
     static let product: Product? = nil
     static let records: [ScanRecord] = []

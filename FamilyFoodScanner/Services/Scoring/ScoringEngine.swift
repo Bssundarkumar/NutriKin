@@ -1,0 +1,226 @@
+import Foundation
+
+/// Rule-based, explainable scoring. Every point deducted produces a reason
+/// the user can read. Keep AI out of this path: especially for allergies,
+/// the result must be deterministic.
+struct ScoringEngine {
+    // Defaults used when a member hasn't set their own goal. Where general
+    // nutrition guidelines differ by sex (AHA added-sugar limits, typical
+    // adult calorie needs), we use the sex-specific figure when known and
+    // fall back to the female/lower figure otherwise — still a starting
+    // point to review with a dietitian, not personalised advice.
+    static let defaultSodiumLimitMg = 1500.0 // per day; same for everyone
+
+    static func defaultSugarLimitG(for sex: Sex?) -> Double {
+        sex == .male ? 36.0 : 25.0 // AHA added-sugar limit
+    }
+
+    static func defaultSatFatLimitG(for sex: Sex?) -> Double {
+        sex == .male ? 16.0 : 13.0 // ~6% of calories at typical adult intake
+    }
+
+    static func defaultCalorieGoal(for sex: Sex?) -> Double {
+        sex == .male ? 2500.0 : 2000.0 // typical adult daily intake
+    }
+
+    func score(_ product: Product, for member: Member) -> MemberScore {
+        // 1. Allergies are a hard block, independent of nutrition.
+        let hits = member.allergies.filter(product.contains).map(\.displayName)
+        let customHits = member.customAllergyNames.filter(product.containsKeyword)
+        let allHits = hits + customHits
+        if !allHits.isEmpty {
+            let names = allHits.joined(separator: ", ")
+            return MemberScore(
+                member: member, score: 0, verdict: .avoid,
+                reasons: ["Contains \(names.lowercased()). Allergy rules block this product regardless of nutrition."],
+                blockedByAllergy: true
+            )
+        }
+
+        // 1b. Alcohol is a hard block for children, independent of nutrition — a beer's calories and
+        // sugar can look "fine" by the numbers, but that was never the point.
+        let isAlcoholic = AlcoholGuidance.isAlcoholic(product)
+        if isAlcoholic && TodayLayout.isChild(member) {
+            return MemberScore(
+                member: member, score: 0, verdict: .avoid,
+                reasons: ["Contains alcohol. Not appropriate for children, regardless of its nutrition."],
+                blockedByAllergy: false
+            )
+        }
+
+        // 1c. Honey is a hard block under age 1 — infant botulism risk, not a dosage question. Age
+        // precision here is whole years, so "age 0" is the closest this data gets to "under 12 months".
+        if member.age == 0, ChildSafetyGuidance.containsHoney(product) {
+            return MemberScore(
+                member: member, score: 0, verdict: .avoid,
+                reasons: ["Contains honey. Not safe for a baby under 1 year \u{2014} risk of infant botulism, regardless of nutrition."],
+                blockedByAllergy: false
+            )
+        }
+
+        // 1d. Fruit juice is also a hard block under age 1 — AAP guidance is specific ("no juice before
+        // 12 months"), not a soft preference like most food choices for a child this age.
+        if member.age == 0, ChildSafetyGuidance.containsJuice(product) {
+            return MemberScore(
+                member: member, score: 0, verdict: .avoid,
+                reasons: ["Contains fruit juice. Pediatric guidance (AAP) advises no juice at all before 12 months, regardless of nutrition."],
+                blockedByAllergy: false
+            )
+        }
+
+        var score = 100.0
+        var reasons: [String] = []
+        let n = product.nutrition
+
+        // 2. Diabetes: sugar against the daily goal, plus a carb check.
+        if member.has(.diabetes) {
+            if let sugar = n.sugarG {
+                let limit = member.goals.dailySugarGrams ?? Self.defaultSugarLimitG(for: member.sex)
+                let share = sugar / limit
+                let penalty = min(60, share * 100)
+                score -= penalty
+                if penalty >= 10 {
+                    reasons.append("\(fmt(sugar)) g sugar is \(pct(share)) of the \(fmt(limit)) g daily sugar goal.")
+                }
+            }
+            if let carbs = n.carbsG, carbs > 30 {
+                score -= 10
+                reasons.append("\(fmt(carbs)) g carbs is on the high side for one serving.")
+            }
+        }
+
+        // 3. Hypertension: sodium against the daily limit.
+        if member.has(.hypertension), let sodium = n.sodiumMg {
+            let limit = member.goals.dailySodiumMg ?? Self.defaultSodiumLimitMg
+            let share = sodium / limit
+            let penalty = min(60, share * 150)
+            score -= penalty
+            if penalty >= 10 {
+                reasons.append("\(fmt(sodium)) mg sodium is \(pct(share)) of the \(fmt(limit)) mg daily limit.")
+            }
+        }
+
+        // 4. High cholesterol: saturated and trans fat.
+        if member.has(.highCholesterol) {
+            if let sat = n.satFatG {
+                let limit = member.goals.dailySatFatGrams ?? Self.defaultSatFatLimitG(for: member.sex)
+                let share = sat / limit
+                let penalty = min(50, share * 120)
+                score -= penalty
+                if penalty >= 10 {
+                    reasons.append("\(fmt(sat)) g saturated fat is \(pct(share)) of the \(fmt(limit)) g daily limit.")
+                }
+            }
+            if let trans = n.transFatG, trans > 0.2 {
+                score -= 20
+                reasons.append("Contains trans fat (\(fmt(trans)) g).")
+            }
+        }
+
+        // 5. Calorie goal: only penalise a large share of the day in one go.
+        if let cal = n.calories {
+            let goal = member.goals.dailyCalories ?? Self.defaultCalorieGoal(for: member.sex)
+            let share = cal / goal
+            if share > 0.25 {
+                score -= min(30, (share - 0.25) * 100)
+            }
+            reasons.append("\(fmt(cal)) kcal is \(pct(share)) of the \(fmt(goal)) kcal daily goal.")
+        }
+
+        // 6. Unknown is not the same as safe. Missing data must never produce a comfortable
+        //    "okay" for something the person needs to check, so cap those cases at "caution".
+        var cap = 100.0
+        var warnings: [String] = []
+
+        let allergyNames = (member.allergies.map(\.displayName) + member.customAllergyNames).map { $0.lowercased() }
+        if !allergyNames.isEmpty, !product.hasIngredientInfo, product.allergenTags.isEmpty {
+            cap = min(cap, 60)
+            warnings.append("This product has no ingredient list, so \(member.name)'s \(allergyNames.joined(separator: ", ")) allergy can't be ruled out. Check the package.")
+        }
+        let traces = member.allergies.filter(product.mayContainTraces).map { $0.displayName.lowercased() }
+        if !traces.isEmpty {
+            cap = min(cap, 60)
+            warnings.append("The label says it may contain traces of \(traces.joined(separator: ", ")). Take care with \(member.name)'s allergy.")
+        }
+        var missing: [String] = []
+        if member.has(.diabetes), n.sugarG == nil { missing.append("sugar (diabetes)") }
+        if member.has(.hypertension), n.sodiumMg == nil { missing.append("sodium (blood pressure)") }
+        if member.has(.highCholesterol), n.satFatG == nil { missing.append("saturated fat (cholesterol)") }
+        if !missing.isEmpty {
+            cap = min(cap, 69)
+            warnings.append("No \(missing.joined(separator: ", ")) figure on this product, so it can't be fully checked for \(member.name).")
+        }
+        if member.isPregnant {
+            for rule in PregnancyGuidance.matches(in: product) {
+                cap = min(cap, Double(rule.cap))
+                warnings.append("\(rule.title): \(rule.reason)")
+            }
+            if !product.hasIngredientInfo {
+                cap = min(cap, 65)
+                warnings.append("No ingredient list is available, so \(member.name)'s pregnancy can't be fully checked. Look at the package.")
+            }
+        }
+        // Caffeine, high-mercury fish and classic choking-hazard foods for a child — the same shape of
+        // check as pregnancy above, just keyed off age instead of a condition.
+        if TodayLayout.isChild(member) {
+            for rule in ChildSafetyGuidance.matches(in: product, memberAge: member.age) {
+                cap = min(cap, Double(rule.cap))
+                warnings.append("\(rule.title): \(rule.reason)")
+            }
+            if let supplement = ChildSafetyGuidance.supplementCaution(product) {
+                cap = min(cap, Double(supplement.cap))
+                warnings.append(supplement.reason)
+            }
+            // Added sugar, for every child, not just one with diabetes — the diabetes check above
+            // already covers that case against their own goal, so this only applies when it hasn't.
+            // WHO/AAP guidance is about added/free sugars, not sugar naturally in whole fruit, and
+            // Nutrition only has one total sugarG figure with no added-vs-natural split — so this only
+            // fires when the ingredient list actually names an added sweetener, not just because a
+            // product (e.g. a bag of grapes) happens to contain natural sugar.
+            if !member.has(.diabetes), let sugar = n.sugarG, sugar > 0, ChildSafetyGuidance.hasAddedSweetener(product) {
+                if (member.age ?? 2) <= 1 {
+                    cap = min(cap, 50)
+                    warnings.append("Contains \(fmt(sugar)) g added sugar. Guidance (WHO/AAP) advises no added sugar at all under age 2.")
+                } else {
+                    let childLimit = 25.0 // AAP/AHA's "about 25 g (6 tsp) a day" figure for children generally
+                    let share = sugar / childLimit
+                    if share >= 0.4 {
+                        cap = min(cap, 65)
+                        warnings.append("\(fmt(sugar)) g sugar is \(pct(share)) of a child's roughly \(fmt(childLimit)) g daily guidance (not the same limit as an adult's).")
+                    }
+                }
+            }
+        }
+        // Alcohol, for every adult, not just a pregnancy check — nutrient numbers alone (calories,
+        // sugar, sodium) can make an alcoholic drink look "fine", so this is capped on its own, same as
+        // an allergy warning would be. Pregnancy's own stricter cap above already covers that case.
+        if isAlcoholic && !member.isPregnant {
+            cap = min(cap, 45)
+            warnings.append("Contains alcohol \u{2014} this is capped regardless of its other nutrition.")
+        }
+        score = min(score, cap)
+        reasons.insert(contentsOf: warnings, at: 0)
+
+        let final = Int(max(0, min(100, score.rounded())))
+        let verdict: Verdict = final >= 70 ? .okay : (final >= 40 ? .caution : .avoid)
+        if reasons.isEmpty {
+            reasons.append("No concerns for \(member.name)'s conditions or goals.")
+        }
+        return MemberScore(member: member, score: final, verdict: verdict,
+                           reasons: reasons, blockedByAllergy: false)
+    }
+
+    /// Scores everyone, most at-risk first.
+    func scoreFamily(_ product: Product, members: [Member]) -> [MemberScore] {
+        members.map { score(product, for: $0) }
+            .sorted { ($0.verdict, $0.score) < ($1.verdict, $1.score) }
+    }
+
+    private func fmt(_ v: Double) -> String {
+        v.rounded() == v ? String(Int(v)) : String(format: "%.1f", v)
+    }
+
+    private func pct(_ share: Double) -> String {
+        "\(Int((share * 100).rounded()))%"
+    }
+}
