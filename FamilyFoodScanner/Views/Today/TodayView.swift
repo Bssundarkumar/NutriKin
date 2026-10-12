@@ -533,21 +533,21 @@ struct TodayView: View {
                 }.frame(maxWidth: .infinity, alignment: .leading)
             }
             SingleRow(spacing: 8) {
-                activitySummary("shoeprints.fill", title: "Steps", value: showsHealth ? (health.activity.steps.map { $0.formatted() } ?? "—") : "—", tint: .orange,
-                                action: showsHealth ? { metricHistory = .init(title: "Steps", symbol: "shoeprints.fill", tint: .orange, unit: "steps") {
+                activitySummary("shoeprints.fill", title: "Steps", value: showsHealth ? (health.activity.steps.map { $0.formatted() } ?? "—") : "—", tint: .blue,
+                                action: showsHealth ? { metricHistory = .init(title: "Steps", symbol: "shoeprints.fill", tint: .blue, unit: "steps") {
                                     await health.quantityHistory(.stepCount, unit: .count())
                                 } } : nil)
                 activitySummary("flame.fill", title: "Active kcal", value: showsHealth ? (health.activity.activeKcal.map { Int($0.rounded()).formatted() } ?? "—") : "—", tint: .orange,
                                 action: showsHealth ? { metricHistory = .init(title: "Active kcal", symbol: "flame.fill", tint: .orange, unit: "kcal") {
                                     await health.quantityHistory(.activeEnergyBurned, unit: .kilocalorie())
                                 } } : nil)
-                activitySummary("dumbbell.fill", title: "Workout kcal", value: logged.reduce(0) { $0 + $1.caloriesBurned }.formatted(), tint: .orange,
-                                action: { metricHistory = .init(title: "Workout kcal", symbol: "dumbbell.fill", tint: .orange, unit: "kcal", requiresHealth: false) {
+                activitySummary("dumbbell.fill", title: "Workout kcal", value: logged.reduce(0) { $0 + $1.caloriesBurned }.formatted(), tint: .purple,
+                                action: { metricHistory = .init(title: "Workout kcal", symbol: "dumbbell.fill", tint: .purple, unit: "kcal", requiresHealth: false) {
                                     tracking.workoutHistory(for: member) { Double($0.caloriesBurned) }
                                 } })
                 activitySummary("heart.fill", title: "Avg. heart rate",
                                 value: showsHealth ? (health.activity.averageHeartRateBpm.map { "\(Int($0.rounded())) bpm" } ?? "—") : "—",
-                                detail: showsHealth ? (health.activity.restingHeartRateBpm.map { "Resting \(Int($0.rounded())) bpm" } ?? "Resting unavailable") : "Resting unavailable", tint: .orange,
+                                detail: showsHealth ? (health.activity.restingHeartRateBpm.map { "Resting \(Int($0.rounded())) bpm" } ?? "Resting unavailable") : "Resting unavailable", tint: .pink,
                                 action: showsHealth ? { heartRateHistoryMember = member } : nil)
             }
             .padding(10)
@@ -562,19 +562,19 @@ struct TodayView: View {
                                 } })
                 activitySummary("figure.walk", title: "Distance", value: showsHealth ? (health.activity.walkingRunningDistanceMeters.map {
                     ($0 / 1000).formatted(.number.precision(.fractionLength(1))) + " km"
-                } ?? "—") : "—", tint: .orange,
-                                action: showsHealth ? { metricHistory = .init(title: "Distance", symbol: "figure.walk", tint: .orange, unit: "km", format: { $0 / 1000 }) {
+                } ?? "—") : "—", tint: .green,
+                                action: showsHealth ? { metricHistory = .init(title: "Distance", symbol: "figure.walk", tint: .green, unit: "km", format: { $0 / 1000 }) {
                                     await health.quantityHistory(.distanceWalkingRunning, unit: .meter())
                                 } } : nil)
-                activitySummary("bolt.fill", title: "Total kcal", value: showsHealth ? (health.activity.totalEnergyKcal.map { Int($0.rounded()).formatted() } ?? "—") : "—", tint: .orange,
-                                action: showsHealth ? { metricHistory = .init(title: "Total kcal", symbol: "bolt.fill", tint: .orange, unit: "kcal") {
+                activitySummary("bolt.fill", title: "Total kcal", value: showsHealth ? (health.activity.totalEnergyKcal.map { Int($0.rounded()).formatted() } ?? "—") : "—", tint: .yellow,
+                                action: showsHealth ? { metricHistory = .init(title: "Total kcal", symbol: "bolt.fill", tint: .yellow, unit: "kcal") {
                                     async let active = health.quantityHistory(.activeEnergyBurned, unit: .kilocalorie())
                                     async let resting = health.quantityHistory(.basalEnergyBurned, unit: .kilocalorie())
                                     let (a, r) = await (active, resting)
                                     return zip(a, r).map { ($0.date, $0.value + $1.value) }
                                 } } : nil)
-                activitySummary("stairs", title: "Flights", value: showsHealth ? (health.activity.flightsClimbed.map { $0.formatted() } ?? "—") : "—", tint: .orange,
-                                action: showsHealth ? { metricHistory = .init(title: "Flights climbed", symbol: "stairs", tint: .orange, unit: "flights") {
+                activitySummary("stairs", title: "Flights", value: showsHealth ? (health.activity.flightsClimbed.map { $0.formatted() } ?? "—") : "—", tint: .blue,
+                                action: showsHealth ? { metricHistory = .init(title: "Flights climbed", symbol: "stairs", tint: .blue, unit: "flights") {
                                     await health.quantityHistory(.flightsClimbed, unit: .count())
                                 } } : nil)
             }
@@ -627,10 +627,12 @@ struct TodayView: View {
                     .padding(.top, 2).accessibilityHidden(true)
                 Text(title).readableFont(12).foregroundStyle(.secondary)
                     .lineLimit(3).minimumScaleFactor(0.7)
-                if action != nil { Image(systemName: "chart.xyaxis.line").readableFont(9, weight: .medium).foregroundStyle(tint.opacity(0.6)) }
             }.frame(minHeight: activityLabelHeight, alignment: .topLeading)
-            Text(value).readableFont(18, weight: .bold).monospacedDigit()
-                .lineLimit(1).minimumScaleFactor(0.85)
+            HStack(alignment: .firstTextBaseline, spacing: 3) {
+                Text(value).readableFont(18, weight: .bold).monospacedDigit()
+                    .lineLimit(1).minimumScaleFactor(0.85)
+                if action != nil { Image(systemName: "chevron.right").readableFont(10, weight: .semibold).foregroundStyle(.tertiary) }
+            }
         }.frame(maxWidth: .infinity, alignment: .leading)
         return Group {
             if let action {

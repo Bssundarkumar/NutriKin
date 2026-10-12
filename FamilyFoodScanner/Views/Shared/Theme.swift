@@ -2,11 +2,13 @@ import SwiftUI
 
 /// The app's look: one brand colour, soft backgrounds, rounded cards.
 ///
-/// Tint convention: a tint is meaning, not decoration. Use `color(for:)` (or another status/verdict
-/// color) when a card or tile reflects a real status - okay/caution/avoid, on-track/over-limit, reached/
-/// not-reached. Otherwise use one neutral accent per *card* (not per tile within it) - see the Activity
-/// card, which uses a single orange for every stat tile rather than a different hue per metric. A
-/// different color per tile for metrics that don't carry distinct meaning just adds visual noise.
+/// Tint convention: use `color(for:)` (or another status/verdict color) when a card or tile reflects a
+/// real status - okay/caution/avoid, on-track/over-limit, reached/not-reached. For a row of several
+/// distinct metrics side by side with no shared status (e.g. the Activity card's Steps/Active kcal/
+/// Workout kcal/...), a different color per metric is fine and actually helps - it works as a visual
+/// index so each stat is recognisable at a glance, confirmed over a same-hue version that just made
+/// everything blend together. The rule either way: color should help you tell things apart or read a
+/// status, never be purely decorative.
 enum Theme {
     static let brand = Color(red: 0.12, green: 0.45, blue: 0.29)
     static let brandLight = Color(red: 0.36, green: 0.72, blue: 0.42)
