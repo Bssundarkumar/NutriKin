@@ -1,8 +1,8 @@
 import SwiftUI
 
 struct ResultView: View {
-    /// A `@State` copy (not `let`) so an AI nutrition estimate can be applied in place once the person
-    /// asks for one - see `estimateNutrition()`.
+    /// A `@State` copy (not `let`) so an automatic AI nutrition estimate can be applied in place when
+    /// the database has none - see `estimateNutrition()`.
     @State private var product: Product
     @ScaledMetric(relativeTo: .body) private var nutritionTileWidth = 96.0
     @Environment(FamilyStore.self) private var family
@@ -19,7 +19,6 @@ struct ResultView: View {
     @State private var groceryNote: String?
     @State private var isEstimatingNutrition = false
     @State private var estimateError: String?
-    @State private var confirmingEstimate = false
 
     init(product: Product) {
         _product = State(initialValue: product)
@@ -49,17 +48,13 @@ struct ResultView: View {
                     Text("Scores can't be fully trusted without it. Check the package, or go back and photograph the label.")
                         .readableFont(16, weight: .regular, relativeTo: .footnote).foregroundStyle(.secondary)
                     if !product.hasAnyNutrition && !product.nutritionIsAIEstimate && AppleAI.status.isAvailable {
-                        Button {
-                            confirmingEstimate = true
-                        } label: {
-                            if isEstimatingNutrition {
-                                HStack(spacing: 6) { ProgressView(); Text("Estimating\u{2026}") }
-                            } else {
-                                Label("Estimate nutrition with AI", systemImage: "sparkles")
-                            }
+                        if isEstimatingNutrition {
+                            HStack(spacing: 6) { ProgressView(); Text("Estimating nutrition with AI\u{2026}") }
+                                .readableFont(15, weight: .regular, relativeTo: .footnote).foregroundStyle(.secondary)
+                        } else if let estimateError {
+                            Text(estimateError).readableFont(14).foregroundStyle(.secondary)
+                            Button("Try the AI estimate again") { Task { await estimateNutrition() } }
                         }
-                        .disabled(isEstimatingNutrition)
-                        if let estimateError { Text(estimateError).readableFont(14).foregroundStyle(.secondary) }
                     }
                 }
                 .listRowBackground(Color.orange.opacity(0.12))
@@ -223,16 +218,16 @@ struct ResultView: View {
         .sheet(isPresented: $showLog) { LogProductSheet(product: product) }
         .navigationTitle("Scan result")
         .navigationBarTitleDisplayMode(.inline)
-        .confirmationDialog(
-            "This is a general AI guess, not real data from this package",
-            isPresented: $confirmingEstimate, titleVisibility: .visible
-        ) {
-            Button("Estimate anyway") { Task { await estimateNutrition() } }
-            Button("Cancel", role: .cancel) {}
-        } message: {
-            Text("Apple's on-device AI will guess typical nutrition for \"\(product.name)\" from its name alone. It can be wrong - always check the real package, especially for a condition like diabetes.")
-        }
         .task(id: product.barcode) { await loadAlternatives(for: results) }
+        // Runs automatically (no tap needed) whenever the database has no nutrition at all. Still
+        // clearly labelled once applied ("AI estimate, not from the package" - see dataWarnings and the
+        // Nutrition section header below), and still never touches ingredients/allergens - see
+        // estimateNutrition()'s doc comment for why that boundary stays even though this step no longer
+        // needs confirmation.
+        .task(id: product.barcode) {
+            guard !product.hasAnyNutrition, !product.nutritionIsAIEstimate, AppleAI.status.isAvailable else { return }
+            await estimateNutrition()
+        }
         .onAppear {
             // The scanner already gave a success tap; only add one when there's something to heed.
             if allergyHits.isEmpty == false {
@@ -269,8 +264,12 @@ struct ResultView: View {
         // AI suggestions require an explicit action, including paid/cloud providers.
     }
 
-    /// Fills in a nutrition-only estimate from Apple's on-device AI when the database has none. Never
-    /// touches ingredients/allergens, so the allergy warnings and safety blocks above are unaffected.
+    /// Fills in a nutrition-only estimate from Apple's on-device AI when the database has none, run
+    /// automatically (see the `.task` in `body`) rather than behind a tap - it's a passive, read-only
+    /// guess at typical numbers, not an action with a consequence, so it doesn't need a confirmation
+    /// step. Deliberately never touches ingredients/allergens, so the allergy/alcohol/child-safety hard
+    /// blocks above (which work off the product's name/brand directly, not an AI guess) are unaffected -
+    /// that boundary stays even though this step itself no longer asks first.
     private func estimateNutrition() async {
         estimateError = nil
         isEstimatingNutrition = true
