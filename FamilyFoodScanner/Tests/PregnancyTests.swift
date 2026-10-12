@@ -30,14 +30,18 @@ final class PregnancyTests: XCTestCase {
 
     // MARK: scoring
 
-    func testAlcoholIsAnAvoidForAPregnantPersonButNotForOthers() {
+    // Pregnancy caps alcohol harder than the general adult cap in ScoringEngineTests (20 vs 45) - still
+    // never "okay" for anyone, pregnant or not, but pregnancy is stricter on top of that.
+    func testAlcoholIsAnAvoidForAPregnantPersonAndStricterThanForOthers() {
         let beer = product("Craft beer", ingredients: "water, barley malt, hops, alcohol")
         let result = ScoringEngine().score(beer, for: mum)
         XCTAssertLessThanOrEqual(result.score, 20)
         XCTAssertEqual(result.verdict, .avoid)
         XCTAssertTrue(result.reasons[0].contains("alcohol"))
         XCTAssertFalse(result.blockedByAllergy)
-        XCTAssertGreaterThan(ScoringEngine().score(beer, for: other).score, 60)
+        let othersResult = ScoringEngine().score(beer, for: other)
+        XCTAssertGreaterThan(othersResult.score, result.score)
+        XCTAssertNotEqual(othersResult.verdict, .okay)
     }
 
     func testRiskyFoodsAreCappedBySeverity() {

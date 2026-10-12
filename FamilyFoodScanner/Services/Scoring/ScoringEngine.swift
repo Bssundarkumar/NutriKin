@@ -37,6 +37,17 @@ struct ScoringEngine {
             )
         }
 
+        // 1b. Alcohol is a hard block for children, independent of nutrition — a beer's calories and
+        // sugar can look "fine" by the numbers, but that was never the point.
+        let isAlcoholic = AlcoholGuidance.isAlcoholic(product)
+        if isAlcoholic && TodayLayout.isChild(member) {
+            return MemberScore(
+                member: member, score: 0, verdict: .avoid,
+                reasons: ["Contains alcohol. Not appropriate for children, regardless of its nutrition."],
+                blockedByAllergy: false
+            )
+        }
+
         var score = 100.0
         var reasons: [String] = []
         let n = product.nutrition
@@ -128,6 +139,13 @@ struct ScoringEngine {
                 cap = min(cap, 65)
                 warnings.append("No ingredient list is available, so \(member.name)'s pregnancy can't be fully checked. Look at the package.")
             }
+        }
+        // Alcohol, for every adult, not just a pregnancy check — nutrient numbers alone (calories,
+        // sugar, sodium) can make an alcoholic drink look "fine", so this is capped on its own, same as
+        // an allergy warning would be. Pregnancy's own stricter cap above already covers that case.
+        if isAlcoholic && !member.isPregnant {
+            cap = min(cap, 45)
+            warnings.append("Contains alcohol \u{2014} this is capped regardless of its other nutrition.")
         }
         score = min(score, cap)
         reasons.insert(contentsOf: warnings, at: 0)

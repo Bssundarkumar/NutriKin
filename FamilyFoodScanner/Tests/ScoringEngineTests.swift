@@ -49,4 +49,44 @@ final class ScoringEngineTests: XCTestCase {
         let results = engine.scoreFamily(granolaBar, members: members)
         XCTAssertEqual(results.first?.member.name, "Arjun")
     }
+
+    // A real report: scanning a beer scored "good" for everyone, including children - low calories,
+    // sugar and sodium looked "fine" by the numbers, because nothing checked for alcohol at all.
+    private let beer = Product(
+        barcode: "0000000000001",
+        name: "Lager Beer",
+        brand: nil, imageURL: nil,
+        ingredientsText: "water, malted barley, hops, yeast",
+        allergenTags: [],
+        nutrition: Nutrition(calories: 150, sugarG: 0, carbsG: 11, sodiumMg: 10,
+                             satFatG: 0, transFatG: 0, proteinG: 1.6, basis: "per serving")
+    )
+
+    func testAlcoholIsHardBlockedForChildren() {
+        let kid = Member(name: "Arjun", conditions: [], age: 10)
+        let result = engine.score(beer, for: kid)
+        XCTAssertEqual(result.verdict, .avoid)
+        XCTAssertEqual(result.score, 0)
+    }
+
+    func testAlcoholIsHardBlockedForAParentManagedMemberWithNoAgeEntered() {
+        let kid = Member(name: "Arjun", conditions: [], isManagedByParent: true)
+        XCTAssertEqual(engine.score(beer, for: kid).verdict, .avoid)
+    }
+
+    func testAlcoholIsNeverScoredOkayForAnAdultEither() {
+        let adult = Member(name: "Amma", conditions: [], age: 40)
+        let result = engine.score(beer, for: adult)
+        XCTAssertNotEqual(result.verdict, .okay)
+        XCTAssertTrue(result.reasons.contains { $0.localizedCaseInsensitiveContains("alcohol") })
+    }
+
+    func testAlcoholDetectedByCategoryTagEvenWithoutTheWordInTheNameOrIngredients() {
+        var product = beer
+        product.name = "Golden Brew"
+        product.ingredientsText = "water, grain, hops, yeast"
+        product.categoryTags = ["en:beers"]
+        let adult = Member(name: "Amma", conditions: [], age: 40)
+        XCTAssertNotEqual(engine.score(product, for: adult).verdict, .okay)
+    }
 }

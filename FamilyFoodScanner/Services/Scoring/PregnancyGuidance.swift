@@ -15,9 +15,7 @@ enum PregnancyGuidance {
     }
 
     static let rules: [Rule] = [
-        Rule(id: "preg-alcohol", title: "Contains alcohol", terms: ["alcohol", "ethanol", "beer", "liqueur", "rum", "whisky", "whiskey", "brandy", "vodka", "red wine", "white wine", "rice wine", "cooking wine", "alcoholic beverage",
-                     // Open Food Facts category names are plural
-                     "alcoholic beverages", "beers", "wines", "spirits", "liqueurs", "cider", "ciders", "cocktails"],
+        Rule(id: "preg-alcohol", title: "Contains alcohol", terms: AlcoholGuidance.terms,
              cap: 20, severity: .warning,
              reason: "Health services advise avoiding alcohol in pregnancy, as no amount is known to be safe. Ask your midwife or doctor if unsure."),
         Rule(id: "preg-raw", title: "Raw or undercooked", terms: ["raw egg", "raw eggs", "uncooked egg", "runny egg", "raw fish", "sushi", "sashimi", "raw oyster", "raw shellfish", "raw meat", "carpaccio", "tartare", "raw sprouts", "raw sprout"],
