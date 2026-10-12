@@ -27,10 +27,10 @@ enum PregnancyGuidance {
         Rule(id: "preg-liver", title: "Liver, pate or retinol", terms: ["liver", "pate", "p\u{00E2}t\u{00E9}", "pat\u{00E9}", "cod liver oil", "retinol"],
              cap: 55, severity: .warning,
              reason: "Liver, pate and cod liver oil are high in vitamin A, which is commonly advised to be limited in pregnancy."),
-        Rule(id: "preg-mercury", title: "High-mercury fish", terms: ["shark", "swordfish", "king mackerel", "marlin", "tilefish", "orange roughy"],
+        Rule(id: "preg-mercury", title: "High-mercury fish", terms: ChildSafetyGuidance.mercuryFishTerms,
              cap: 55, severity: .warning,
              reason: "These fish can be high in mercury and are commonly advised against in pregnancy."),
-        Rule(id: "preg-caffeine", title: "Caffeine", terms: ["caffeine", "guarana", "energy drink", "coffee", "yerba mate", "matcha"],
+        Rule(id: "preg-caffeine", title: "Caffeine", terms: ChildSafetyGuidance.caffeineTerms,
              cap: 65, severity: .note,
              reason: "Caffeine is usually limited in pregnancy (often to about 200 mg a day, roughly two cups of coffee). Check your total for the day."),
     ]

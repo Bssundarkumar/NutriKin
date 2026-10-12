@@ -48,6 +48,16 @@ struct ScoringEngine {
             )
         }
 
+        // 1c. Honey is a hard block under age 1 — infant botulism risk, not a dosage question. Age
+        // precision here is whole years, so "age 0" is the closest this data gets to "under 12 months".
+        if member.age == 0, ChildSafetyGuidance.containsHoney(product) {
+            return MemberScore(
+                member: member, score: 0, verdict: .avoid,
+                reasons: ["Contains honey. Not safe for a baby under 1 year \u{2014} risk of infant botulism, regardless of nutrition."],
+                blockedByAllergy: false
+            )
+        }
+
         var score = 100.0
         var reasons: [String] = []
         let n = product.nutrition
@@ -138,6 +148,18 @@ struct ScoringEngine {
             if !product.hasIngredientInfo {
                 cap = min(cap, 65)
                 warnings.append("No ingredient list is available, so \(member.name)'s pregnancy can't be fully checked. Look at the package.")
+            }
+        }
+        // Caffeine, high-mercury fish and classic choking-hazard foods for a child — the same shape of
+        // check as pregnancy above, just keyed off age instead of a condition.
+        if TodayLayout.isChild(member) {
+            for rule in ChildSafetyGuidance.matches(in: product, memberAge: member.age) {
+                cap = min(cap, Double(rule.cap))
+                warnings.append("\(rule.title): \(rule.reason)")
+            }
+            if let supplement = ChildSafetyGuidance.supplementCaution(product) {
+                cap = min(cap, Double(supplement.cap))
+                warnings.append(supplement.reason)
             }
         }
         // Alcohol, for every adult, not just a pregnancy check — nutrient numbers alone (calories,
