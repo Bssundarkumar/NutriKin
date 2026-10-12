@@ -4,10 +4,13 @@ import Supabase
 /// The weekly activity schedule (see `backend/migration_016_activity_schedules.sql`).
 extension TrackingStore {
     func loadSchedules(_ householdId: UUID) async {
+        let gen = generation
         do {
-            schedules = try await Backend.withRetry {
+            let result: [ActivitySchedule] = try await Backend.withRetry {
                 try await client.from("activity_schedules").select().eq("household_id", value: householdId).order("created_at").execute().value
             }
+            guard gen == generation, self.householdId == householdId else { return }
+            schedules = result
         } catch { /* older database without schedules: the list stays empty */ }
     }
 

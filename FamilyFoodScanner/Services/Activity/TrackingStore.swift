@@ -18,6 +18,11 @@ final class TrackingStore {
     private(set) var loadedDay: Date?
     var isLoading = false
     var errorMessage: String?
+    /// Bumped on every load() call and on reset() — a response is only applied if this still matches
+    /// what it was when that request started, so a slow response from a previous day, household or
+    /// account can't land after something newer (including a logout) has already moved on. Not
+    /// `private`: the TrackingStore+Workouts/+Schedules extensions in other files need to read it too.
+    private(set) var generation = 0
 
     var healthSync: HealthKitManager?
     var householdId: UUID?
@@ -39,12 +44,14 @@ final class TrackingStore {
         if let newDay { day = Calendar.current.startOfDay(for: newDay) }
         if Demo.isOn { entries = Demo.foodEntries; workouts = Demo.workouts; recentWorkouts = Demo.workouts; loadedDay = day; return }
         self.householdId = householdId
+        generation += 1
+        let gen = generation
         guard let householdId else { entries = []; workouts = []; schedules = []; templates = []; return }
         let start = day
         let end = Calendar.current.date(byAdding: .day, value: 1, to: start) ?? start.addingTimeInterval(86_400)
         isLoading = true
         errorMessage = nil
-        defer { isLoading = false }
+        defer { if gen == generation { isLoading = false } }   // a newer load already owns isLoading otherwise
         do {
             async let food: [FoodEntry] = Backend.withRetry {
                 try await client.from("food_log").select()
@@ -66,9 +73,12 @@ final class TrackingStore {
             async let sched: Void = reloadExtras ? loadSchedules(householdId) : ()
             let (f, w) = try await (food, training)
             _ = await (week, tmpl, sched)
-            guard day == start else { return }              // the person moved to another day meanwhile
+            // Stale if: the person moved to another day meanwhile, a newer load()/reset() has started
+            // since, or (defensively) the household changed underneath this request.
+            guard day == start, gen == generation, self.householdId == householdId else { return }
             entries = f; workouts = w; loadedDay = start
         } catch {
+            guard gen == generation else { return }
             errorMessage = "Couldn't load this day. \(error.localizedDescription)"
         }
     }
@@ -168,7 +178,11 @@ final class TrackingStore {
 
     func setHousehold(_ id: UUID?) { householdId = id }
 
-    func reset() { loadedDay = nil; entries = []; workouts = []; recentWorkouts = []; templates = []; schedules = []; householdId = nil; errorMessage = nil; day = Calendar.current.startOfDay(for: Date()) }
+    func reset() {
+        generation += 1   // invalidates any in-flight load()/loadWeek()/loadTemplates()/loadSchedules() response
+        loadedDay = nil; entries = []; workouts = []; recentWorkouts = []; templates = []; schedules = []
+        householdId = nil; errorMessage = nil; isLoading = false; day = Calendar.current.startOfDay(for: Date())
+    }
 
     func clamp(_ v: Double, _ hi: Double) -> Double { min(max(v, 0), hi) }
 }

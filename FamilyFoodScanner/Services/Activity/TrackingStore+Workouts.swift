@@ -14,20 +14,28 @@ extension TrackingStore {
 
     func loadWeek(_ householdId: UUID) async {
         let start = Self.recentCutoff
+        let gen = generation
         do {
-            recentWorkouts = try await Backend.withRetry {
+            let result: [Workout] = try await Backend.withRetry {
                 try await client.from("workouts").select()
                     .eq("household_id", value: householdId)
                     .gte("done_at", value: Self.iso(start)).execute().value
             }
+            // Stale if reset()/load() moved on, or (called standalone, e.g. from BuddiesView) the
+            // household switched underneath this request, since it isn't invalidated by a day change.
+            guard gen == generation, self.householdId == householdId else { return }
+            recentWorkouts = result
         } catch { /* the goal bar just shows what it has */ }
     }
 
     func loadTemplates(_ householdId: UUID) async {
+        let gen = generation
         do {
-            templates = try await Backend.withRetry {
+            let result: [WorkoutTemplate] = try await Backend.withRetry {
                 try await client.from("workout_templates").select().eq("household_id", value: householdId).order("created_at").execute().value
             }
+            guard gen == generation, self.householdId == householdId else { return }
+            templates = result
         } catch { /* older database without templates: the list stays empty */ }
     }
 
@@ -154,22 +162,31 @@ extension TrackingStore {
         apply(&workouts); apply(&recentWorkouts)
         if Demo.isOn { return true }
         struct Patch: Encodable {
-            var minutes: Int, intensity: String, caloriesBurned: Int, note: String?
+            var kind: String, minutes: Int, intensity: String, caloriesBurned: Int, note: String?
             var exercises: [StrengthExercise]?
             func encode(to encoder: Encoder) throws {
-                enum K: String, CodingKey { case minutes, intensity, caloriesBurned, note, exercises }
+                enum K: String, CodingKey { case kind, minutes, intensity, caloriesBurned, note, exercises }
                 var c = encoder.container(keyedBy: K.self)
+                try c.encode(kind, forKey: .kind)
                 try c.encode(minutes, forKey: .minutes); try c.encode(intensity, forKey: .intensity)
                 try c.encode(caloriesBurned, forKey: .caloriesBurned)
                 try c.encode(note, forKey: .note); try c.encode(exercises, forKey: .exercises)
             }
         }
         do {
-            try await Backend.withRetry {
+            // Ask for the updated row back: an UPDATE that matches zero rows (the row was deleted, or RLS
+            // hides it) otherwise reports success with an empty result, which would leave this "saved"
+            // locally and queued for Apple Health while nothing actually changed in the database.
+            let updated: [Workout] = try await Backend.withRetry {
                 try await client.from("workouts")
-                    .update(Patch(minutes: fixed.minutes, intensity: fixed.intensity.rawValue, caloriesBurned: fixed.caloriesBurned,
+                    .update(Patch(kind: fixed.kind, minutes: fixed.minutes, intensity: fixed.intensity.rawValue, caloriesBurned: fixed.caloriesBurned,
                                   note: fixed.note, exercises: fixed.exercises))
-                    .eq("id", value: fixed.id).execute()
+                    .eq("id", value: fixed.id).select().execute().value
+            }
+            guard !updated.isEmpty else {
+                (workouts, recentWorkouts) = before
+                errorMessage = "That workout couldn't be found to update \u{2014} it may have already been removed."
+                return false
             }
             healthSync?.enqueue(HealthSync.workout(fixed))
             return true
@@ -187,7 +204,16 @@ extension TrackingStore {
         recentWorkouts.removeAll { $0.id == workout.id }
         if Demo.isOn { return }
         do {
-            try await Backend.withRetry { try await client.from("workouts").delete().eq("id", value: workout.id).execute() }
+            // Same reasoning as update(): confirm a row actually matched before treating this as
+            // removed and queuing an Apple Health deletion for it.
+            let deleted: [Workout] = try await Backend.withRetry {
+                try await client.from("workouts").delete().eq("id", value: workout.id).select().execute().value
+            }
+            guard !deleted.isEmpty else {
+                workouts.append(workout); recentWorkouts = weekBefore
+                errorMessage = "That workout couldn't be found to remove \u{2014} it may have already been removed."
+                return
+            }
             healthSync?.enqueue(HealthSync.workout(workout, deleted: true))
         } catch {
             workouts.append(workout); recentWorkouts = weekBefore
