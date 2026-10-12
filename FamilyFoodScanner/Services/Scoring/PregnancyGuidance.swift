@@ -40,7 +40,7 @@ enum PregnancyGuidance {
         let tags = (product.ingredientTags + product.categoryTags).map {
             $0.replacingOccurrences(of: "en:", with: "").replacingOccurrences(of: "-", with: " ")
         }
-        return ([product.name, product.ingredientsText ?? ""] + tags).joined(separator: " , ").lowercased()
+        return ([product.name, product.brand ?? "", product.ingredientsText ?? ""] + tags).joined(separator: " , ").lowercased()
     }
 
     static func matches(text: String) -> [Rule] {

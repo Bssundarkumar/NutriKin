@@ -90,6 +90,33 @@ final class ScoringEngineTests: XCTestCase {
         XCTAssertNotEqual(engine.score(product, for: adult).verdict, .okay)
     }
 
+    /// Regression test for a real scan: Open Food Facts had no ingredients, nutrition, or category
+    /// tags for this barcode, so the only alcohol signal is the brand name itself.
+    func testAlcoholDetectedByKnownBrandNameEvenWithNoOFFData() {
+        let product = Product(
+            barcode: "0000000000099", name: "Grey goose original", brand: "Grey Goose",
+            imageURL: nil, ingredientsText: nil, allergenTags: [],
+            nutrition: Nutrition(calories: nil, sugarG: nil, carbsG: nil, sodiumMg: nil,
+                                 satFatG: nil, transFatG: nil, proteinG: nil, basis: "per 100 g")
+        )
+        let children = [
+            Member(name: "Sarada", conditions: [], age: 7),
+            Member(name: "Viransh", conditions: [], age: 17),
+            Member(name: "Child", conditions: [], isManagedByParent: true)
+        ]
+        for child in children {
+            let result = engine.score(product, for: child)
+            XCTAssertEqual(result.verdict, .avoid)
+            XCTAssertEqual(result.score, 0)
+            XCTAssertTrue(result.reasons.contains { $0.contains("Not appropriate for children") })
+        }
+        // The product name alone must work when the database also omits its brand field.
+        var nameOnly = product
+        nameOnly.brand = nil
+        XCTAssertEqual(engine.score(nameOnly, for: children[0]).verdict, .avoid)
+        XCTAssertNotEqual(engine.score(product, for: Member(name: "Adult", conditions: [], age: 40)).verdict, .okay)
+    }
+
     // MARK: Honey (infant botulism)
 
     private let honeyProduct = Product(
