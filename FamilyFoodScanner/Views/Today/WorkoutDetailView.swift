@@ -4,7 +4,7 @@ import SwiftUI
 struct WorkoutDetailView: View {
     let workout: Workout
     let onEdit: () -> Void
-    /// A buddy's workout: shown, never edited.
+    /// Workouts outside the signed-in household are read-only.
     var readOnly = false
     @Environment(\.dismiss) private var dismiss
     @AppStorage("strengthUsesPounds") private var pounds = false
@@ -14,6 +14,14 @@ struct WorkoutDetailView: View {
     var body: some View {
         NavigationStack {
             List {
+                if workout.source != "health" && !readOnly {
+                    Section {
+                        Button { dismiss(); onEdit() } label: {
+                            Label("Edit workout", systemImage: "pencil")
+                        }
+                        .accessibilityHint("Change exercises, sets, repetitions and weight")
+                    }
+                }
                 Section {
                     LabeledContent("When", value: workout.doneAt.formatted(date: .abbreviated, time: .shortened))
                     LabeledContent("Time", value: "\(workout.minutes) min \u{00B7} \(workout.intensity.title)")

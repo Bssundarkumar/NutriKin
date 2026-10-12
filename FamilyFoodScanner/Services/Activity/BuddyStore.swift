@@ -116,6 +116,16 @@ final class BuddyStore {
     }
 
     @discardableResult
+    func rename(_ group: BuddyGroup, name: String, myUserId: UUID?) async -> Bool {
+        let cleaned = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !cleaned.isEmpty, cleaned.count <= 50 else {
+            errorMessage = "Enter a group name between 1 and 50 characters."
+            return false
+        }
+        return await run("rename_buddy_group", ["p_group": group.id.uuidString, "p_name": cleaned], myUserId)
+    }
+
+    @discardableResult
     func create(name: String, member: Member, myUserId: UUID?) async -> Bool { await run("create_buddy_group", ["p_name": name, "p_member": member.id.uuidString], myUserId) }
 
     @discardableResult

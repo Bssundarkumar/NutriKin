@@ -7,6 +7,7 @@ extension HealthKitManager {
         guard syncURL != url else { return }
         stopObserving()
         linkedMemberID = memberID
+        hasCheckedAccess = false
         syncURL = url
         pendingWrites = url.map(HealthSync.load) ?? [:]
         activity = HealthActivity(); snapshot = HealthSnapshot(); externalWaterMl = 0; externalNutrition = DayTotals(); dataDay = nil

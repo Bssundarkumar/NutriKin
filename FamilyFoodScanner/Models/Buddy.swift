@@ -5,6 +5,7 @@ struct BuddyGroup: Identifiable, Codable, Hashable {
     var id: UUID
     var name: String
     var inviteCode: String
+    var createdBy: UUID? = nil
 }
 
 /// One person in a group. `displayName` is what buddies see; nothing else about them is shared except their workouts.
