@@ -224,6 +224,11 @@ struct Product: Identifiable, Hashable {
     var per100g: Nutrition?
     /// Allergens the label says it "may contain" (cross-contact), e.g. "en:nuts".
     var tracesTags: [String] = []
+    /// True when `nutrition` came from an AI general-knowledge guess (no barcode match, no photographed
+    /// label) rather than real data. Shown as a clearly-labelled estimate; never clears the "no
+    /// ingredients" warning below, since ingredients - not nutrition - drive allergy/safety blocks.
+    var nutritionIsAIEstimate = false
+    var nutritionEstimateNote: String?
 
     /// True when there is any ingredient information to check allergies against.
     var hasIngredientInfo: Bool {
@@ -243,6 +248,7 @@ struct Product: Identifiable, Hashable {
         var out: [String] = []
         if !hasIngredientInfo { out.append("No ingredient list is available for this product.") }
         if !hasAnyNutrition { out.append("No nutrition facts are available for this product.") }
+        else if nutritionIsAIEstimate { out.append("Nutrition shown is an AI estimate, not from the package.") }
         return out
     }
 

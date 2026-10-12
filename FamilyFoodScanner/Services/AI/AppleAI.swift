@@ -168,6 +168,42 @@ enum AppleAI {
         throw AIFailure(message: "Apple's on-device AI isn't available on this iPhone.")
     }
 
+    /// A best general-knowledge nutrition estimate for a product the database has no data for, from its
+    /// name/brand alone (no photo of the real label). Deliberately never estimates ingredients or
+    /// allergens - only approximate nutrition figures, clearly marked as a guess rather than a fact.
+    static func nutritionEstimateJSON(name: String, brand: String?) async throws -> String {
+        #if canImport(FoundationModels)
+        if #available(iOS 26.0, *) {
+            let instructions = """
+            \(AIGuardrails.taskRules)
+
+            A shopper scanned a product's barcode, but the product database has no nutrition data for it. \
+            You were not shown a photo of the real label - only its name and brand. Give your best \
+            general-knowledge estimate of typical nutrition for this specific product, or for its general \
+            category if you don't recognise the exact product (e.g. typical vodka nutrition for an \
+            unfamiliar vodka brand). Never guess at ingredients or allergens - nutrition figures only. \
+            Set recognized to false if you don't have a confident general sense of this category's nutrition.
+            """
+            let prompt = "Product name: \(AIGuardrails.untrusted(name, tag: "product_name"))" +
+                (brand.map { ", brand: \(AIGuardrails.untrusted($0, tag: "brand"))" } ?? "")
+            do {
+                let est = try await LanguageModelSession(instructions: instructions)
+                    .respond(to: prompt, generating: GeneratedNutritionEstimate.self).content
+                func number(_ v: Double) -> Any { v < 0 ? NSNull() : v }
+                let object: [String: Any] = [
+                    "recognized": est.recognized, "note": est.note, "basis": est.basis,
+                    "nutrition": ["calories": number(est.calories), "sugar_g": number(est.sugar), "carbs_g": number(est.carbs),
+                                  "sodium_mg": number(est.sodiumMg), "sat_fat_g": number(est.satFat), "protein_g": number(est.protein)],
+                ]
+                return String(decoding: try JSONSerialization.data(withJSONObject: object), as: UTF8.self)
+            } catch {
+                throw failure(error)
+            }
+        }
+        #endif
+        throw AIFailure(message: "Apple's on-device AI isn't available on this iPhone.")
+    }
+
     /// Estimates a plate from a text description of the foods, as JSON in the shape `PlateParser` expects.
     static func plateJSON(system: String, foods: String) async throws -> String {
         #if canImport(FoundationModels)
@@ -279,6 +315,23 @@ struct GeneratedProductLabel {
     @Guide(description: "Sodium in mg, or -1 if not shown", .range(-1...20000)) var sodiumMg: Double
     @Guide(description: "Saturated fat in g, or -1 if not shown", .range(-1...500)) var satFat: Double
     @Guide(description: "Protein in g, or -1 if not shown", .range(-1...500)) var protein: Double
+}
+
+@available(iOS 26.0, *)
+@Generable
+struct GeneratedNutritionEstimate {
+    @Guide(description: "True only if you have a confident general sense of this product or its category's typical nutrition")
+    var recognized: Bool
+    @Guide(description: "One short sentence on what this estimate is based on, e.g. 'typical nutrition for vodka, 40% ABV'")
+    var note: String
+    @Guide(description: "Either 'per 100 g' or 'per serving', whichever is more natural for this product")
+    var basis: String
+    @Guide(description: "Calories in kcal, or -1 if you can't estimate", .range(-1...5000)) var calories: Double
+    @Guide(description: "Sugars in g, or -1 if not applicable or unknown", .range(-1...500)) var sugar: Double
+    @Guide(description: "Carbohydrate in g, or -1 if not applicable or unknown", .range(-1...500)) var carbs: Double
+    @Guide(description: "Sodium in mg, or -1 if not applicable or unknown", .range(-1...20000)) var sodiumMg: Double
+    @Guide(description: "Saturated fat in g, or -1 if not applicable or unknown", .range(-1...500)) var satFat: Double
+    @Guide(description: "Protein in g, or -1 if not applicable or unknown", .range(-1...500)) var protein: Double
 }
 
 @available(iOS 26.0, *)

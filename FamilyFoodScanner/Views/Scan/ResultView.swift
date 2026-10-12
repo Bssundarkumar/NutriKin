@@ -1,7 +1,9 @@
 import SwiftUI
 
 struct ResultView: View {
-    let product: Product
+    /// A `@State` copy (not `let`) so an AI nutrition estimate can be applied in place once the person
+    /// asks for one - see `estimateNutrition()`.
+    @State private var product: Product
     @ScaledMetric(relativeTo: .body) private var nutritionTileWidth = 96.0
     @Environment(FamilyStore.self) private var family
     @Environment(HistoryStore.self) private var history
@@ -15,6 +17,12 @@ struct ResultView: View {
     @State private var showAsk = Demo.opensAsk
     @State private var showLog = Demo.opensLogProduct
     @State private var groceryNote: String?
+    @State private var isEstimatingNutrition = false
+    @State private var estimateError: String?
+
+    init(product: Product) {
+        _product = State(initialValue: product)
+    }
 
     private var scores: [MemberScore] {
         engine.scoreFamily(product, members: family.members)
@@ -38,6 +46,19 @@ struct ResultView: View {
                     ForEach(product.dataWarnings, id: \.self) { Text($0).readableFont(16, weight: .regular, relativeTo: .footnote) }
                     Text("Scores can't be fully trusted without it. Check the package, or go back and photograph the label.")
                         .readableFont(16, weight: .regular, relativeTo: .footnote).foregroundStyle(.secondary)
+                    if !product.hasAnyNutrition && !product.nutritionIsAIEstimate && AppleAI.status.isAvailable {
+                        Button {
+                            Task { await estimateNutrition() }
+                        } label: {
+                            if isEstimatingNutrition {
+                                HStack(spacing: 6) { ProgressView(); Text("Estimating\u{2026}") }
+                            } else {
+                                Label("Estimate nutrition with AI", systemImage: "sparkles")
+                            }
+                        }
+                        .disabled(isEstimatingNutrition)
+                        if let estimateError { Text(estimateError).readableFont(14).foregroundStyle(.secondary) }
+                    }
                 }
                 .listRowBackground(Color.orange.opacity(0.12))
             }
@@ -148,7 +169,7 @@ struct ResultView: View {
                         .readableFont(17, weight: .semibold, relativeTo: .subheadline)
                 }
             } footer: {
-                Text("Chat with your linked AI. It knows this product and your family's needs.")
+                Text(ai.textProvider == .apple ? "AI requests run on this iPhone." : "When you ask, this product and relevant family details are sent to your selected AI provider.")
             }
 
             let ingredientRows = IngredientRows.make(product: product, alerts: ingredientAlerts, members: family.members)
@@ -184,8 +205,7 @@ struct ResultView: View {
         }
     }
 
-    /// Finds better options without being asked: popular products from the same category, plus the person's
-    /// AI's ideas (looked up and scored by the app). Only for products someone could do better than.
+    /// Finds public-database category alternatives. AI ideas are requested separately by the person.
     private func loadAlternatives(for results: [MemberScore]) async {
         let couldBeBetter = results.contains(where: { $0.verdict != .okay })
             || ["c", "d", "e"].contains(product.nutriScore ?? "") || product.novaGroup == 4
@@ -196,7 +216,6 @@ struct ResultView: View {
             return
         }
         ideas = .idle
-        var categoryCount = 0
         if product.categoryTags.isEmpty {
             alternatives = .unavailable
         } else {
@@ -204,16 +223,25 @@ struct ResultView: View {
             do {
                 let candidates = try await ProductService().similarProducts(to: product)
                 let ranked = AlternativeRanker().rank(current: product, candidates: candidates, members: family.members)
-                categoryCount = ranked.count
                 alternatives = .loaded(ranked)
             } catch {
                 alternatives = .unavailable
             }
         }
-        // Apple's on-device AI is free, so it always helps. A key costs the person a little per request,
-        // so it only steps in when the category search found fewer than three.
-        if let provider = ai.textProvider, provider == .apple || categoryCount < 3 {
-            askForIdeas()
+        // AI suggestions require an explicit action, including paid/cloud providers.
+    }
+
+    /// Fills in a nutrition-only estimate from Apple's on-device AI when the database has none. Never
+    /// touches ingredients/allergens, so the allergy warnings and safety blocks above are unaffected.
+    private func estimateNutrition() async {
+        estimateError = nil
+        isEstimatingNutrition = true
+        defer { isEstimatingNutrition = false }
+        do {
+            let result = try await NutritionEstimator.estimate(name: product.name, brand: product.brand)
+            product = NutritionEstimator.apply(result, to: product)
+        } catch {
+            estimateError = error.localizedDescription
         }
     }
 

@@ -81,10 +81,21 @@ targets:
     settings:
       base:
         GENERATE_INFOPLIST_FILE: YES
+  NutriKinUITests:
+    type: bundle.ui-testing
+    platform: iOS
+    sources:
+      - path: ../FamilyFoodScanner/UITests
+        group: UITests
+    dependencies:
+      - target: NutriKin
+    settings:
+      base:
+        GENERATE_INFOPLIST_FILE: YES
 schemes:
   NutriKin:
     build:
       targets:
         NutriKin: all
     test:
-      targets: [NutriKinTests]
+      targets: [NutriKinTests, NutriKinUITests]
